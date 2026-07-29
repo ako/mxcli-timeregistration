@@ -8,8 +8,8 @@ the output as printed.
 
 | | |
 |---|---|
-| mxcli | `0ed0359` — built from `ako/mxcli` `main`, committed 2026-07-29T03:01:13-07:00 |
-| (session 1 built) | `ead8926`, committed 2026-07-28T12:58:07-07:00 |
+| mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39) |
+| (built during the findings) | `ead8926` then `0ed0359` — everything below was found on those |
 | Mendix | 11.12.1 (MxBuild + runtime) |
 | Engine | `modelsdk` (default) |
 | Platform | Ubuntu 24.04.4, Go 1.24.7 with `GOTOOLCHAIN=auto`, JDK 21.0.10, ANTLR 4.13.1 |
@@ -41,7 +41,7 @@ again after the PR picked up `1b390dc`.
 | 15 duplicate widget names | **fixed** | `--references` catches it and names CE0495 |
 | 17 aggregate inside `create` | **fixed** | new MDL044, with the workaround in the message |
 | 23 `create microflow` idempotency | *partial* | still an error; the message now says "use create or modify" |
-| 36 SEC005 hint | **not fixed** | still suggests `ALTER PROJECT SECURITY STRICT MODE ON`, still a parse error |
+| 36 SEC005 hint | **fixed** | the rule now points at Studio Pro and says strict mode is not settable via MDL. Round 1 said "not fixed" — that judged the rule already installed in the project; `mxcli init` is what refreshes `.claude/lint-rules/`, and the corrected rule came with it |
 | 39 workflow call-microflow class | **fixed** | needed a second commit; end-to-end proof below |
 | 40 unmapped workflow parameter | **fixed** | `--references` catches it |
 | 41 qualified `with(…)` corrupts the model | **fixed** | normalised to the bare name; no more unloadable `.mpr` |
@@ -156,19 +156,19 @@ The status change and the audit row are written by `ACT_ApproveWeek`, and the
 only thing that calls it is the workflow's own outcome branch. Finding 39 is
 closed.
 
-**The app keeps the workaround for now**, because the PR is not merged:
+**The app now uses the natural shape.** PR 53 merged as `48548ca`:
 
 ```
-$ git merge-base --is-ancestor 1b390dc main; echo $?
-1
+$ git merge-base --is-ancestor 1b390dc origin/main; echo $?
+0
 ```
 
-`scripts/setup-tools.sh` builds from `main` HEAD, so switching the app to the
-natural shape today would break the next session that rebuilds the toolchain —
-and break it in the worst way, with MxBuild passing and the runtime refusing the
-model. Once PR 53 lands, `62-workflow.mdl` can take the outcome bodies back and
-`ACT_ApproveFromTask` / `ACT_ReturnFromTask` can drop to claim + `set task
-outcome`; that is the whole change.
+so `scripts/setup-tools.sh`, which builds from `main` HEAD, produces a toolchain
+that writes the workflow correctly. `62-workflow.mdl` has its outcome bodies
+back, and `ACT_ApproveFromTask` / `ACT_ReturnFromTask` are down to claim +
+`set task outcome`. The workaround is gone from the app; the finding stays here
+because the trap it describes — build clean, refuse to load — is the kind worth
+remembering.
 
 ### Round 2 — the skills caught up too
 
@@ -906,6 +906,33 @@ before you go looking for a way round something that is not broken.
 The counterpart to finding 27: the MDL0xx diagnostics are mostly excellent, and
 MDL045 (finding 52) and this one are the two that cried wolf.
 
+### 54. `describe microflow` renders `set task outcome` as "Empty action" **[bug]**
+
+Found while confirming the decision logic had actually moved into the workflow.
+`ACT_ApproveFromTask` is three statements — claim, set the outcome, show the
+inbox — and describe shows two of them:
+
+```
+$ ./mxcli -p TimeRegistration.mpr -c 'describe microflow "TimeReg"."ACT_ApproveFromTask"'
+begin
+  $claimed = call microflow TimeReg.ACT_ClaimTask(Task = $Task) on error rollback;
+  -- Empty action
+  show page TimeReg.MyTasks;
+  return;
+end;
+```
+
+The `-- Empty action` is exactly where `set task outcome $Task 'Approve';` sits.
+The statement is stored and works — the same microflow completes the task and
+drives the workflow's Approve branch, proven by the run above — so this is a read
+gap, not a write one. It is the same shape as finding 42 (`describe workflow`
+dropping `with (…)`), which PR 53 fixed; the microflow side of the workflow
+statements still has it.
+
+Worth knowing because `describe → drop → exec` is the documented way to
+regenerate a document, and here it would silently drop the one statement that
+completes the task.
+
 ---
 
 ## Workflows
@@ -994,8 +1021,8 @@ Workflows$VoidCase
 Workflows$WorkflowMetaData
 ```
 
-**Workaround.** Leave the outcome branches empty and do the work on the way
-*in* to the outcome. There is no `complete task` microflow statement, but there
+**Workaround (used until PR 53 landed; see the retest at the top).** Leave the
+outcome branches empty and do the work on the way *in* to the outcome. There is no `complete task` microflow statement, but there
 *is* `set task outcome`, which completes the task with a named outcome — so a
 microflow can do the domain change and then complete the task:
 

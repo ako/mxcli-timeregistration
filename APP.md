@@ -240,16 +240,27 @@ a due date the engine tracks, and a decision history the platform keeps.
 still there, but its per-row button now says *Open task* and routes into the
 same task page — a week can no longer be approved behind the workflow's back.
 
-**Where the decision actually happens.** The natural shape is an outcome branch
-that calls a microflow. It builds, and then the runtime refuses to load the
-model: mxcli writes that activity as `Workflows$CallMicroflowTask`, which Mendix
-11.12.1 calls `Workflows$CallMicroflowActivity`. `mx check` reports 0 errors
-either way (finding 39 in [FINDINGS.md](FINDINGS.md)). So the outcome branches
-are empty and the work happens on the way in: the task page's buttons call
-`ACT_ApproveFromTask` / `ACT_ReturnFromTask`, which claim the task, run
-`ACT_ApproveWeek` / `ACT_ReturnWeek`, and then `set task outcome` — which is
-what completes the task and tells the engine which branch was taken. The
-outcomes are still the workflow's; only the branch bodies moved.
+**Where the decision happens.** In the workflow. Each outcome branch calls the
+microflow that does the work:
+
+```mdl
+outcomes
+  'Approve' { call microflow TimeReg.ACT_ApproveWeek with (Timesheet = '$workflowContext'); }
+  'Return'  { call microflow TimeReg.ACT_ReturnWeek  with (Timesheet = '$workflowContext'); };
+```
+
+The task page's buttons only claim the task and set its outcome — they change
+nothing themselves. They go through `ACT_ApproveFromTask` / `ACT_ReturnFromTask`
+rather than the built-in `complete_task` because a task has to be *assigned*
+before it can be completed, and Mendix separates the users a task targets from
+the one holding it (finding 44).
+
+This shape was unusable for most of the build: mxcli wrote the activity as
+`Workflows$CallMicroflowTask`, which Mendix 11.12.1 calls
+`Workflows$CallMicroflowActivity`, so the app built clean and the runtime then
+refused to load the model — the whole model, not just the workflow. The work had
+to sit in the buttons instead. Fixed upstream in mxcli (finding 39), and the app
+now uses the shape it always wanted.
 
 **Mendix does not link a workflow to its context object**, so `Timesheet_Workflow`
 does, set when the workflow starts. That association is how the task page finds
@@ -359,9 +370,9 @@ This is a prototype dataset, not a credential store.
 - **No SSO.** The design's Entra ID and smartcard buttons are not implemented;
   the page uses the platform's local sign-in.
 - **No escalation or delegation on the workflow.** The user task has a due date
-  the engine tracks, but nothing acts when it passes. A boundary timer event
-  would be the place — it needs an activity in its body, which runs into the
-  same finding 39.
+  the engine tracks, but nothing acts when it passes. A boundary timer event is
+  the place for it, and now that finding 39 is fixed its body could call a
+  microflow like the outcome branches do — it is simply not built.
 - **The approvals queue still shows every week.** Weeks without a running
   workflow (already approved, still draft) show an *Open task* button that does
   nothing. Hiding it needs a conditional-visibility expression across the

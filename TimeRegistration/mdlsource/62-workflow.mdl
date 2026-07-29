@@ -6,19 +6,19 @@
  * a task assigned to a named person, a due date the engine tracks, and a
  * history of who decided what and when, kept by the platform.
  *
- * **Why the outcome branches are empty.** The natural shape is
- * `'Approve' { call microflow TimeReg.ACT_ApproveWeek; }`, and it builds — but
- * mxcli writes that activity as `Workflows$CallMicroflowTask`, a class the
- * Mendix 11.12.1 runtime does not have (it is `Workflows$CallMicroflowActivity`),
- * so the runtime refuses to load the model at all. `mx check` reports 0 errors
- * (finding 39). The work therefore happens on the way *in* to the outcome:
- * WF_ApproveTask's buttons call ACT_ApproveFromTask / ACT_ReturnFromTask, which
- * do the domain change and then `set task outcome`, completing the task. The
- * outcomes still exist and are still what the engine records — the branch bodies
- * have nothing left to do.
+ * The outcome branches call the same microflows the buttons used to call, so
+ * Timesheet.Status stays the value the grid and the reports read. The decision
+ * lives in the workflow: WF_ApproveTask's buttons only claim the task and set
+ * its outcome, and the branch below is what does the work.
  *
  * The week is recalculated by ACT_SubmitWeek immediately before the workflow
- * starts, so there is deliberately no recalculation step here.
+ * starts, so there is deliberately no recalculation step here: a second pass
+ * would recompute the seeded weeks whose entry detail is outside the demo
+ * dataset and zero their totals.
+ *
+ * Every `call microflow` names its parameter explicitly. An unmapped parameter
+ * used to be invisible to both checkers; `mxcli check --references` now catches
+ * it (finding 40), but the mapping is written out regardless.
  */
 create or replace workflow "TimeReg"."TimesheetApproval"
   parameter $Context: "TimeReg"."Timesheet"
@@ -31,8 +31,14 @@ begin
     due date 'addDays([%CurrentDateTime%], 3)'
     description 'Review the recorded hours, the billable ratio and any flags, then approve the week or return it to the fee earner.'
     outcomes
-      'Approve' { }
-      'Return' { };
+      'Approve' {
+        call microflow TimeReg.ACT_ApproveWeek
+          with (Timesheet = '$workflowContext');
+      }
+      'Return' {
+        call microflow TimeReg.ACT_ReturnWeek
+          with (Timesheet = '$workflowContext');
+      };
 
 end workflow;
 /

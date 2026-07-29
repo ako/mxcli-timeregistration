@@ -56,15 +56,18 @@ Verified on Ubuntu 24.04.4 LTS (x86_64), 2026-07-29.
 ```
 repo:   https://github.com/ako/mxcli
 branch: main
-commit: ead892672f82fdc5f54ed8a944e98026845700a2   (short: ead8926)
-date:   2026-07-28T12:58:07-07:00
+commit: 48548ca089ba647cf673bcefb0b7a9b2c5da08ea   (short: 48548ca)
+date:   2026-07-29T10:57:59-07:00
 ```
 
-`scripts/setup-tools.sh` builds `main` HEAD by default so the toolchain tracks
-upstream. To reproduce this exact build instead:
+This is the merge of PR 53, which the app depends on: before it, mxcli wrote a
+workflow call-microflow activity the Mendix 11.12.1 runtime could not load, and
+`TimeReg.TimesheetApproval` would build clean and then refuse to start the app
+(finding 39). `scripts/setup-tools.sh` builds `main` HEAD by default so the
+toolchain tracks upstream. To reproduce this exact build instead:
 
 ```bash
-MXCLI_REF=ead892672f82fdc5f54ed8a944e98026845700a2 bash scripts/setup-tools.sh
+MXCLI_REF=48548ca089ba647cf673bcefb0b7a9b2c5da08ea bash scripts/setup-tools.sh
 ```
 
 ### Why ANTLR is pinned

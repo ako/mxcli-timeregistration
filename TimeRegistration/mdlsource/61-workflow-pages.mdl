@@ -18,7 +18,8 @@ create or replace page "TimeReg"."MyTasks" (
  * Bound to System.WorkflowUserTask, as a workflow task page must be. The week
  * itself comes from DS_TaskTimesheet, and the two buttons complete the task with
  * the outcome the workflow branches on — the workflow, not the button, decides
- * what happens next.
+ * what happens next, and since finding 39 was fixed upstream that is literally
+ * true again: the branch calls the microflow.
  */
 create or replace page "TimeReg"."WF_ApproveTask" (
   Title: 'Approve week timesheet',
@@ -126,11 +127,11 @@ create or replace page "TimeReg"."WF_ApproveTask" (
                     Class: 'vdh-caption vdh-mt-l'
                   )
 
-                  -- The buttons run a microflow that changes the week and then
-                  -- sets the task outcome, rather than completing the task and
-                  -- letting the workflow branch do the work: mxcli's workflow
-                  -- call-microflow activity does not load in the runtime
-                  -- (finding 39).
+                  -- The buttons claim the task and set its outcome; the
+                  -- workflow's matching branch does the domain work. They go
+                  -- through a microflow rather than `complete_task` because a
+                  -- task must be assigned before it can be completed
+                  -- (finding 44).
                   container wtButtons (Class: 'vdh-row vdh-mt-l') {
                     actionbutton wtApprove (
                       Caption: 'Approve week',

@@ -98,12 +98,12 @@ end;
 /
 
 /**
- * Approves the week the task is about, then completes the task.
+ * Claims the task and completes it with the Approve outcome.
  *
- * The pair of activities the workflow's outcome branch cannot hold (see
- * 62-workflow.mdl): the domain change first, then `set task outcome`, which is
- * what actually completes the user task and lets the engine record who decided
- * what. The order matters — once the outcome is set the task is gone.
+ * It does no domain work: the workflow's 'Approve' branch calls ACT_ApproveWeek.
+ * This used to do both, because mxcli wrote a workflow call-microflow activity
+ * the runtime could not load (finding 39) — fixed upstream, so the decision is
+ * back where it belongs.
  *
  * @param $Task the task the partner is looking at
  */
@@ -113,20 +113,15 @@ create or modify microflow "TimeReg"."ACT_ApproveFromTask" (
 folder 'Workflow'
 begin
   $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $Task);
-
-  $timesheet = call microflow "TimeReg"."DS_TaskTimesheet" ("Task" = $Task);
-
-  if $timesheet != empty then
-    $approved = call microflow "TimeReg"."ACT_ApproveWeek" ("Timesheet" = $timesheet);
-  end if;
-
   set task outcome $Task 'Approve';
   show page "TimeReg"."MyTasks";
 end;
 /
 
 /**
- * Returns the week to the fee earner, then completes the task.
+ * Claims the task and completes it with the Return outcome.
+ *
+ * As above: the workflow's 'Return' branch calls ACT_ReturnWeek.
  *
  * @param $Task the task the partner is looking at
  */
@@ -136,13 +131,6 @@ create or modify microflow "TimeReg"."ACT_ReturnFromTask" (
 folder 'Workflow'
 begin
   $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $Task);
-
-  $timesheet = call microflow "TimeReg"."DS_TaskTimesheet" ("Task" = $Task);
-
-  if $timesheet != empty then
-    $returned = call microflow "TimeReg"."ACT_ReturnWeek" ("Timesheet" = $timesheet);
-  end if;
-
   set task outcome $Task 'Return';
   show page "TimeReg"."MyTasks";
 end;
