@@ -43,11 +43,22 @@ begin
     end if;
   end if;
 
-  retrieve $period from "TimeReg"."Period"
+  retrieve $open from "TimeReg"."Period"
     where ["Status" = "TimeReg"."ENUM_PeriodStatus"."Open"]
     sort by TimeReg.Period.Year asc, TimeReg.Period.MonthNumber asc
     limit 1;
-  return $period;
+  if $open != empty then
+    return $open;
+  end if;
+
+  -- Once the firm locks its last open month there is no open period left, and
+  -- returning empty here blanks every report — including the ‹ › buttons, which
+  -- live inside this dataview, so there would be no way to navigate back out of
+  -- it. Fall back to the most recent period instead.
+  retrieve $latest from "TimeReg"."Period"
+    sort by TimeReg.Period.Year desc, TimeReg.Period.MonthNumber desc
+    limit 1;
+  return $latest;
 end;
 /
 

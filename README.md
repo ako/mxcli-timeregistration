@@ -105,6 +105,22 @@ by signing in as each of them rather than by reading the matrix. A fee earner
 sees three menu items and their own week; a partner sees the people who report to
 them; nobody reaches another fee earner's time.
 
+## Tested
+
+Everything claimed above is checked by a browser suite that signs in as each
+role, walks the week, submits and approves a timesheet, moves the period, reads
+the rate card and closes the month — and then queries the database behind the
+screen, because a page that reads the wrong thing still looks right.
+
+```bash
+bash tests/reset.sh     # empty database, restart, wait for the seed
+node tests/run.mjs      # 110 assertions, ~7 minutes
+```
+
+Nothing to install: it uses the Chromium and Playwright that
+`scripts/setup-tools.sh` already provides. See
+**[tests/README.md](tests/README.md)** for what each spec covers.
+
 ## Documentation
 
 - **[APP.md](APP.md)** — what the app does, its domain model, the workflow, the
@@ -131,6 +147,7 @@ TimeRegistration/
     76–80   period-aware reporting
     81–83   effective-dated rates
   theme/web/_vdh.scss           the design language
+tests/                          the regression suite (reset.sh, run.mjs, specs/)
 docs/screenshots/               the images above
 ```
 

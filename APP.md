@@ -19,6 +19,18 @@ The database is seeded on first boot by `TimeReg.ASU_SeedDemoData` (guarded, so 
 restart is a no-op). To start from scratch, drop the `timeregistration` database
 and boot again.
 
+## Testing it
+
+The "verified end to end" tables below are not a claim to take on trust — they
+are a browser suite that drives the app and then checks the database behind it:
+
+```bash
+bash tests/reset.sh     # empty database, restart, wait for the seed
+node tests/run.mjs      # 110 assertions across the seven specs, ~7 minutes
+```
+
+See [tests/README.md](tests/README.md) for what each spec covers.
+
 ## Screens
 
 | Screen | URL | What it does |
@@ -141,7 +153,11 @@ database those screens would have shown two periods stacked on each other.
 
 **`PeriodSelection`** holds one period per employee, exactly as `WeekSelection`
 holds one Monday. `DS_SelectedPeriod` falls back to the earliest *open* period —
-the one the firm has to close next, which is July 2026 in the seeded dataset.
+the one the firm has to close next, which is July 2026 in the seeded dataset —
+and, if the firm has closed every month it has, to the most recent one. That
+second fallback is not decoration: the ‹ › buttons live *inside* the dataview
+this microflow feeds, so returning nothing would blank the reports and take the
+means of navigating away from them with it.
 
 **‹ ›** in the header of the rollup and all three reports move a month at a
 time, and the selection is shared: step to August on the rollup, open the
