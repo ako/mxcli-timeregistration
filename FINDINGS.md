@@ -25,9 +25,9 @@ mistake, recorded so the next person doesn't repeat it.
 
 ## Retest against ako/mxcli PR 53
 
-PR 53 (`nightly-44-g68acf0e`, head `68acf0e`) sets out to fix eighteen of these.
-Built from source and re-run against the reproductions below, on a scratch copy
-of this project.
+PR 53 sets out to fix eighteen of these. Built from source and re-run against the
+reproductions below, on a scratch copy of this project — first at `68acf0e`, then
+again after the PR picked up `1b390dc`.
 
 | # | Status | Notes |
 |---|---|---|
@@ -42,7 +42,7 @@ of this project.
 | 17 aggregate inside `create` | **fixed** | new MDL044, with the workaround in the message |
 | 23 `create microflow` idempotency | *partial* | still an error; the message now says "use create or modify" |
 | 36 SEC005 hint | **not fixed** | still suggests `ALTER PROJECT SECURITY STRICT MODE ON`, still a parse error |
-| 39 workflow call-microflow class | **fixed, with a new problem** | see below |
+| 39 workflow call-microflow class | **fixed** | needed a second commit; end-to-end proof below |
 | 40 unmapped workflow parameter | **fixed** | `--references` catches it |
 | 41 qualified `with(…)` corrupts the model | **fixed** | normalised to the bare name; no more unloadable `.mpr` |
 | 42 `describe workflow` round-trip | **fixed** | emits `with (Timesheet = '$workflowContext')` |
@@ -108,7 +108,81 @@ Two separate causes, isolated by varying one thing at a time:
 So the only shape that builds clean today is a call to a **void, no-parameter**
 microflow — which is the one that cannot do an approval's work. Before the PR
 the natural shape built and would not run; after it, it runs and will not build.
-The app therefore keeps the workaround in finding 39 for now.
+
+### Round 2 — `1b390dc` closes it
+
+The PR picked up one further commit, *"match call-microflow outcomes to return
+type + normalize context var"*. Rebuilt (`nightly-45-g1b390dc`) and re-ran the
+same case:
+
+```
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
+The app contains: 0 errors.
+
+$ strings "$unit" | grep -oE 'Workflows\$[A-Za-z]*Outcome'
+Workflows$BooleanConditionOutcome        # was VoidConditionOutcome
+```
+
+Both errors are gone: the outcome type now follows the called microflow's return
+type, and the context variable normalisation clears CE0117.
+
+**Verified end to end, not just built.** The scratch copy was switched back to
+the shape finding 39 said was unusable — the outcome branches do the work:
+
+```mdl
+outcomes
+  'Approve' { call microflow TimeReg.ACT_ApproveWeek with (Timesheet = '$workflowContext'); }
+  'Return'  { call microflow TimeReg.ACT_ReturnWeek  with (Timesheet = '$workflowContext'); };
+```
+
+and the task page's buttons were cut back to claim + `set task outcome`, so they
+can no longer change anything themselves. Approving Fatima El Amrani's week from
+the partner's inbox:
+
+```
+$ psql … -c "select eventlabel, description from timereg\$auditentry where eventtime > '2026-07-29'"
+ 29 Jul 17:52 | Week approved by the supervising partner
+
+$ psql … -c "select e.fullname, t.statuslabel from timereg\$timesheet t … where t.timereg\$timesheet_workflow is not null"
+ Pieter Ravensbergen | submitted
+ Fatima El Amrani    | approved
+
+$ psql … -c "select state, count(*) from system\$workflow group by state"
+ InProgress | 1
+ Completed  | 1
+```
+
+The status change and the audit row are written by `ACT_ApproveWeek`, and the
+only thing that calls it is the workflow's own outcome branch. Finding 39 is
+closed.
+
+**The app keeps the workaround for now**, because the PR is not merged:
+
+```
+$ git merge-base --is-ancestor 1b390dc main; echo $?
+1
+```
+
+`scripts/setup-tools.sh` builds from `main` HEAD, so switching the app to the
+natural shape today would break the next session that rebuilds the toolchain —
+and break it in the worst way, with MxBuild passing and the runtime refusing the
+model. Once PR 53 lands, `62-workflow.mdl` can take the outcome bodies back and
+`ACT_ApproveFromTask` / `ACT_ReturnFromTask` can drop to claim + `set task
+outcome`; that is the whole change.
+
+### Round 2 — the skills caught up too
+
+`mxcli init` refreshes `.ai-context/skills/`, and two files gained exactly what
+findings 47, 48 and 51 had to be discovered the hard way:
+
+- `write-workflows.md` now documents `set task outcome`, `open user task`,
+  `notify workflow` and `workflow operation …`, states that there is no
+  `complete task`, describes the empty-outcome-branch pattern, and explains that
+  System-module **enumerations** are not in the `.mpr` so `describe enumeration
+  System.X` returns nothing.
+- `generate-domain-model.md` now says plain `create association` is not
+  idempotent, and — the part that cost the most — that the error "aborts the rest
+  of the script (and any associations defined *after* it are never created)".
 
 ---
 
