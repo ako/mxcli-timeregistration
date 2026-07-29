@@ -23,6 +23,95 @@ mistake, recorded so the next person doesn't repeat it.
 
 ---
 
+## Retest against ako/mxcli PR 53
+
+PR 53 (`nightly-44-g68acf0e`, head `68acf0e`) sets out to fix eighteen of these.
+Built from source and re-run against the reproductions below, on a scratch copy
+of this project.
+
+| # | Status | Notes |
+|---|---|---|
+| 2 `V3` identifier | **fixed** | parses |
+| 3 quoted index name | **fixed** | parses |
+| 4 `alter entity … add <attr>` | *docs only* | parser still rejects the shorthand; the docs now say `ADD ATTRIBUTE` |
+| 5 role-name quoting | **fixed** | `describe user role` takes quoted and bare |
+| 6 bad language code | **fixed** | now a clear error, and the model is left alone |
+| 13 quoted `sort by` | **fixed** | normalised to the bare dotted form on write |
+| 14 `association $currentObject/…` | **fixed** | parses |
+| 15 duplicate widget names | **fixed** | `--references` catches it and names CE0495 |
+| 17 aggregate inside `create` | **fixed** | new MDL044, with the workaround in the message |
+| 23 `create microflow` idempotency | *partial* | still an error; the message now says "use create or modify" |
+| 36 SEC005 hint | **not fixed** | still suggests `ALTER PROJECT SECURITY STRICT MODE ON`, still a parse error |
+| 39 workflow call-microflow class | **fixed, with a new problem** | see below |
+| 40 unmapped workflow parameter | **fixed** | `--references` catches it |
+| 41 qualified `with(…)` corrupts the model | **fixed** | normalised to the bare name; no more unloadable `.mpr` |
+| 42 `describe workflow` round-trip | **fixed** | emits `with (Timesheet = '$workflowContext')` |
+| 47 System-module enumerations | *docs only* | `describe enumeration System.X` still can't see them; `system-module.md` now lists them and explains why |
+| 48 `set task outcome` undocumented | **fixed** | documented in `write-workflows.md`, with the empty-outcome-branch pattern |
+| 51 `create association` | *half* | the cascade is fixed — a member ref to a missing association is now rejected at exec, so the project can no longer be corrupted. Plain `create association` still errors on re-run |
+
+### 39 is fixed, and it uncovered the next layer
+
+The storage name is right now — the PR version-gates it, and `Workflows$CallMicroflowActivity`
+is what lands in the unit:
+
+```
+$ f=$(grep -rl WF_ProbeBoot mprcontents | head -1); strings "$f" | grep -o 'Workflows\$CallMicroflow[A-Za-z]*'
+Workflows$CallMicroflowActivity
+```
+
+and the runtime, which used to refuse the whole model, now loads it:
+
+```
+$ ./mxcli run --local -p TimeRegistration.mpr --ensure-db
+Runtime started; app serving at http://127.0.0.1:8080/
+
+$ grep -c "No new model classes" .mxcli/runtime.log
+0
+```
+
+**But MxBuild now rejects what it used to accept.** The same workflow that built
+with 0 errors on `main` fails on the PR:
+
+```mdl
+call microflow TimeReg.ACT_ApproveWeek with (Timesheet = '$workflowContext');
+```
+```
+main (0ed0359):  The app contains: 0 errors.
+PR 53 (68acf0e): [error] [CE0117] "Error(s) in expression." at Call microflow 'ACT_ApproveWeek'
+                 [error] [CE6686] "The current outcomes of the call microflow activity do not
+                                   match the configured microflow. Regenerate the outcomes."
+                 The app contains: 2 errors.
+```
+
+Two separate causes, isolated by varying one thing at a time:
+
+- **CE0117 is the parameter mapping.** A call to a microflow with no parameters
+  produces no CE0117; add a parameter and it appears. The stored mapping says
+  why — the value is written as a `Microflows$StringTemplate`, which is not what
+  an entity-typed argument should be:
+
+  ```
+  $ strings "$unit" | grep -iE "workflowContext|StringTemplate"
+  WorkflowContext
+  Microflows$StringTemplate
+  ```
+
+- **CE6686 is the outcomes.** A call to a *void* microflow has no CE6686; a
+  Boolean-returning one does. mxcli always writes a `Workflows$VoidConditionOutcome`,
+  which was right for the old class and is not right for the new one — a Boolean
+  or enumeration return needs matching outcomes.
+
+  (Related and correct: calling a microflow that returns an *entity* is now
+  properly rejected with CE6678.)
+
+So the only shape that builds clean today is a call to a **void, no-parameter**
+microflow — which is the one that cannot do an approval's work. Before the PR
+the natural shape built and would not run; after it, it runs and will not build.
+The app therefore keeps the workaround in finding 39 for now.
+
+---
+
 ## Severity 1 — silent data loss
 
 ### 1. Objects created in a microflow are never committed, and everything reports success **[platform]**
