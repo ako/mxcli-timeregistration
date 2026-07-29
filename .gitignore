@@ -39,7 +39,10 @@ node_modules/
 __pycache__/
 
 # --- Screenshots / scratch ----------------------------------------------------
+# Verification screenshots taken during a build are throwaway; the ones under
+# docs/ are documentation and belong in the repo.
 screenshots/
+!docs/screenshots/
 tmp/
 scratch/
 *.png.tmp
