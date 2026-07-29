@@ -97,8 +97,9 @@ create or replace page "TimeReg"."Approvals" (
       }
 
       container apFoot (Class: 'vdh-tfoot') {
-        dynamictext apFootLabel (Content: 'Team week 30 · 9 people', Class: 'vdh-w-fill')
-        dynamictext apFootTotals (Content: '329.5 h recorded · 281.0 billable · € 84.320', Class: 'vdh-num')
+        -- The queue follows the approver's own week selection, so the footer
+        -- cannot name week 30 or quote one week's totals any more.
+        dynamictext apFootLabel (Content: 'The week shown on your own timesheet', Class: 'vdh-w-fill')
       }
 
       -- Flagged entries -------------------------------------------------------

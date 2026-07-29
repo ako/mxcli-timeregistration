@@ -17,7 +17,7 @@ create or replace page "TimeReg"."NewEntry" (
 
     container neeTop (Class: 'vdh-topbar') {
       dynamictext neeTitle (Content: 'Time entry', Class: 'vdh-topbar-title')
-      dynamictext neeSub (Content: 'Wed 22 July 2026', Class: 'vdh-topbar-sub')
+      dynamictext neeSub (Content: 'Recorded against the week on your timesheet', Class: 'vdh-topbar-sub')
       container neeSpacer (Class: 'vdh-topbar-spacer') { dynamictext neeSpacerText (Content: ' ') }
       dynamictext neePeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
       dynamictext neePeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
@@ -31,9 +31,11 @@ create or replace page "TimeReg"."NewEntry" (
           -- The form ---------------------------------------------------------
           column neeColForm (DesktopWidth: 7) {
             container neeFormPanel (Class: 'vdh-panel') {
+              -- The date used to be repeated here in static text. It is on the
+              -- form's own date picker, which now defaults to the right day of
+              -- the week being viewed, so there is nothing left to restate.
               container neeFormHead (Class: 'vdh-row') {
                 dynamictext neeFormTitle (Content: 'New time entry', Class: 'vdh-panel-title vdh-w-fill')
-                dynamictext neeFormDate (Content: 'Wed 22 Jul 2026', Class: 'vdh-panel-title')
               }
 
               dataview neeForm (
@@ -75,7 +77,7 @@ create or replace page "TimeReg"."NewEntry" (
           column neeColSide (DesktopWidth: 5) {
 
             container neeTodayPanel (Class: 'vdh-panel') {
-              dynamictext neeTodayTitle (Content: 'Today · Wed 22 Jul', Class: 'vdh-panel-title')
+              dynamictext neeTodayTitle (Content: 'Already recorded that day', Class: 'vdh-panel-title')
               listview neeToday (DataSource: microflow "TimeReg"."DS_EntriesToday", Class: 'vdh-table') {
                 container neeTodayRow (Class: 'vdh-trow vdh-row--top') {
                   dynamictext neeTodayHours (Attribute: HoursLabel, Class: 'vdh-w-56 vdh-num')

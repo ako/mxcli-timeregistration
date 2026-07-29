@@ -555,6 +555,88 @@ group lays out as a row:
 .vdh-login .form-control { display: block; width: 100% !important; max-width: none; }
 ```
 
+### 49. `alter page … replace` drops the attribute binding off the replacement **[bug]**
+
+Unpinning the week screen from week 30 meant turning static text into bound
+widgets — the seven day headers, the week range, the status flag. `ALTER PAGE
+… REPLACE` is exactly the operation for that, and it silently discards the
+binding:
+
+```mdl
+alter page "TimeReg"."WeekTimesheet" {
+  replace weekStatus with {
+    dynamictext probeStatus (Attribute: StatusLabel, Class: 'vdh-flag')
+  }
+}
+```
+```
+$ ./mxcli exec p.mdl -p TimeRegistration.mpr
+Altered page TimeReg.WeekTimesheet
+
+$ ./mxcli -p TimeRegistration.mpr -c 'describe page "TimeReg"."WeekTimesheet"' | grep probeStatus
+dynamictext probeStatus (Content: '{1}', ContentParams: [{1} = <unbound>], Class: 'vdh-flag')
+
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
+[error] [CE0402] "No value specified." at Text 'probeStatus'
+The app contains: 1 errors.
+```
+
+`Attribute: StatusLabel` became `{1} = <unbound>`. The same happens to
+`ContentParams` on a replacement with a template. MxBuild does catch it, which is
+the only reason it is not worse — but nine widgets replaced this way produced
+nine CE0402s and no clue as to why.
+
+**Not universal.** An `actionbutton` replacement keeps its `Action`, including
+the microflow and its `$currentObject` argument, and `set` / `drop widget` are
+both fine. It is specifically the attribute binding on a replacement widget.
+
+**Workaround.** Edit the page in its own source file and re-run the whole
+`create or replace page`. That is better practice anyway — the page then has one
+definition rather than a definition plus a patch — but it does mean `ALTER PAGE`
+is not usable for the one job it looks made for.
+
+### 50. `daysBetween` returns a magnitude, not a signed difference **[platform]**
+
+Nothing to do with mxcli, and the most expensive hour of the multi-week work.
+Week navigation derives the week number from the offset to a known anchor
+(Monday 20 July 2026 is week 30):
+
+```mdl
+set $offset = round(daysBetween(dateTime(2026, 7, 20), $WeekStart) div 7);
+set $week = 30 + $offset;
+```
+
+Forward that is right. Backward it counts *up*:
+
+```
+at: Week 30 · 20–26 Jul 2026
+at: Week 31 · 13–19 Jul 2026     <- ‹ moved back a week
+at: Week 32 · 6–12 Jul 2026
+at: Week 33 · 29 Jun – 5 Jul 2026
+```
+
+The dates are correct throughout — only the number derived from `daysBetween` is
+wrong, which is what makes it easy to miss: the screen looks like it is working.
+
+The same call reads the other way round in the entry form, where "is today
+inside the week I am looking at?" was written as `0 <= daysBetween(weekStart,
+today) < 7`. Standing on 29 July looking at the week of 3 August, that is five
+days *before* the week and it answered five days *into* it.
+
+**Workaround.** Put the sign back by comparing the dates, which is the one thing
+that does behave:
+
+```mdl
+set $days = daysBetween(dateTime(2026, 7, 20), $WeekStart);
+if $WeekStart < dateTime(2026, 7, 20) then
+  set $days = -$days;
+end if;
+```
+
+Worth knowing that `ACT_SaveTimeEntry`, written weeks earlier in this project,
+clamps `daysBetween(entryDate, now)` with `if $late < 0 then set $late = 0` —
+dead code written by someone (me) who assumed the opposite.
+
 ---
 
 ## Workflows

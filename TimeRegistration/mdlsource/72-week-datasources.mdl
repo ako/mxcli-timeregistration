@@ -1,0 +1,188 @@
+/**
+ * TimeRegistration — multi-week support, part 3: the datasources
+ *
+ * These five replace the versions in 21-datasources.mdl and 55-logic-session.mdl
+ * that had `WeekNumber = 30` or `EntryDate = '2026-07-22'` written into them.
+ * Nothing else about them changes: the same scoping, the same shapes.
+ */
+
+/**
+ * The Monday of the week the signed-in person is looking at.
+ *
+ * Falls back, in order, to their stored selection, the most recent week they
+ * already have a timesheet for, and the demo anchor. The last of those is why an
+ * account with no fee-earner record — practice management — still lands on the
+ * week the demo dataset is about rather than on an empty one.
+ *
+ * @returns the Monday of the selected week
+ */
+create or modify microflow "TimeReg"."DS_SelectedWeekStart" ()
+returns datetime as $start
+folder 'Datasources'
+begin
+  declare $start datetime = dateTime(2026, 7, 20);
+
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  if $employee = empty then
+    return $start;
+  end if;
+
+  retrieve $selection from "TimeReg"."WeekSelection"
+    where ["TimeReg"."WeekSelection_Employee" = $employee]
+    limit 1;
+
+  if $selection != empty then
+    set $start = $selection/WeekStart;
+    return $start;
+  end if;
+
+  retrieve $latest from "TimeReg"."Timesheet"
+    where ["TimeReg"."Timesheet_Employee" = $employee]
+    sort by TimeReg.Timesheet.WeekStart desc
+    limit 1;
+
+  if $latest != empty then
+    set $start = $latest/WeekStart;
+  end if;
+
+  return $start;
+end;
+/
+
+/**
+ * The signed-in fee earner's timesheet for the week they are looking at.
+ *
+ * Opening a week they have never recorded against creates it, empty. There is
+ * still no branch for an account with no fee-earner record: it matches no
+ * employee, so ACT_EnsureTimesheet creates nothing and the screen is simply
+ * empty. Falling back to a colleague's week would defeat the access rules.
+ *
+ * @returns their timesheet for the selected week
+ */
+create or modify microflow "TimeReg"."DS_CurrentTimesheet" ()
+returns "TimeReg"."Timesheet" as $timesheet
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  $start = call microflow "TimeReg"."DS_SelectedWeekStart" ();
+
+  $timesheet = call microflow "TimeReg"."ACT_EnsureTimesheet" (
+    "Employee" = $employee,
+    "WeekStart" = $start);
+
+  return $timesheet;
+end;
+/
+
+/**
+ * The timesheets this partner is responsible for, for the week they are looking at.
+ *
+ * Scoped in the microflow, not just by the page: MDL cannot set a microflow's
+ * "apply entity access" flag, so a datasource microflow would otherwise hand
+ * back every row regardless of the access rules. The partner sees the people
+ * who report to them plus their own week; practice management, which has no
+ * fee-earner record, sees the firm.
+ *
+ * @returns the weeks under this approver's review
+ */
+create or modify microflow "TimeReg"."DS_TeamWeek" ()
+returns list of "TimeReg"."Timesheet" as $rows
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  $start = call microflow "TimeReg"."DS_SelectedWeekStart" ();
+
+  if $employee = empty then
+    retrieve $allRows from "TimeReg"."Timesheet"
+      where ["WeekStart" = $start]
+      sort by TimeReg.Timesheet.RecordedHours desc;
+    return $allRows;
+  end if;
+
+  retrieve $rows from "TimeReg"."Timesheet"
+    where ["WeekStart" = $start
+       and ("TimeReg"."Timesheet_Employee"/"TimeReg"."Employee"/"TimeReg"."Employee_Manager" = $employee
+            or "TimeReg"."Timesheet_Employee" = $employee)]
+    sort by TimeReg.Timesheet.RecordedHours desc;
+  return $rows;
+end;
+/
+
+/**
+ * The day a new entry should default to.
+ *
+ * Today, when today falls inside the week being looked at; otherwise the Monday
+ * of that week. Trimmed to midnight because the week grid matches entries to
+ * columns by exact date equality.
+ *
+ * @returns the default entry date
+ */
+create or modify microflow "TimeReg"."DS_EntryDefaultDate" ()
+returns datetime as $date
+folder 'Datasources'
+begin
+  declare $date datetime = [%CurrentDateTime%];
+  declare $offset decimal = 0;
+
+  $start = call microflow "TimeReg"."DS_SelectedWeekStart" ();
+  set $date = $start;
+
+  -- daysBetween returns a magnitude, not a signed difference (finding 50): a
+  -- today five days *before* the week would otherwise look like day five of it.
+  set $offset = daysBetween($start, [%CurrentDateTime%]);
+  if [%CurrentDateTime%] >= $start and $offset < 7 then
+    set $date = trimToDays([%CurrentDateTime%]);
+  end if;
+
+  return $date;
+end;
+/
+
+/**
+ * A blank entry, attached to the week being looked at.
+ *
+ * @returns an uncommitted TimeEntry for the form to bind to
+ */
+create or modify microflow "TimeReg"."DS_NewTimeEntry" ()
+returns "TimeReg"."TimeEntry" as $entry
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  $timesheet = call microflow "TimeReg"."DS_CurrentTimesheet" ();
+  $date = call microflow "TimeReg"."DS_EntryDefaultDate" ();
+
+  retrieve $matter from "TimeReg"."Matter" where Code = 'M-2301' limit 1;
+  retrieve $task from "TimeReg"."TaskCode" where Code = 'A101' limit 1;
+
+  $entry = create "TimeReg"."TimeEntry" (
+    EntryDate = $date,
+    Hours = 0,
+    Billability = "TimeReg"."ENUM_Billability"."Billable",
+    "TimeReg"."TimeEntry_Employee" = $employee,
+    "TimeReg"."TimeEntry_Timesheet" = $timesheet,
+    "TimeReg"."TimeEntry_Matter" = $matter,
+    "TimeReg"."TimeEntry_TaskCode" = $task);
+
+  return $entry;
+end;
+/
+
+/**
+ * The entries the fee earner already recorded on the day the form defaults to.
+ *
+ * @returns that day's entries, oldest first
+ */
+create or modify microflow "TimeReg"."DS_EntriesToday" ()
+returns list of "TimeReg"."TimeEntry" as $entries
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  $date = call microflow "TimeReg"."DS_EntryDefaultDate" ();
+
+  retrieve $entries from "TimeReg"."TimeEntry"
+    where ["TimeReg"."TimeEntry_Employee" = $employee
+       and "EntryDate" = $date]
+    sort by TimeReg.TimeEntry.RecordedOn asc;
+  return $entries;
+end;
+/

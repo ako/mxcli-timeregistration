@@ -24,7 +24,7 @@ and boot again.
 | Screen | URL | What it does |
 |---|---|---|
 | My matters | `/p/my-matters` | The fee earner's book of work, budget consumption, notices, WTD check |
-| Week timesheet | `/p/week` | The week grid — matter × task rows, seven day columns, composition, value, audit trail |
+| Week timesheet | `/p/week` | The week grid — matter × task rows, seven day columns, composition, value, audit trail; ‹ › move between weeks |
 | Time entry | `/p/new-entry` | Records an entry; rate resolved from the client agreement on save |
 | My tasks | `/p/my-tasks` | The approver's inbox — whatever the workflow engine has assigned them |
 | Team approvals | `/p/approvals` | The partner's queue for a week, with the flagged entries to review |
@@ -65,7 +65,9 @@ The transactional half of the app is real, not staged:
   are forced non-billable), values the entry, and recalculates the week.
 - `ACT_RecalculateTimesheet` derives recorded / billable / value / ratio from the
   entries, so the week screen, the value panel and the approval row can never
-  disagree.
+  disagree. It also rebuilds the two panels under the grid — the composition bar
+  from each matter's practice area, the rate-band lines from the rate that was
+  actually applied per client.
 - `DS_WeekRows` pivots the week's entries onto matter × task rows with seven day
   columns; `DS_WeekTotals` produces the day-total band.
 - `ACT_SubmitWeek` starts the approval workflow, `ACT_ApproveWeek` /
@@ -75,6 +77,57 @@ The transactional half of the app is real, not staged:
 Verified end to end: recording 3.25 h on Wednesday moved that day 8.00 → 11.25,
 the week 36.5 → 39.8, and the value € 9.142 → € 10.036 — exactly 3.25 × € 275,
 the Kessler blended rate picked up from the rate agreement.
+
+## Weeks
+
+The domain was always per week — `Timesheet` carries `Year`, `WeekNumber`,
+`WeekStart`, `WeekEnd`. It was the screens that were pinned to week 30, with the
+day headers and the week range written as static text and `DS_CurrentTimesheet`
+asking for `WeekNumber = 30`.
+
+**Where the week comes from.** `WeekSelection` holds one Monday per employee.
+It is persistent, not session state: stepping out to the entry form and back, or
+signing in tomorrow, lands you in the week you were in. `DS_SelectedWeekStart`
+falls back to the most recent week you already have a timesheet for, and then to
+the demo anchor, which is why an account with no fee-earner record still lands on
+the week the demo dataset is about.
+
+**Opening a week creates it.** `ACT_EnsureTimesheet` finds or creates the
+employee's timesheet for a Monday — the same thing turning the page of a paper
+timesheet book does. Week number and year are derived from the anchor (Monday
+20 July 2026 is week 30) rather than from a locale's calendar rules, so the
+numbering is deterministic and agrees with the seeded data. It treats every year
+as 52 weeks, which is wrong for the handful of 53-week years and irrelevant here.
+
+**‹ ›** move the selection by seven days and re-open the screen. The week range,
+the seven day headers and the status flag all read the timesheet; the labels
+themselves are written by `ACT_RecalculateTimesheet`, because a Mendix widget
+cannot call `formatDateTime`.
+
+**Copy last week** brings over the previous week's matter/task rows as zero-hour
+entries dated the Monday. The rows, not the hours — re-picking eight matter/task
+pairs from a combo box is the tedious part, and hours are the one thing nobody
+should be handed a default for. Narratives are not copied either: that is invoice
+text describing what was done. Pairs already present are skipped, so pressing it
+twice is a no-op, and a submitted or approved week is left alone.
+
+**Everything downstream follows.** The entry form attaches to the selected week
+and defaults its date to today when today falls inside that week, otherwise to
+the Monday. The partner's approval queue shows the week the partner is viewing on
+their own timesheet.
+
+### Verified end to end
+
+| Step | Result |
+|---|---|
+| Open the week screen | Week 30 · 20–26 Jul 2026, headers Mon 20 … Sun 26, 6 rows, 36.50 h |
+| **›** | Week 31 · 27 Jul – 2 Aug 2026, headers Mon 27 … Sun 2, no rows, 0.00 h — the week was created on opening |
+| **Copy last week** | the same 6 matter/task rows, every cell a middle dot, 0.00 h; audit trail: *"Rows copied from the previous week — 6 matter/task rows, no hours"* |
+| **Copy last week** again | still 6 rows |
+| **‹** | back to week 30, still 36.50 h — untouched |
+| **›** | week 31 still holds its 6 copied rows |
+| Log 2.50 h | week 31 totals 2.50 h; the composition bar shows one IP slice, the value panel one Kessler Pharma line at the rate that was applied |
+| **‹** six times from week 30 | 29, 28, 27, 26, 25, 24 — with the dates to match |
 
 ## Approval is a Mendix Workflow
 
@@ -225,7 +278,10 @@ This is a prototype dataset, not a credential store.
   nothing. Hiding it needs a conditional-visibility expression across the
   association, which MDL-WIDGET13 does not allow — a precomputed `HasOpenTask`
   boolean on `Timesheet` would fix it.
-- **Static controls.** Week navigation (‹ ›), the filter chips, `Copy last week`,
-  `Add row`, `Export XLSX` and the report-set buttons are presentational.
-- **Fixed period.** The screens are pinned to week 30 / July 2026 rather than
-  driven by the current date.
+- **Static controls.** The filter chips, `Export XLSX` and the report-set buttons
+  are still presentational. (‹ ›, `Copy last week` and `Add row` now work.)
+- **Reports are still monthly and fixed.** The rollup and the three report
+  screens read July 2026 snapshots; only the week screens follow the selection.
+- **No week picker.** You reach a week by stepping to it. A date picker, or a
+  "this week" button, would need a date-to-Monday conversion, and Mendix's
+  `daysBetween` is unsigned (finding 50), so it is more care than it looks.

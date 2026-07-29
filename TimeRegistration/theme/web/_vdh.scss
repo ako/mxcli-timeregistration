@@ -399,6 +399,32 @@ html, body, .mx-page {
 .vdh-chip--neutral { background: var(--vdh-neutral-bg); color: var(--vdh-neutral-fg); }
 .vdh-chip--lg      { padding: 4px 9px; font-size: 11px; }
 
+// The ‹ › week-navigation buttons. They read as the neutral chips they replaced,
+// so the Atlas button chrome (border, min-width, uppercase weight) is reset.
+.vdh-weeknav.btn,
+.vdh-weeknav {
+  display: inline-block;
+  min-width: 0 !important;
+  padding: 3px 10px !important;
+  border: none !important;
+  border-radius: 2px !important;
+  background: var(--vdh-neutral-bg) !important;
+  font: 500 13px/1 var(--vdh-mono) !important;
+  color: var(--vdh-neutral-fg) !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+.vdh-weeknav:hover {
+  background: var(--vdh-ink) !important;
+  color: #f3efe7 !important;
+}
+
+// A week with nothing in it yet is now reachable, so the ListView placeholder
+// matters. Inside the stacked composition bar it lands on top of the bar, where
+// `display: contents` has flattened the wrappers around it; an empty bar reads
+// better than the words "No items found" across it.
+.vdh-stack .mx-listview-empty { display: none !important; }
+
 // A draft banner: amber text on a tinted, hairline-bordered field
 .vdh-flag {
   display: inline-block;
