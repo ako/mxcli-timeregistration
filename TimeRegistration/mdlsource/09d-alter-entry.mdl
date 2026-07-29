@@ -1,0 +1,5 @@
+/**
+ * Two-decimal display form of the hours on an entry.
+ */
+ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "HoursLabel": string(10);
+/

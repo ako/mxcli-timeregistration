@@ -1,0 +1,8 @@
+/**
+ * Lower-case status caption for the approval queue.
+ *
+ * Binding the enumeration directly renders its key ("NotSubmitted"); the design
+ * shows a lower-case caption, so the display form is stored alongside it.
+ */
+ALTER ENTITY "TimeReg"."Timesheet" ADD ATTRIBUTE IF NOT EXISTS "StatusLabel": string(20);
+/

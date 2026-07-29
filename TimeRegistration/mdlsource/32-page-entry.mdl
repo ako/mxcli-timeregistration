@@ -1,0 +1,119 @@
+/**
+ * Time entry — the form a fee earner records against a matter with.
+ *
+ * The rate is not on the form: ACT_SaveTimeEntry resolves it from the client
+ * agreement at the moment of saving, so a later rate change never rewrites
+ * history. The right rail shows what has already gone in today and the
+ * recording rules the firm applies.
+ */
+create or replace page "TimeReg"."NewEntry" (
+  Title: 'Time entry',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'new-entry',
+  Folder: 'Time'
+)
+{
+  container neePage (Class: 'vdh-page') {
+
+    container neeTop (Class: 'vdh-topbar') {
+      dynamictext neeTitle (Content: 'Time entry', Class: 'vdh-topbar-title')
+      dynamictext neeSub (Content: 'Wed 22 July 2026', Class: 'vdh-topbar-sub')
+      container neeSpacer (Class: 'vdh-topbar-spacer') { dynamictext neeSpacerText (Content: ' ') }
+      dynamictext neePeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
+      dynamictext neePeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      actionbutton neeBack (Caption: 'Week timesheet', Action: show_page "TimeReg"."WeekTimesheet", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container neeBody (Class: 'vdh-body') {
+      layoutgrid neeCols (Class: 'vdh-cols') {
+        row neeRow {
+
+          -- The form ---------------------------------------------------------
+          column neeColForm (DesktopWidth: 7) {
+            container neeFormPanel (Class: 'vdh-panel') {
+              container neeFormHead (Class: 'vdh-row') {
+                dynamictext neeFormTitle (Content: 'New time entry', Class: 'vdh-panel-title vdh-w-fill')
+                dynamictext neeFormDate (Content: 'Wed 22 Jul 2026', Class: 'vdh-panel-title')
+              }
+
+              dataview neeForm (
+                DataSource: microflow "TimeReg"."DS_NewTimeEntry",
+                Class: 'vdh-form vdh-body',
+                FormOrientation: Vertical
+              ) {
+                combobox neeMatter (
+                  Label: 'Matter',
+                  Attribute: TimeEntry_Matter,
+                  DataSource: database "TimeReg"."Matter",
+                  CaptionAttribute: Name
+                )
+                combobox neeTask (
+                  Label: 'Task code',
+                  Attribute: TimeEntry_TaskCode,
+                  DataSource: database "TimeReg"."TaskCode",
+                  CaptionAttribute: Name
+                )
+                datepicker neeDate (Label: 'Date', Attribute: EntryDate)
+                textbox neeHours (Label: 'Hours (decimal)', Attribute: Hours, Class: 'vdh-hours-input')
+                textarea neeNarrative (Label: 'Narrative · appears on client invoice', Attribute: Narrative)
+                combobox neeBillability (Label: 'Billability', Attribute: Billability)
+                checkbox neeOutOfHours (Label: 'Out-of-hours', Attribute: IsOutOfHours)
+
+                footer neeFooter {
+                  actionbutton neeSave (
+                    Caption: 'Save entry',
+                    Action: microflow "TimeReg"."ACT_SaveTimeEntry"("TimeEntry": $currentObject),
+                    Class: 'vdh-btn vdh-btn--ox'
+                  )
+                  actionbutton neeCancel (Caption: 'Cancel', Action: cancel_changes, Class: 'vdh-btn')
+                }
+              }
+            }
+          }
+
+          -- Right rail --------------------------------------------------------
+          column neeColSide (DesktopWidth: 5) {
+
+            container neeTodayPanel (Class: 'vdh-panel') {
+              dynamictext neeTodayTitle (Content: 'Today · Wed 22 Jul', Class: 'vdh-panel-title')
+              listview neeToday (DataSource: microflow "TimeReg"."DS_EntriesToday", Class: 'vdh-table') {
+                container neeTodayRow (Class: 'vdh-trow vdh-row--top') {
+                  dynamictext neeTodayHours (Attribute: HoursLabel, Class: 'vdh-w-56 vdh-num')
+                  container neeTodayWhat (Class: 'vdh-w-fill') {
+                    dynamictext neeTodayMatter (
+                      Content: '{1} · {2}',
+                      ContentParams: [{1} = TimeEntry_Matter/Name, {2} = TimeEntry_Matter/Code],
+                      Class: 'vdh-cell-title'
+                    )
+                    dynamictext neeTodayTask (
+                      Content: '{1} {2}',
+                      ContentParams: [{1} = TimeEntry_TaskCode/Code, {2} = TimeEntry_TaskCode/Name],
+                      Class: 'vdh-cell-sub'
+                    )
+                  }
+                }
+              }
+              container neeTodayFoot (Class: 'vdh-tfoot') {
+                dynamictext neeTodayFootLabel (Content: 'Recorded today', Class: 'vdh-w-fill')
+                dynamictext neeTodayFootValue (Content: '8.00 h', Class: 'vdh-num vdh-strong')
+              }
+            }
+
+            container neeRulesPanel (Class: 'vdh-panel vdh-panel--sunk vdh-mt-l') {
+              dynamictext neeRulesTitle (Content: 'Rules applied', Class: 'vdh-panel-title')
+              listview neeRules (
+                DataSource: database from "TimeReg"."EntryRule" sort by SortOrder asc,
+                Class: 'vdh-lv vdh-body'
+              ) {
+                container neeRuleRow (Class: 'vdh-row') {
+                  dynamictext neeRuleDot (Content: '·', Class: 'vdh-w-28 vdh-fg-faint')
+                  dynamictext neeRuleText (Attribute: Description, Class: 'vdh-w-fill vdh-note')
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

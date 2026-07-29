@@ -1,0 +1,114 @@
+/**
+ * Page stubs.
+ *
+ * The real pages cross-reference each other (every screen has a Log time
+ * button), so they are declared first and then replaced with their content.
+ */
+
+create or replace page "TimeReg"."WeekTimesheet" (
+  Title: 'WeekTimesheet',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Time'
+)
+{
+  container stubWeekTimesheet (Class: 'vdh-page') {
+    dynamictext stubWeekTimesheetText (Content: 'WeekTimesheet')
+  }
+}
+/
+
+create or replace page "TimeReg"."MyMatters" (
+  Title: 'MyMatters',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Time'
+)
+{
+  container stubMyMatters (Class: 'vdh-page') {
+    dynamictext stubMyMattersText (Content: 'MyMatters')
+  }
+}
+/
+
+create or replace page "TimeReg"."NewEntry" (
+  Title: 'NewEntry',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Time'
+)
+{
+  container stubNewEntry (Class: 'vdh-page') {
+    dynamictext stubNewEntryText (Content: 'NewEntry')
+  }
+}
+/
+
+create or replace page "TimeReg"."Approvals" (
+  Title: 'Approvals',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Manage'
+)
+{
+  container stubApprovals (Class: 'vdh-page') {
+    dynamictext stubApprovalsText (Content: 'Approvals')
+  }
+}
+/
+
+create or replace page "TimeReg"."MonthlyRollup" (
+  Title: 'MonthlyRollup',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Manage'
+)
+{
+  container stubMonthlyRollup (Class: 'vdh-page') {
+    dynamictext stubMonthlyRollupText (Content: 'MonthlyRollup')
+  }
+}
+/
+
+create or replace page "TimeReg"."ReportCustomer" (
+  Title: 'ReportCustomer',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Reports'
+)
+{
+  container stubReportCustomer (Class: 'vdh-page') {
+    dynamictext stubReportCustomerText (Content: 'ReportCustomer')
+  }
+}
+/
+
+create or replace page "TimeReg"."ReportMatter" (
+  Title: 'ReportMatter',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Reports'
+)
+{
+  container stubReportMatter (Class: 'vdh-page') {
+    dynamictext stubReportMatterText (Content: 'ReportMatter')
+  }
+}
+/
+
+create or replace page "TimeReg"."ReportPeople" (
+  Title: 'ReportPeople',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Reports'
+)
+{
+  container stubReportPeople (Class: 'vdh-page') {
+    dynamictext stubReportPeopleText (Content: 'ReportPeople')
+  }
+}
+/
+
+create or replace page "TimeReg"."RateCard" (
+  Title: 'RateCard',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Administration'
+)
+{
+  container stubRateCard (Class: 'vdh-page') {
+    dynamictext stubRateCardText (Content: 'RateCard')
+  }
+}
+/

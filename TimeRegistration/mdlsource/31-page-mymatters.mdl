@@ -1,0 +1,147 @@
+/**
+ * My matters — the fee earner's own book of work.
+ *
+ * The matters they booked time to this month, with budget consumption, next to
+ * a week summary, the notices they have to act on, and the working-time check.
+ */
+create or replace page "TimeReg"."MyMatters" (
+  Title: 'My matters',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'my-matters',
+  Folder: 'Time'
+)
+{
+  container mmPage (Class: 'vdh-page') {
+
+    container mmTop (Class: 'vdh-topbar') {
+      dynamictext mmTitle (Content: 'My matters', Class: 'vdh-topbar-title')
+      dynamictext mmSub (Content: 'Maartje de Vries · Senior Associate · Corporate M&A', Class: 'vdh-topbar-sub')
+      container mmSpacer (Class: 'vdh-topbar-spacer') { dynamictext mmSpacerText (Content: ' ') }
+      dynamictext mmPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
+      dynamictext mmPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      actionbutton mmLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container mmBody (Class: 'vdh-body') {
+      layoutgrid mmCols (Class: 'vdh-cols') {
+        row mmRow {
+
+          -- Matter list ------------------------------------------------------
+          column mmColMain (DesktopWidth: 8) {
+            container mmListPanel (Class: 'vdh-panel') {
+              container mmListHead (Class: 'vdh-row') {
+                dynamictext mmListTitle (Content: 'My matters · 9 active', Class: 'vdh-h2 vdh-w-fill')
+                container mmSegWrap (Class: 'vdh-seg') {
+                  dynamictext mmSegActive (Content: 'Active', Class: 'btn vdh-seg--on')
+                  dynamictext mmSegAll (Content: 'All', Class: 'btn')
+                  dynamictext mmSegClosing (Content: 'Closing', Class: 'btn')
+                }
+              }
+
+              container mmHead (Class: 'vdh-thead') {
+                dynamictext mmhClient (Content: 'Client / Matter', Class: 'vdh-w-fill')
+                dynamictext mmhPartner (Content: 'Partner', Class: 'vdh-w-128')
+                dynamictext mmhRate (Content: 'My rate', Class: 'vdh-w-88 vdh-right')
+                dynamictext mmhBudget (Content: 'Budget', Class: 'vdh-w-140 vdh-right')
+                dynamictext mmhMonth (Content: 'This month', Class: 'vdh-w-88 vdh-right')
+              }
+
+              listview mmList (DataSource: microflow "TimeReg"."DS_MyMatters", Class: 'vdh-table') {
+                container mmRowItem (Class: 'vdh-trow') {
+                  container mmName (Class: 'vdh-w-fill') {
+                    dynamictext mmMatter (Content: '{1}', ContentParams: [{1} = MatterMonthSummary_Matter/Name], Class: 'vdh-cell-title')
+                    dynamictext mmCode (
+                      Content: '{1} · {2}',
+                      ContentParams: [{1} = MatterMonthSummary_Matter/Code, {2} = MatterMonthSummary_Matter/Matter_Client/Name],
+                      Class: 'vdh-cell-sub'
+                    )
+                  }
+                  dynamictext mmPartner (
+                    Content: '{1}',
+                    ContentParams: [{1} = MatterMonthSummary_Matter/Matter_ResponsiblePartner/ShortName],
+                    Class: 'vdh-w-128 vdh-fg-ox'
+                  )
+                  dynamictext mmRate (Attribute: RateLabel, Class: 'vdh-w-88 vdh-right vdh-num')
+                  container mmBudgetCell (Class: 'vdh-w-140 vdh-row') {
+                    container mmMeter (Class: 'vdh-meter vdh-w-96') {
+                      container mmMeterFill (
+                        Class: 'vdh-meter-fill',
+                        DynamicClasses: '$currentObject/MeterClass'
+                      ) {
+                        dynamictext mmMeterText (Content: ' ')
+                      }
+                    }
+                    dynamictext mmPct (Content: '{1}%', ContentParams: [{1} = BudgetPct], Class: 'vdh-w-36 vdh-right vdh-caption')
+                  }
+                  dynamictext mmMonth (Attribute: HoursLabel, Class: 'vdh-w-88 vdh-right vdh-num')
+                }
+              }
+            }
+          }
+
+          -- Right rail -------------------------------------------------------
+          column mmColSide (DesktopWidth: 4) {
+
+            dataview mmWeek (DataSource: microflow "TimeReg"."DS_CurrentTimesheet") {
+              container mmWeekPanel (Class: 'vdh-panel') {
+                dynamictext mmWeekTitle (Content: 'This week · 20–26 Jul', Class: 'vdh-panel-title')
+                container mmWeekBody (Class: 'vdh-body') {
+                  container mmWeekRec (Class: 'vdh-row') {
+                    dynamictext mmWeekHours (Attribute: RecordedLabel, Class: 'vdh-num--big')
+                    dynamictext mmWeekOf (Content: '/ 40.0 h recorded', Class: 'vdh-note')
+                  }
+                  container mmWeekMeter (Class: 'vdh-meter vdh-mt-l') {
+                    container mmWeekFill (Class: 'vdh-meter-fill vdh-meter-fill--ink vdh-w-b18') {
+                      dynamictext mmWeekFillText (Content: ' ')
+                    }
+                  }
+                  container mmWeekLegend (Class: 'vdh-row') {
+                    dynamictext mmWeekPct (Content: '91% of contract hours', Class: 'vdh-caption vdh-w-fill')
+                    dynamictext mmWeekShort (Content: '3.5 h short', Class: 'vdh-caption')
+                  }
+
+                  container mmBillRow (Class: 'vdh-row vdh-mt-l') {
+                    dynamictext mmBillHours (Attribute: BillableLabel, Class: 'vdh-num--mid')
+                    dynamictext mmBillOf (Content: 'billable / 32.0 target', Class: 'vdh-note')
+                  }
+                  container mmBillMeter (Class: 'vdh-meter') {
+                    container mmBillFill (Class: 'vdh-meter-fill vdh-meter-fill--green vdh-w-b20') {
+                      dynamictext mmBillFillText (Content: ' ')
+                    }
+                  }
+                  dynamictext mmBillNote (
+                    Content: 'Billable ratio {1}% · non-billable 3.0 h',
+                    ContentParams: [{1} = RatioPct],
+                    Class: 'vdh-caption'
+                  )
+                }
+              }
+            }
+
+            container mmNoticePanel (Class: 'vdh-panel vdh-mt-l') {
+              dynamictext mmNoticeTitle (Content: 'Needs attention', Class: 'vdh-panel-title')
+              listview mmNotices (DataSource: microflow "TimeReg"."DS_MyNotices", Class: 'vdh-table') {
+                container mmNoticeRow (Class: 'vdh-trow') {
+                  container mmNotice (Class: 'vdh-notice vdh-w-fill', DynamicClasses: '$currentObject/AccentClass') {
+                    dynamictext mmNoticeHead (Attribute: Title, Class: 'vdh-notice-title')
+                    dynamictext mmNoticeSub (Attribute: Detail, Class: 'vdh-notice-sub')
+                  }
+                }
+              }
+            }
+
+            container mmWtdPanel (Class: 'vdh-panel vdh-panel--ink vdh-mt-l') {
+              dynamictext mmWtdTitle (Content: 'Working time · WTD', Class: 'vdh-panel-title')
+              container mmWtdBody (Class: 'vdh-body') {
+                dynamictext mmWtdText (
+                  Content: 'Rolling 16 weeks: 44.2 h average. Below the 48 h ceiling. No week over 60 h.',
+                  Class: 'vdh-note vdh-fg-faint'
+                )
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

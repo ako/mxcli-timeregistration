@@ -1,4 +1,8 @@
-# --- Build artifacts -------------------------------------------------------
+# --- Mendix model source is COMMITTED -----------------------------------------
+# TimeRegistration.mpr and mprcontents/ are the app itself, not build output.
+# TimeRegistration/.gitignore covers the artifacts inside the project.
+
+# --- Build artifacts ----------------------------------------------------------
 bin/
 dist/
 build/
@@ -9,45 +13,43 @@ out/
 *.dylib
 *.test
 
-# --- Mendix project artifacts ----------------------------------------------
-# .mpr files are binary model scratch; keep them out of git.
-*.mpr
-*.mpr.bak
-*.mpr-journal
-*.mpr.lock
-*.mpk
-*.mda
+# --- Mendix build / runtime output --------------------------------------------
 deployment/
 releases/
 modeler-backup/
-*.launch
-# Mendix build/runtime output
-javasource/**/proxies/
+theme-cache/
 .mendix-cache/
+javasource/*/proxies/
+javasource/system/
+*.mpr.lock
+*.mpr.bak
+mprcontents/mprjournal*
+*.mpk
+*.mda
+*.launch
 
-# --- Local tool caches -----------------------------------------------------
+# --- Local tool caches --------------------------------------------------------
 .mxcli/
-mxbuild/
-runtime/
-*.jar
+mxcli
+mxcli.exe
 node_modules/
 .npm/
 .cache/
 .playwright/
 __pycache__/
 
-# --- Screenshots / scratch -------------------------------------------------
+# --- Screenshots / scratch ----------------------------------------------------
 screenshots/
-*.png.tmp
 tmp/
 scratch/
+*.png.tmp
 
-# --- Editor / OS -----------------------------------------------------------
+# --- Editor / OS --------------------------------------------------------------
 .idea/
 .vscode/
 *.swp
 .DS_Store
 Thumbs.db
 
-# --- Claude local overrides ------------------------------------------------
+# --- Claude local overrides ---------------------------------------------------
 .claude/settings.local.json

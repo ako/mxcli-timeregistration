@@ -1,0 +1,687 @@
+// =============================================================================
+//  van Duyn & Haverkamp — time & billing
+//
+//  The design language of the handoff: a cream canvas, an ink-black full-height
+//  sidebar, ox-blood as the single accent, Source Serif for headings, IBM Plex
+//  Sans for body and IBM Plex Mono for every number, code and label. Dense
+//  tables with hairline rules rather than cards-in-cards.
+//
+//  Everything here is prefixed `vdh-` so it can never collide with Atlas.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Tokens
+// -----------------------------------------------------------------------------
+:root {
+  // Surfaces
+  --vdh-canvas:       #efece6;
+  --vdh-surface:      #ffffff;
+  --vdh-surface-alt:  #faf8f4;   // zebra / weekend columns
+  --vdh-surface-sunk: #f7f5f1;
+  --vdh-head:         #f0ece5;   // table header band
+  --vdh-chrome:       #14161a;   // sidebar + inverted panels
+  --vdh-chrome-line:  #24272d;
+
+  // Ink
+  --vdh-ink:          #14161a;
+  --vdh-ink-2:        #25282e;
+  --vdh-muted:        #8a8377;
+  --vdh-muted-2:      #6f6a62;
+  --vdh-faint:        #b9b2a8;
+  --vdh-ghost:        #cfc8bc;
+
+  // Rules
+  --vdh-border:       #e3ded5;
+  --vdh-border-soft:  #eae5dc;
+  --vdh-border-hard:  #ddd7cd;
+
+  // Accents
+  --vdh-ox:           #8c2b2b;
+  --vdh-ox-dark:      #6d2020;
+  --vdh-teal:         #3f6f6b;
+  --vdh-teal-soft:    #5c8a86;
+  --vdh-green:        #2f6b4f;
+  --vdh-amber:        #b5852b;
+
+  // Status chip triples
+  --vdh-ok-bg:      #eef3f2;  --vdh-ok-fg:      #2b5f5b;
+  --vdh-warn-bg:    #fff6e6;  --vdh-warn-fg:    #8a6716;
+  --vdh-danger-bg:  #faf0ec;  --vdh-danger-fg:  #8c2b2b;
+  --vdh-neutral-bg: #f3f0ea;  --vdh-neutral-fg: #6f6a62;
+
+  // Typefaces
+  --vdh-serif: 'Source Serif 4', Georgia, serif;
+  --vdh-sans:  'IBM Plex Sans', system-ui, sans-serif;
+  --vdh-mono:  'IBM Plex Mono', ui-monospace, monospace;
+
+  --vdh-sidebar-w: 212px;
+
+  // Map onto Atlas so the standard shell inherits the palette
+  --brand-primary: var(--vdh-ox);
+  --bg-color: var(--vdh-canvas);
+  --font-family-base: var(--vdh-sans);
+  --font-color-default: var(--vdh-ink);
+  --font-color-header: var(--vdh-ink);
+  --sidebar-bg: var(--vdh-chrome);
+  --navigation-bg: var(--vdh-chrome);
+}
+
+html, body, .mx-page {
+  background: var(--vdh-canvas);
+  font-family: var(--vdh-sans);
+  color: var(--vdh-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--vdh-ghost);
+  border: 3px solid var(--vdh-canvas);
+  border-radius: 6px;
+}
+
+// =============================================================================
+//  The shell — full-height ink sidebar, no Atlas topbar
+// =============================================================================
+
+// Atlas renders the topbar above a sidebar+content row; the design puts the
+// sidebar full height and gives each page its own header band instead.
+.region-topbar, .mx-scrollcontainer-top { display: none !important; }
+
+.mx-scrollcontainer-left.region-sidebar {
+  position: fixed; top: 0; left: 0;
+  width: var(--vdh-sidebar-w) !important;
+  flex: 0 0 var(--vdh-sidebar-w) !important;
+  height: 100vh; z-index: 100;
+  background: var(--vdh-chrome);
+  border-right: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.region-content, .mx-scrollcontainer-center {
+  margin-left: var(--vdh-sidebar-w) !important;
+  background: var(--vdh-canvas);
+}
+
+// No collapse affordance in the design.
+.toggle-btn, .mx-scrollcontainer-left .navbar-header { display: none !important; }
+
+.region-sidebar .mx-scrollcontainer-wrapper { flex: 1 1 auto; overflow-y: auto; }
+
+// --- Brand block -------------------------------------------------------------
+// A pseudo-element is a single text box, so the two-line brand lock-up (bordered
+// monogram + serif firm name) is drawn as an inline SVG background instead.
+.region-sidebar::before {
+  content: '';
+  display: block;
+  flex: 0 0 54px;
+  border-bottom: 1px solid var(--vdh-chrome-line);
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='212' height='54'>\
+<rect x='16' y='15' width='22' height='22' fill='none' stroke='%238c2b2b' stroke-width='1.5'/>\
+<text x='27' y='30' fill='%23f2ede4' font-family='Georgia,serif' font-size='10' font-weight='600' text-anchor='middle'>VH</text>\
+<text x='47' y='24' fill='%23e9e3d9' font-family='Georgia,serif' font-size='12' font-weight='600'>van Duyn</text>\
+<text x='47' y='37' fill='%23e9e3d9' font-family='Georgia,serif' font-size='12' font-weight='600'>&amp; Haverkamp</text></svg>") no-repeat;
+}
+
+// --- User chip pinned to the bottom -----------------------------------------
+.region-sidebar::after {
+  content: '';
+  display: block;
+  flex: 0 0 51px;
+  border-top: 1px solid var(--vdh-chrome-line);
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='212' height='51'>\
+<circle cx='29' cy='25' r='13' fill='%232c3037'/>\
+<text x='29' y='29' fill='%23cfc7bb' font-family='monospace' font-size='10' font-weight='600' text-anchor='middle'>MV</text>\
+<text x='50' y='22' fill='%23e9e3d9' font-family='sans-serif' font-size='11.5'>Maartje de Vries</text>\
+<text x='50' y='35' fill='%237c7669' font-family='monospace' font-size='9.5'>Senior Associate</text></svg>") no-repeat;
+}
+
+// --- Navigation items --------------------------------------------------------
+.mx-navigationtree { padding: 14px 0; margin: 0; background: transparent; }
+.mx-navigationtree .navbar-inner { padding: 0; margin: 0; border: 0; background: transparent; }
+.mx-navigationtree ul { list-style: none; margin: 0; padding: 0; }
+.mx-navigationtree li { list-style: none; }
+
+// Atlas's own sidebar rule is five classes deep, so the design's item metrics
+// have to match that specificity to win.
+.mx-navigationtree li > a,
+.region-sidebar .mx-scrollcontainer-wrapper .mx-navigationtree .navbar-inner > ul > li > a {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 6px 16px !important;
+  margin: 0 !important;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  font: 400 12.5px var(--vdh-sans);
+  color: #a59e93;
+  text-decoration: none;
+  white-space: nowrap;
+  text-shadow: none;
+}
+.mx-navigationtree li > a:hover { background: #20242a; color: #d8d2c6; text-decoration: none; }
+
+// Mendix sets `.active` on the anchor of the open page.
+.mx-navigationtree li > a.active,
+.region-sidebar .mx-scrollcontainer-wrapper .mx-navigationtree .navbar-inner > ul > li > a.active {
+  background: #1e2228;
+  border-left-color: var(--vdh-ox);
+  color: #f4efe6;
+  font-weight: 600;
+}
+
+// Icons are not part of the design.
+.mx-navigationtree .glyphicon, .mx-navigationtree .mx-icon { display: none !important; }
+
+// Section labels. The Mendix navigation model has no group header, so they are
+// injected before the first item of each group (1 = My work, 4 = Manage,
+// 6 = Reports, 9 = Administration).
+.mx-navigationtree li { position: relative; }
+.mx-navigationtree li:nth-child(1)::before,
+.mx-navigationtree li:nth-child(4)::before,
+.mx-navigationtree li:nth-child(6)::before,
+.mx-navigationtree li:nth-child(9)::before {
+  display: block;
+  padding: 16px 16px 6px;
+  font: 600 9.5px var(--vdh-mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #5f5a52;
+}
+.mx-navigationtree li:nth-child(1)::before { content: 'My work'; padding-top: 0; }
+.mx-navigationtree li:nth-child(4)::before { content: 'Manage'; }
+.mx-navigationtree li:nth-child(6)::before { content: 'Reports'; }
+.mx-navigationtree li:nth-child(9)::before { content: 'Administration'; }
+
+// Count badges on Week timesheet (30) and Approvals (5).
+.mx-navigationtree li:nth-child(2) > a::after,
+.mx-navigationtree li:nth-child(4) > a::after {
+  margin-left: auto;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: #2a2e35;
+  font: 500 10px var(--vdh-mono);
+  color: #a59e93;
+}
+.mx-navigationtree li:nth-child(2) > a::after { content: '30'; }
+.mx-navigationtree li:nth-child(4) > a::after { content: '5'; }
+.mx-navigationtree li:nth-child(2) > a.active::after,
+.mx-navigationtree li:nth-child(4) > a.active::after {
+  background: var(--vdh-ox); color: #fff;
+}
+
+// =============================================================================
+//  Page scaffolding
+// =============================================================================
+.vdh-page { padding: 0 0 40px; }
+
+// --- Header band above the content -------------------------------------------
+.vdh-topbar {
+  display: flex; align-items: center; gap: 14px;
+  height: 52px;
+  padding: 0 24px;
+  background: var(--vdh-canvas);
+  border-bottom: 1px solid var(--vdh-border);
+}
+.vdh-topbar-title  { font: 600 15px var(--vdh-serif); color: var(--vdh-ink); }
+.vdh-topbar-sub    { font: 400 11.5px var(--vdh-mono); color: var(--vdh-muted); }
+.vdh-topbar-spacer { flex: 1 1 auto; }
+
+.vdh-period {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 10px;
+  background: var(--vdh-surface);
+  border: 1px solid var(--vdh-border-hard);
+  border-radius: 3px;
+  font: 400 11px var(--vdh-mono);
+  color: var(--vdh-muted-2);
+  white-space: nowrap;
+}
+.vdh-period::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--vdh-green);
+}
+.vdh-period--locked { color: var(--vdh-faint); }
+.vdh-period--locked::before { display: none; }
+
+.vdh-body { padding: 16px 20px; }
+.vdh-page > .vdh-body { padding: 18px 24px 0; }
+
+// --- Panels ------------------------------------------------------------------
+.vdh-panel {
+  background: var(--vdh-surface);
+  border: 1px solid var(--vdh-border);
+  border-radius: 2px;
+}
+.vdh-panel--sunk { background: var(--vdh-surface-sunk); border-style: dashed; }
+.vdh-panel--ink  { background: var(--vdh-chrome); border-color: var(--vdh-chrome); }
+
+.vdh-panel-title {
+  display: block;
+  padding: 13px 16px 11px;
+  font: 600 10px var(--vdh-mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--vdh-muted-2);
+}
+.vdh-panel--ink .vdh-panel-title { color: #8f887c; }
+
+// --- Generic rows / grids ----------------------------------------------------
+.vdh-row      { display: flex; align-items: center; gap: 14px; }
+.vdh-row--top { align-items: flex-start; }
+.vdh-col      { display: flex; flex-direction: column; }
+.vdh-spacer   { flex: 1 1 auto; }
+.vdh-gap-s > * + * { margin-top: 6px; }
+.vdh-gap-m > * + * { margin-top: 12px; }
+.vdh-mt-l   { margin-top: 18px; }
+
+// Atlas layoutgrid gutters are wider than the design's 14px.
+.vdh-cols > .row { margin-left: -7px; margin-right: -7px; }
+.vdh-cols > .row > div { padding-left: 7px; padding-right: 7px; }
+
+// =============================================================================
+//  Typography helpers
+// =============================================================================
+.vdh-mono     { font-family: var(--vdh-mono); }
+.vdh-serif    { font-family: var(--vdh-serif); }
+.vdh-h1       { display: block; font: 400 26px/1.2 var(--vdh-serif); color: var(--vdh-ink); }
+.vdh-h2       { display: block; font: 600 15px var(--vdh-serif); color: var(--vdh-ink); }
+.vdh-label    { display: block; font: 500 11px var(--vdh-sans); color: #5f5a52; }
+.vdh-caption  { display: block; font: 400 11px var(--vdh-mono); color: var(--vdh-muted); }
+.vdh-note     { display: block; font: 400 11.5px var(--vdh-sans); color: var(--vdh-muted); }
+.vdh-strong   { font-weight: 600; }
+.vdh-num      { font: 500 12.5px var(--vdh-mono); color: var(--vdh-ink); }
+.vdh-num--big { font: 400 34px var(--vdh-mono); color: var(--vdh-ink); letter-spacing: -.01em; }
+.vdh-num--mid { font: 400 21px var(--vdh-mono); color: var(--vdh-ink); }
+.vdh-right    { text-align: right; justify-content: flex-end; }
+.vdh-center   { text-align: center; justify-content: center; }
+
+.vdh-fg-ox    { color: var(--vdh-ox); }
+.vdh-fg-teal  { color: var(--vdh-teal); }
+.vdh-fg-green { color: var(--vdh-green); }
+.vdh-fg-amber { color: var(--vdh-amber); }
+.vdh-fg-muted { color: var(--vdh-muted); }
+.vdh-fg-faint { color: var(--vdh-faint); }
+
+// =============================================================================
+//  Tables — a styled ListView with a static header band above it
+// =============================================================================
+.vdh-thead {
+  display: flex; align-items: flex-end; gap: 0;
+  padding: 8px 16px;
+  background: var(--vdh-head);
+  border: 1px solid var(--vdh-border);
+  border-bottom: 0;
+  font: 600 9.5px var(--vdh-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--vdh-muted);
+}
+.vdh-thead > * { min-width: 0; }
+
+.vdh-table {
+  background: var(--vdh-surface);
+  border: 1px solid var(--vdh-border);
+}
+
+// Neutralise Atlas's ListView row chrome so rows read as the design's grid.
+// `.vdh-lv` is the reset on its own, for lists that are not a bordered table.
+.vdh-table > ul, .vdh-lv > ul,
+.vdh-table .mx-listview-list, .vdh-lv .mx-listview-list { margin: 0; padding: 0; list-style: none; }
+
+.vdh-table > ul > li, .vdh-lv > ul > li,
+.vdh-table .mx-listview-item, .vdh-lv .mx-listview-item {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+.vdh-table > ul > li, .vdh-table .mx-listview-item {
+  border-bottom: 1px solid var(--vdh-border-soft) !important;
+}
+.vdh-table > ul > li:last-child,
+.vdh-table .mx-listview-item:last-child { border-bottom: 0 !important; }
+.vdh-table .mx-listview-item:hover { background: #fcfbf8 !important; }
+.vdh-table .mx-listview-loadMore, .vdh-lv .mx-listview-loadMore { display: none; }
+
+.vdh-lv .mx-dataview, .vdh-lv .mx-dataview-content { display: block; padding: 0; margin: 0; background: transparent; }
+.vdh-lv .vdh-row + .vdh-row { margin-top: 5px; }
+
+.vdh-trow { display: flex; align-items: center; padding: 7px 16px; }
+.vdh-trow > * { min-width: 0; }
+
+// Total / footer band under a table
+.vdh-tfoot {
+  display: flex; align-items: center;
+  padding: 10px 16px;
+  background: var(--vdh-head);
+  border: 1px solid var(--vdh-border);
+  border-top: 0;
+  font: 600 12px var(--vdh-sans);
+  color: var(--vdh-ink);
+}
+
+// Cell width scale — the design's tables are fixed-proportion, not 12-column.
+@each $w in (28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 88, 96, 104, 112, 120, 128, 140, 150, 160, 170, 180, 200, 220, 240, 260, 300) {
+  .vdh-w-#{$w} { flex: 0 0 #{$w}px; width: #{$w}px; }
+}
+.vdh-w-fill { flex: 1 1 auto; }
+
+// A two-line cell: title over a mono sub-line
+.vdh-cell-title {
+  display: block; font: 400 12.5px var(--vdh-sans); color: var(--vdh-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vdh-cell-sub {
+  display: block; font: 400 11px var(--vdh-mono); color: var(--vdh-muted); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+// =============================================================================
+//  Chips
+// =============================================================================
+.vdh-chip {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font: 500 9.5px var(--vdh-mono);
+  letter-spacing: .04em;
+  white-space: nowrap;
+  background: var(--vdh-neutral-bg);
+  color: var(--vdh-neutral-fg);
+}
+.vdh-chip--ok      { background: var(--vdh-ok-bg);      color: var(--vdh-ok-fg); }
+.vdh-chip--warn    { background: var(--vdh-warn-bg);    color: var(--vdh-warn-fg); }
+.vdh-chip--danger  { background: var(--vdh-danger-bg);  color: var(--vdh-danger-fg); }
+.vdh-chip--neutral { background: var(--vdh-neutral-bg); color: var(--vdh-neutral-fg); }
+.vdh-chip--lg      { padding: 4px 9px; font-size: 11px; }
+
+// A draft banner: amber text on a tinted, hairline-bordered field
+.vdh-flag {
+  display: inline-block;
+  padding: 5px 10px;
+  border: 1px solid #ecdcc0;
+  border-radius: 3px;
+  background: #fdf7ec;
+  font: 500 11.5px var(--vdh-mono);
+  color: #8a6716;
+}
+
+// =============================================================================
+//  Buttons
+// =============================================================================
+.vdh-btn.btn, .btn.vdh-btn {
+  padding: 6px 12px;
+  border-radius: 3px;
+  border: 1px solid var(--vdh-border-hard);
+  background: var(--vdh-surface);
+  font: 500 12px var(--vdh-sans);
+  color: var(--vdh-ink-2);
+  box-shadow: none;
+}
+.vdh-btn.btn:hover { border-color: var(--vdh-ink); background: var(--vdh-surface); color: var(--vdh-ink); }
+
+.vdh-btn--ink.btn, .btn.vdh-btn--ink {
+  background: var(--vdh-ink); border-color: var(--vdh-ink); color: #f4efe6; font-weight: 600;
+}
+.vdh-btn--ink.btn:hover { background: #24282f; color: #fff; }
+
+.vdh-btn--ox.btn, .btn.vdh-btn--ox {
+  background: var(--vdh-ox); border-color: var(--vdh-ox); color: #fff; font-weight: 600;
+}
+.vdh-btn--ox.btn:hover { background: var(--vdh-ox-dark); color: #fff; }
+
+.vdh-btn--teal.btn, .btn.vdh-btn--teal {
+  background: var(--vdh-green); border-color: var(--vdh-green); color: #fff; font-weight: 600;
+}
+.vdh-btn--teal.btn:hover { background: #245740; color: #fff; }
+
+.vdh-btn--sm.btn { padding: 3px 9px; font-size: 11px; }
+
+.vdh-link.btn, .btn.vdh-link {
+  padding: 0; border: 0; background: transparent;
+  font: 400 11.5px var(--vdh-sans); color: var(--vdh-ox);
+}
+.vdh-link.btn:hover { color: var(--vdh-ox-dark); text-decoration: underline; background: transparent; }
+
+// A row of segmented filter buttons
+.vdh-seg { display: inline-flex; gap: 6px; }
+.vdh-seg .btn {
+  padding: 4px 10px;
+  border: 1px solid var(--vdh-border-hard);
+  border-radius: 3px;
+  background: var(--vdh-surface);
+  font: 500 11.5px var(--vdh-sans);
+  color: var(--vdh-muted-2);
+}
+.vdh-seg .btn.vdh-seg--on { background: var(--vdh-ink); border-color: var(--vdh-ink); color: #f4efe6; }
+
+// =============================================================================
+//  Meters, bars and charts — driven by 0-20 bucket classes
+//
+//  A Mendix widget has no computed inline style, so every data-driven dimension
+//  is quantised to a bucket in a microflow and the bucket picks a class here.
+// =============================================================================
+.vdh-meter {
+  position: relative;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--vdh-border-soft);
+  overflow: hidden;
+}
+.vdh-meter-fill { display: block; height: 100%; background: var(--vdh-teal); }
+.vdh-meter-fill--ox    { background: var(--vdh-ox); }
+.vdh-meter-fill--amber { background: var(--vdh-amber); }
+.vdh-meter-fill--green { background: var(--vdh-green); }
+.vdh-meter-fill--grey  { background: var(--vdh-ghost); }
+.vdh-meter-fill--ink   { background: var(--vdh-ink); }
+
+@for $i from 0 through 20 {
+  .vdh-w-b#{$i} { width: $i * 5%; }
+  .vdh-h-b#{$i} { height: $i * 5%; }
+}
+
+// Vertical column chart: columns sit on a shared baseline
+.vdh-chart { display: flex; align-items: flex-end; gap: 8px; height: 150px; }
+.vdh-chart--tall { height: 165px; }
+.vdh-chart--short { height: 68px; }
+.vdh-chart-col { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.vdh-chart-bar { display: block; width: 100%; background: var(--vdh-ghost); }
+.vdh-chart-bar--ink   { background: var(--vdh-ink); }
+.vdh-chart-bar--teal  { background: var(--vdh-teal); }
+.vdh-chart-bar--amber { background: var(--vdh-amber); }
+.vdh-chart-bar--ox    { background: var(--vdh-ox); }
+.vdh-chart-bar--grey  { background: #d5cec2; }
+.vdh-chart-cap {
+  display: block; text-align: center; margin-bottom: 4px;
+  font: 400 10.5px var(--vdh-mono); color: var(--vdh-muted);
+}
+.vdh-chart-foot {
+  display: block; text-align: center; margin-top: 6px;
+  font: 400 10px var(--vdh-mono); color: var(--vdh-muted);
+}
+
+// Stacked composition bar
+.vdh-stack { display: flex; height: 7px; border-radius: 1px; overflow: hidden; background: var(--vdh-border-soft); }
+.vdh-stack-seg { display: block; height: 100%; }
+.vdh-swatch { display: inline-block; width: 8px; height: 8px; margin-right: 7px; }
+.ss-swatch--ink,  .vdh-seg--ink  { background: var(--vdh-ink); }
+.ss-swatch--teal, .vdh-seg--teal { background: var(--vdh-teal); }
+.ss-swatch--ox,   .vdh-seg--ox   { background: var(--vdh-ox); }
+.ss-swatch--grey, .vdh-seg--grey { background: var(--vdh-ghost); }
+
+// Horizontal band (timeliness, role mix)
+.vdh-band { height: 7px; border-radius: 1px; background: var(--vdh-border-soft); overflow: hidden; }
+.vdh-band-fill { display: block; height: 100%; background: var(--vdh-teal); }
+.ss-band--ok   .vdh-band-fill { background: var(--vdh-green); }
+.ss-band--teal .vdh-band-fill { background: var(--vdh-teal); }
+.ss-band--warn .vdh-band-fill { background: var(--vdh-amber); }
+.ss-band--over .vdh-band-fill { background: var(--vdh-ox); }
+
+// Four-segment role-mix bar used in the per-customer table
+.vdh-mix { display: flex; height: 7px; width: 150px; border-radius: 1px; overflow: hidden; background: var(--vdh-border-soft); }
+.vdh-mix > span { display: block; height: 100%; }
+
+// =============================================================================
+//  Notices and small stacks
+// =============================================================================
+.vdh-notice {
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--vdh-ghost);
+}
+.ss-notice--ox   { border-left-color: var(--vdh-ox); }
+.ss-notice--warn { border-left-color: var(--vdh-amber); }
+.ss-notice--teal { border-left-color: var(--vdh-teal); }
+.vdh-notice-title { display: block; font: 500 12px var(--vdh-sans); color: var(--vdh-ink); }
+.vdh-notice-sub   { display: block; font: 400 11px var(--vdh-mono); color: var(--vdh-muted); margin-top: 2px; }
+
+// A KPI tile
+.vdh-kpi {
+  padding: 14px 16px 16px;
+  background: var(--vdh-surface);
+  border: 1px solid var(--vdh-border);
+  border-radius: 2px;
+}
+.vdh-kpi-label {
+  display: block;
+  font: 600 9.5px var(--vdh-mono);
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--vdh-muted);
+}
+.vdh-kpi-value { display: block; margin: 8px 0 4px; font: 400 27px var(--vdh-mono); color: var(--vdh-ink); }
+.vdh-kpi-sub   { display: block; font: 400 11px var(--vdh-sans); color: var(--vdh-muted); }
+
+// Avatar circle
+.vdh-avatar {
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--vdh-surface-sunk);
+  border: 1px solid var(--vdh-border);
+  font: 600 9.5px var(--vdh-mono);
+  color: var(--vdh-muted-2);
+}
+
+// =============================================================================
+//  Forms
+// =============================================================================
+.vdh-form .form-group { margin-bottom: 14px; }
+.vdh-form .control-label {
+  padding: 0 0 5px;
+  font: 600 9.5px var(--vdh-mono);
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--vdh-muted);
+}
+.vdh-form .form-control,
+.vdh-form .mx-textarea-input,
+.vdh-form textarea,
+.vdh-form input[type='text'] {
+  height: auto;
+  padding: 9px 11px;
+  border: 1px solid var(--vdh-border-hard);
+  border-radius: 3px;
+  background: var(--vdh-surface);
+  box-shadow: none;
+  font: 400 13px var(--vdh-sans);
+  color: var(--vdh-ink-2);
+}
+.vdh-form .form-control:focus { border-color: var(--vdh-ink); box-shadow: none; }
+.vdh-form .mx-dataview-content { padding: 0; }
+
+// Vertical form labels (label above the control) inside the entry card
+.vdh-form .col-sm-3, .vdh-form .col-sm-9 { width: 100%; float: none; padding: 0; }
+
+.vdh-hours-input .form-control {
+  font: 600 15px var(--vdh-mono);
+  text-align: right;
+  border-color: var(--vdh-ink);
+}
+
+// =============================================================================
+//  Misc Atlas resets
+// =============================================================================
+.mx-dataview-content, .mx-listview { background: transparent; }
+.vdh-page .mx-listview-empty { padding: 14px 16px; font: 400 12px var(--vdh-sans); color: var(--vdh-muted); }
+.vdh-page .form-group { margin: 0; }
+.vdh-page .mx-button:focus, .vdh-page .btn:focus { outline: none; box-shadow: none; }
+
+// =============================================================================
+//  Rate card cells
+// =============================================================================
+.vdh-rate--std   { background: var(--vdh-ok-bg);      color: var(--vdh-ink-2); }
+.vdh-rate--neg   { background: var(--vdh-ok-bg);      color: var(--vdh-ink-2); }
+.vdh-rate--below { background: var(--vdh-danger-bg);  color: var(--vdh-ox); font-weight: 600; }
+.vdh-rate--none  { background: var(--vdh-surface-sunk); color: var(--vdh-faint); }
+
+// The rate columns are full-bleed tinted cells, so they need their own padding.
+.vdh-trow > .vdh-rate--std,
+.vdh-trow > .vdh-rate--neg,
+.vdh-trow > .vdh-rate--below,
+.vdh-trow > .vdh-rate--none { padding: 9px 12px; margin: -9px 0; }
+
+
+// Atlas's focus ring is not part of the design.
+.mx-navigationtree a:focus,
+.mx-navigationtree a:focus-visible,
+.mx-navigationtree:focus { outline: none !important; box-shadow: none !important; }
+
+// =============================================================================
+//  Unwrapping ListView chrome
+//
+//  A ListView nests each row four levels deep (ul > li > .mx-dataview >
+//  .mx-dataview-content > row). That breaks any layout where the row itself has
+//  to be a flex/grid child — a stacked bar segment, a chart column. Collapsing
+//  the wrappers with `display: contents` makes the row a direct child of the
+//  styled parent again.
+// =============================================================================
+// The class can sit either on a wrapper around the ListView or on the ListView
+// itself, so every wrapper level is collapsed in both cases.
+.vdh-stack .mx-listview,
+.vdh-stack ul,
+.vdh-stack li,
+.vdh-stack .mx-dataview,
+.vdh-stack .mx-dataview-content,
+.vdh-chart .mx-listview,
+.vdh-chart ul,
+.vdh-chart li,
+.vdh-chart .mx-dataview,
+.vdh-chart .mx-dataview-content { display: contents !important; }
+
+// Inside a table the wrappers stay block-level, but must add no chrome.
+.vdh-table .mx-dataview,
+.vdh-table .mx-dataview-content { display: block; padding: 0; margin: 0; background: transparent; }
+
+
+// =============================================================================
+//  Inverted panels
+// =============================================================================
+.vdh-panel--ink .vdh-table {
+  background: transparent;
+  border: 0;
+}
+.vdh-panel--ink .vdh-table > ul > li,
+.vdh-panel--ink .vdh-table .mx-listview-item {
+  border-bottom: 1px solid var(--vdh-chrome-line) !important;
+}
+.vdh-panel--ink .vdh-table .mx-listview-item:hover { background: #1b1f25 !important; }
+.vdh-panel--ink .vdh-cell-title,
+.vdh-panel--ink .vdh-note,
+.vdh-panel--ink .vdh-num { color: #d9d3c7; }
+.vdh-panel--ink .vdh-caption,
+.vdh-panel--ink .vdh-cell-sub { color: #8f887c; }
+.vdh-panel--ink .vdh-notice-title { color: #e9e3d9; }
+.vdh-panel--ink .vdh-notice-sub { color: #8f887c; }
+.vdh-panel--ink .vdh-btn.btn { width: 100%; justify-content: center; }
+
+// =============================================================================
+//  Column gaps
+//
+//  The design separates table columns with whitespace rather than rules, so
+//  every cell after the first carries a left gutter.
+// =============================================================================
+.vdh-trow > * + *,
+.vdh-thead > * + *,
+.vdh-tfoot > * + * { margin-left: 12px; }
+.vdh-row { flex-wrap: nowrap; }

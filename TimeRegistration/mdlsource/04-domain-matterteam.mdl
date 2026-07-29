@@ -1,0 +1,26 @@
+/**
+ * TimeRegistration — matter team
+ *
+ * Hours and value each fee earner has booked to a matter since it opened.
+ * Distinct from MatterMonthSummary, which is a single period's slice.
+ */
+
+/** One fee earner's contribution to a matter, matter-to-date. */
+@Position(1600, 1220)
+create persistent entity "TimeReg"."MatterTeamMember" (
+  "Hours": decimal,
+  "AmountValue": decimal,
+  "SortOrder": integer
+);
+/
+
+create association "TimeReg"."MatterTeamMember_Matter"
+from "TimeReg"."MatterTeamMember" to "TimeReg"."Matter"
+type reference
+delete_behavior DELETE_AND_REFERENCES;
+/
+
+create association "TimeReg"."MatterTeamMember_Employee"
+from "TimeReg"."MatterTeamMember" to "TimeReg"."Employee"
+type reference;
+/

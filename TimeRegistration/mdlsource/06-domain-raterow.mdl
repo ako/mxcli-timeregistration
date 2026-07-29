@@ -1,0 +1,21 @@
+/**
+ * TimeRegistration — rate card view model
+ *
+ * The rate card is a matrix: one row per role, one column per client with a
+ * negotiated agreement. Built on demand by DS_RateRows.
+ */
+
+/** One role row of the rate card, with its five client columns flattened. */
+@Position(1900, 100)
+create non-persistent entity "TimeReg"."RateRow" (
+  "RoleName": string(50),
+  /** "Band 8 · 6 people" */
+  "RoleSub": string(40),
+  "StandardRate": string(12),
+  "CostRate": string(12),
+  "V1": string(12), "V2": string(12), "V3": string(12), "V4": string(12), "V5": string(12),
+  /** vdh-rate--std / --below / --none, per cell */
+  "K1": string(24), "K2": string(24), "K3": string(24), "K4": string(24), "K5": string(24),
+  "SortOrder": integer
+);
+/

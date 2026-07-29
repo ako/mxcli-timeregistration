@@ -1,0 +1,21 @@
+/**
+ * Navigation.
+ *
+ * A flat nine-item menu in the design's order. The four section labels
+ * (My work / Manage / Reports / Administration) are injected by CSS on the
+ * first item of each group — the Mendix navigation model has no group header.
+ */
+create or replace navigation Responsive
+  home page "TimeReg"."WeekTimesheet"
+  menu (
+    menu item 'My matters' page "TimeReg"."MyMatters";
+    menu item 'Week timesheet' page "TimeReg"."WeekTimesheet";
+    menu item 'New entry' page "TimeReg"."NewEntry";
+    menu item 'Approvals' page "TimeReg"."Approvals";
+    menu item 'Monthly rollup' page "TimeReg"."MonthlyRollup";
+    menu item 'Per customer' page "TimeReg"."ReportCustomer";
+    menu item 'Per matter' page "TimeReg"."ReportMatter";
+    menu item 'Per manager & employee' page "TimeReg"."ReportPeople";
+    menu item 'Rate card' page "TimeReg"."RateCard";
+  );
+/

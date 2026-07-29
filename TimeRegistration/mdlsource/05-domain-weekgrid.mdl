@@ -1,0 +1,39 @@
+/**
+ * TimeRegistration — week grid view model
+ *
+ * The week screen shows one row per matter + task code with seven day columns,
+ * but time is stored one entry per day. These non-persistent entities are the
+ * pivoted shape, built on demand by DS_WeekRows / DS_WeekTotals.
+ *
+ * Day cells are strings because an empty cell renders as a middle dot, not a
+ * zero — carrying the display text avoids a formatting expression per cell.
+ */
+
+/** One matter + task line of the week grid. */
+@Position(100, 1400)
+create non-persistent entity "TimeReg"."WeekRow" (
+  "MatterName": string(200),
+  /** "M-2214 · ABN Delta · A103 Draft/revise SPA schedules" */
+  "MatterSub": string(200),
+  /** BIL / N/C / NB */
+  "BillLabel": string(5),
+  /** vdh-chip--ok / --danger / --neutral */
+  "BillClass": string(30),
+  "D1": string(10), "D2": string(10), "D3": string(10), "D4": string(10),
+  "D5": string(10), "D6": string(10), "D7": string(10),
+  "RowTotal": string(10),
+  "SortOrder": integer
+);
+/
+
+/** The day-total band under the week grid. */
+@Position(400, 1700)
+create non-persistent entity "TimeReg"."WeekTotal" (
+  "T1": string(10), "T2": string(10), "T3": string(10), "T4": string(10),
+  "T5": string(10), "T6": string(10), "T7": string(10),
+  /** vdh-fg-amber when a working day is short of the 7.5 h expectation. */
+  "C1": string(20), "C2": string(20), "C3": string(20), "C4": string(20),
+  "C5": string(20), "C6": string(20), "C7": string(20),
+  "GrandTotal": string(10)
+);
+/

@@ -4,9 +4,9 @@ This repository is a Mendix-app development workspace driven by
 [`mxcli`](https://github.com/ako/mxcli) and its MDL (Mendix Definition Language)
 scripting layer.
 
-**No Mendix project exists yet.** This commit installs and verifies the toolchain
-only — see [Scaffolding the Mendix project](#scaffolding-the-mendix-project) for
-the single command a future session runs to create the app.
+The app it builds lives in `TimeRegistration/` — see **[APP.md](APP.md)**.
+This document covers the toolchain only: what is installed, and how it
+re-establishes itself in a fresh container.
 
 ## Reproducing the environment
 
@@ -101,27 +101,40 @@ Do not set `GOTOOLCHAIN=local`.
   `mxcli run --local --ensure-db` needs them.
 - Chromium comes from the base image (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`).
   Never run `playwright install`.
-- Build outputs, local caches, and `*.mpr` files are gitignored. The mxcli clone,
-  the ANTLR jar, and compiled binaries are **not** committed — they are rebuilt
-  by the setup script.
+- The Mendix model (`TimeRegistration.mpr` + `mprcontents/`) **is** committed —
+  it is the app, not build output. Build outputs (`deployment/`, `theme-cache/`,
+  `.mendix-cache/`), the mxcli clone, the ANTLR jar and compiled binaries are
+  **not** — they are rebuilt by the setup script.
 
-## Scaffolding the Mendix project
+## The Mendix project
 
-Not done yet, and intentionally so. When the app is created, a single command
-bootstraps the project, the AI tooling, and the devcontainer config:
+The app lives in `TimeRegistration/` and was scaffolded with:
 
 ```bash
 mxcli new TimeRegistration --version 11.12.1
 ```
 
-This runs `mx create-project` against the cached MxBuild, then `mxcli init`
-(Claude Code skills + commands by default). Add `--output-dir .` to scaffold in
-place rather than into `./TimeRegistration`.
-
-Useful follow-ups once the project exists:
+See **[APP.md](APP.md)** for what it does. To run it:
 
 ```bash
-mxcli exec model.mdl -p TimeRegistration/TimeRegistration.mpr   # apply an MDL script
-mxcli check model.mdl                                           # parse/validate MDL without executing
-mxcli run --local --ensure-db -p .../TimeRegistration.mpr       # warm local dev loop + PostgreSQL
+cd TimeRegistration
+./mxcli run --local -p TimeRegistration.mpr --ensure-db --watch
 ```
+
+`TimeRegistration/mxcli` is a hard link to the system binary and is gitignored;
+`scripts/setup-tools.sh` re-creates `/usr/local/bin/mxcli` on a fresh container.
+Re-link it after a rebuild with `ln -f /usr/local/bin/mxcli TimeRegistration/mxcli`
+(or just call `mxcli` from PATH).
+
+Everything in the app is reproducible from `TimeRegistration/mdlsource/`:
+
+```bash
+cd TimeRegistration
+./mxcli check mdlsource/01-domain.mdl -p TimeRegistration.mpr --references  # validate
+./mxcli exec  mdlsource/01-domain.mdl -p TimeRegistration.mpr               # apply
+~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr              # full build check
+```
+
+The scripts are numbered in dependency order (`0x` domain, `1x` seed, `2x` logic
+and datasources, `3x` pages, `4x` navigation and settings) and are re-runnable —
+they use `create or modify` / `create or replace` / `add attribute if not exists`.

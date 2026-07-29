@@ -1,0 +1,226 @@
+/**
+ * Monthly rollup — the firm-wide view used to close the period.
+ *
+ * Five KPI tiles over the month's hours by week, the largest matters and the
+ * split by role; on the right the close checklist, the working-time exceptions
+ * that have to be cleared, and the realisation trend.
+ */
+create or replace page "TimeReg"."MonthlyRollup" (
+  Title: 'Monthly rollup',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'rollup',
+  Folder: 'Manage'
+)
+{
+  container ruPage (Class: 'vdh-page') {
+
+    container ruTop (Class: 'vdh-topbar') {
+      dynamictext ruTitle (Content: 'Monthly rollup', Class: 'vdh-topbar-title')
+      dynamictext ruSub (Content: 'July 2026 · firm-wide', Class: 'vdh-topbar-sub')
+      container ruSpacer (Class: 'vdh-topbar-spacer') { dynamictext ruSpacerText (Content: ' ') }
+      dynamictext ruPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
+      dynamictext ruPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      actionbutton ruLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container ruBody (Class: 'vdh-body') {
+
+      -- KPI row ---------------------------------------------------------------
+      dataview ruStat (DataSource: microflow "TimeReg"."DS_CurrentPeriodStat") {
+        layoutgrid ruKpis (Class: 'vdh-cols') {
+          row ruKpiRow {
+            column ruK1 (DesktopWidth: 2) {
+              container ruKpi1 (Class: 'vdh-kpi') {
+                dynamictext ruK1Label (Content: 'Recorded', Class: 'vdh-kpi-label')
+                dynamictext ruK1Value (Attribute: RecordedLabel, Class: 'vdh-kpi-value')
+                dynamictext ruK1Sub (Content: 'hours · 48 fee earners', Class: 'vdh-kpi-sub')
+              }
+            }
+            column ruK2 (DesktopWidth: 2) {
+              container ruKpi2 (Class: 'vdh-kpi') {
+                dynamictext ruK2Label (Content: 'Billable', Class: 'vdh-kpi-label')
+                dynamictext ruK2Value (Attribute: BillableLabel, Class: 'vdh-kpi-value vdh-fg-green')
+                dynamictext ruK2Sub (Content: '{1} of recorded', ContentParams: [{1} = BillablePctLabel], Class: 'vdh-kpi-sub')
+              }
+            }
+            column ruK3 (DesktopWidth: 3) {
+              container ruKpi3 (Class: 'vdh-kpi') {
+                dynamictext ruK3Label (Content: 'Value at standard', Class: 'vdh-kpi-label')
+                dynamictext ruK3Value (Content: '€ 1,15M', Class: 'vdh-kpi-value')
+                dynamictext ruK3Sub (Content: 'before write-offs', Class: 'vdh-kpi-sub')
+              }
+            }
+            column ruK4 (DesktopWidth: 2) {
+              container ruKpi4 (Class: 'vdh-kpi') {
+                dynamictext ruK4Label (Content: 'Realisation', Class: 'vdh-kpi-label')
+                dynamictext ruK4Value (Attribute: RealisationLabel, Class: 'vdh-kpi-value vdh-fg-teal')
+                dynamictext ruK4Sub (Content: '+{1} pt vs June', ContentParams: [{1} = DeltaLabel], Class: 'vdh-kpi-sub')
+              }
+            }
+            column ruK5 (DesktopWidth: 3) {
+              container ruKpi5 (Class: 'vdh-kpi') {
+                dynamictext ruK5Label (Content: 'Not submitted', Class: 'vdh-kpi-label')
+                dynamictext ruK5Value (Attribute: NotSubmittedCount, Class: 'vdh-kpi-value vdh-fg-ox')
+                dynamictext ruK5Sub (Content: 'timesheets · blocks close', Class: 'vdh-kpi-sub')
+              }
+            }
+          }
+        }
+      }
+
+      layoutgrid ruMain (Class: 'vdh-cols vdh-mt-l') {
+        row ruMainRow {
+
+          -- Left: charts ------------------------------------------------------
+          column ruColLeft (DesktopWidth: 7) {
+            container ruWeekPanel (Class: 'vdh-panel') {
+              container ruWeekHead (Class: 'vdh-row') {
+                dynamictext ruWeekTitle (Content: 'Hours by week · billable vs non-billable', Class: 'vdh-panel-title vdh-w-fill')
+                dynamictext ruWeekLegend1 (Content: 'Billable', Class: 'vdh-caption')
+                dynamictext ruWeekLegend2 (Content: 'Non-billable', Class: 'vdh-caption vdh-fg-faint')
+              }
+              container ruWeekBody (Class: 'vdh-body') {
+                listview ruWeeks (
+                  DataSource: database from "TimeReg"."WeekSummary" sort by SortOrder asc,
+                  Class: 'vdh-chart'
+                ) {
+                  container ruWeekCol (Class: 'vdh-chart-col') {
+                    dynamictext ruWeekTotal (Attribute: TotalLabel, Class: 'vdh-chart-cap')
+                    container ruWeekNb (
+                      Class: 'vdh-chart-bar vdh-chart-bar--grey vdh-h-b2'
+                    ) { dynamictext ruWeekNbText (Content: ' ') }
+                    container ruWeekBil (
+                      Class: 'vdh-chart-bar vdh-chart-bar--ink',
+                      DynamicClasses: '''vdh-h-b'' + toString($currentObject/BillableBucket)'
+                    ) { dynamictext ruWeekBilText (Content: ' ') }
+                    dynamictext ruWeekLabel (Attribute: Label, Class: 'vdh-chart-foot')
+                  }
+                }
+              }
+
+              layoutgrid ruSplit (Class: 'vdh-cols') {
+                row ruSplitRow {
+                  column ruSplitL (DesktopWidth: 6) {
+                    dynamictext ruTopTitle (Content: 'Top matters this month', Class: 'vdh-panel-title')
+                    listview ruTopList (DataSource: microflow "TimeReg"."DS_TopMatters", Class: 'vdh-table') {
+                      container ruTopRow (Class: 'vdh-trow vdh-col') {
+                        container ruTopHead (Class: 'vdh-row') {
+                          dynamictext ruTopName (
+                            Content: '{1} {2}',
+                            ContentParams: [{1} = MatterMonthSummary_Matter/Code, {2} = MatterMonthSummary_Matter/Name],
+                            Class: 'vdh-w-fill vdh-fg-ox'
+                          )
+                          container ruTopNums (Class: 'vdh-col vdh-right') {
+                            dynamictext ruTopHours (Attribute: HoursLabel, Class: 'vdh-num')
+                            dynamictext ruTopValue (Attribute: ValueLabel, Class: 'vdh-caption')
+                          }
+                        }
+                        container ruTopMeter (Class: 'vdh-meter') {
+                          container ruTopFill (
+                            Class: 'vdh-meter-fill',
+                            DynamicClasses: '''vdh-w-b'' + toString($currentObject/HoursBucket)'
+                          ) { dynamictext ruTopFillText (Content: ' ') }
+                        }
+                      }
+                    }
+                  }
+                  column ruSplitR (DesktopWidth: 6) {
+                    dynamictext ruRoleTitle (Content: 'Hours by role', Class: 'vdh-panel-title')
+                    listview ruRoles (
+                      DataSource: database from "TimeReg"."RoleMonthSummary" sort by SortOrder asc,
+                      Class: 'vdh-table'
+                    ) {
+                      container ruRoleRow (Class: 'vdh-trow') {
+                        dynamictext ruRoleName (
+                          Content: '{1}',
+                          ContentParams: [{1} = RoleMonthSummary_Role/Name],
+                          Class: 'vdh-w-120'
+                        )
+                        container ruRoleBand (Class: 'vdh-band vdh-w-fill') {
+                          container ruRoleFill (
+                            Class: 'vdh-band-fill',
+                            DynamicClasses: '''vdh-w-b'' + toString($currentObject/HoursBucket)'
+                          ) { dynamictext ruRoleFillText (Content: ' ') }
+                        }
+                        dynamictext ruRoleHours (Attribute: HoursLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          -- Right: close, exceptions, trend ------------------------------------
+          column ruColRight (DesktopWidth: 5) {
+
+            container ruClosePanel (Class: 'vdh-panel vdh-panel--ink') {
+              dynamictext ruCloseTitle (Content: 'Month close · Jul 2026', Class: 'vdh-panel-title')
+              listview ruChecks (
+                DataSource: database from "TimeReg"."CloseCheck" sort by SortOrder asc,
+                Class: 'vdh-table'
+              ) {
+                container ruCheckRow (Class: 'vdh-trow') {
+                  dynamictext ruCheckMark (
+                    Content: '!',
+                    Class: 'vdh-w-28 vdh-chip',
+                    DynamicClasses: 'if $currentObject/IsDone then ''vdh-chip--ok'' else ''vdh-chip--warn'''
+                  )
+                  dynamictext ruCheckLabel (Attribute: Label, Class: 'vdh-w-fill vdh-note')
+                  dynamictext ruCheckDetail (Attribute: Detail, Class: 'vdh-w-104 vdh-right vdh-caption')
+                }
+              }
+              container ruCloseFoot (Class: 'vdh-body') {
+                dataview ruClosePeriod (DataSource: microflow "TimeReg"."DS_CurrentPeriod") {
+                  actionbutton ruLock (
+                    Caption: 'Lock period & release reports',
+                    Action: microflow "TimeReg"."ACT_LockPeriod"("Period": $currentObject),
+                    Class: 'vdh-btn vdh-btn--ox'
+                  )
+                }
+              }
+            }
+
+            container ruWtdPanel (Class: 'vdh-panel vdh-mt-l') {
+              dynamictext ruWtdTitle (Content: 'Working-time exceptions', Class: 'vdh-panel-title')
+              listview ruWtd (
+                DataSource: database from "TimeReg"."WorkingTimeException" sort by SortOrder asc,
+                Class: 'vdh-table'
+              ) {
+                container ruWtdRow (Class: 'vdh-trow') {
+                  container ruWtdNotice (Class: 'vdh-notice ss-notice--ox vdh-w-fill') {
+                    dynamictext ruWtdWho (Attribute: PersonLabel, Class: 'vdh-notice-title')
+                    dynamictext ruWtdWhat (Attribute: Detail, Class: 'vdh-notice-sub')
+                  }
+                  dynamictext ruWtdValue (Attribute: ValueLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+                }
+              }
+            }
+
+            container ruTrendPanel (Class: 'vdh-panel vdh-mt-l') {
+              dynamictext ruTrendTitle (Content: 'Realisation trend', Class: 'vdh-panel-title')
+              container ruTrendBody (Class: 'vdh-body') {
+                listview ruTrend (
+                  DataSource: database from "TimeReg"."TrendPoint" sort by SortOrder asc,
+                  Class: 'vdh-chart vdh-chart--short'
+                ) {
+                  container ruTrendCol (Class: 'vdh-chart-col') {
+                    container ruTrendBar (
+                      Class: 'vdh-chart-bar',
+                      DynamicClasses: '''vdh-h-b'' + toString($currentObject/Bucket) + (if $currentObject/IsCurrent then '' vdh-chart-bar--teal'' else '' vdh-chart-bar--grey'')'
+                    ) { dynamictext ruTrendBarText (Content: ' ') }
+                  }
+                }
+                container ruTrendAxis (Class: 'vdh-row') {
+                  dynamictext ruTrendFrom (Content: 'Aug 25', Class: 'vdh-caption vdh-w-fill')
+                  dynamictext ruTrendNow (Content: '92.1% now', Class: 'vdh-caption')
+                  dynamictext ruTrendTo (Content: 'Jul 26', Class: 'vdh-caption vdh-w-fill vdh-right')
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

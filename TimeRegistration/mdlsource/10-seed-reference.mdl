@@ -1,0 +1,335 @@
+/**
+ * Seed — reference data
+ *
+ * Roles, task codes, clients, fee earners, matters and the negotiated rate
+ * matrix for van Duyn & Haverkamp. Called once by ASU_SeedDemoData.
+ */
+create or modify microflow "TimeReg"."SED_Reference" ()
+returns boolean as $ok
+folder 'Seed'
+begin
+  $lRole = create list of "TimeReg"."Role";
+  $lTaskCode = create list of "TimeReg"."TaskCode";
+  $lClient = create list of "TimeReg"."Client";
+  $lEmployee = create list of "TimeReg"."Employee";
+  $lMatter = create list of "TimeReg"."Matter";
+  $lClientRate = create list of "TimeReg"."ClientRate";
+  $lRateChange = create list of "TimeReg"."RateChange";
+
+  -- --- Roles: standard charge-out rate and internal cost per hour ---------
+  $rPartner = create "TimeReg"."Role" (Name = 'Partner',          Band = 8, StandardRate = 480, CostRate = 195, HeadCount = 6,  SortOrder = 1);
+  add $rPartner to $lRole;
+  $rCounsel = create "TimeReg"."Role" (Name = 'Counsel',          Band = 7, StandardRate = 390, CostRate = 150, HeadCount = 4,  SortOrder = 2);
+  add $rCounsel to $lRole;
+  $rSenior  = create "TimeReg"."Role" (Name = 'Senior Associate', Band = 6, StandardRate = 310, CostRate = 105, HeadCount = 11, SortOrder = 3);
+  add $rSenior to $lRole;
+  $rAssoc   = create "TimeReg"."Role" (Name = 'Associate',        Band = 5, StandardRate = 235, CostRate = 82,  HeadCount = 14, SortOrder = 4);
+  add $rAssoc to $lRole;
+  $rTrainee = create "TimeReg"."Role" (Name = 'Trainee',          Band = 3, StandardRate = 165, CostRate = 58,  HeadCount = 8,  SortOrder = 5);
+  add $rTrainee to $lRole;
+  $rPara    = create "TimeReg"."Role" (Name = 'Paralegal',        Band = 2, StandardRate = 140, CostRate = 48,  HeadCount = 5,  SortOrder = 6);
+  add $rPara to $lRole;
+
+  -- --- Task codes -------------------------------------------------------
+  $tA101 = create "TimeReg"."TaskCode" (Code = 'A101', Name = 'Plan & prepare',            SortOrder = 1);
+  add $tA101 to $lTaskCode;
+  $tA103 = create "TimeReg"."TaskCode" (Code = 'A103', Name = 'Draft / revise documents',  SortOrder = 2);
+  add $tA103 to $lTaskCode;
+  $tA104 = create "TimeReg"."TaskCode" (Code = 'A104', Name = 'Review & analyse',          SortOrder = 3);
+  add $tA104 to $lTaskCode;
+  $tA105 = create "TimeReg"."TaskCode" (Code = 'A105', Name = 'Communicate — internal',    SortOrder = 4);
+  add $tA105 to $lTaskCode;
+  $tA106 = create "TimeReg"."TaskCode" (Code = 'A106', Name = 'Communicate — client',      SortOrder = 5);
+  add $tA106 to $lTaskCode;
+  $tA107 = create "TimeReg"."TaskCode" (Code = 'A107', Name = 'Negotiation & closing',     SortOrder = 6);
+  add $tA107 to $lTaskCode;
+  $tL120 = create "TimeReg"."TaskCode" (Code = 'L120', Name = 'Data room & due diligence', SortOrder = 7);
+  add $tL120 to $lTaskCode;
+  $tNB   = create "TimeReg"."TaskCode" (Code = 'NB',   Name = 'Non-billable — internal',   SortOrder = 8);
+  add $tNB to $lTaskCode;
+
+  -- --- Clients ----------------------------------------------------------
+  $cAbn = create "TimeReg"."Client" (
+    Name = 'ABN Delta Holding N.V.', ShortName = 'ABN Delta',
+    RateAgreement = 'Volume discount 7,5%', ReportEmail = 'f.strijker@abndelta.nl');
+  add $cAbn to $lClient;
+  $cRijn = create "TimeReg"."Client" (
+    Name = 'Rijnmond Port Authority', ShortName = 'Rijnmond Port',
+    RateAgreement = 'Framework 2025–2027', ReportEmail = 'facturen@rijnmondport.nl');
+  add $cRijn to $lClient;
+  $cKess = create "TimeReg"."Client" (
+    Name = 'Kessler Pharma B.V.', ShortName = 'Kessler Pharma',
+    RateAgreement = 'Blended € 275', ReportEmail = 'legal.ap@kesslerpharma.com');
+  add $cKess to $lClient;
+  $cDelta = create "TimeReg"."Client" (
+    Name = 'Delta Infra Partners', ShortName = 'Delta Infra',
+    RateAgreement = 'Standard rates', ReportEmail = 'invoices@deltainfra.nl');
+  add $cDelta to $lClient;
+  $cNieuw = create "TimeReg"."Client" (
+    Name = 'Stichting Nieuw Amsterdam', ShortName = 'Stichting N.A.',
+    RateAgreement = 'NGO tariff −20%', ReportEmail = 'bestuur@nieuwamsterdam.org');
+  add $cNieuw to $lClient;
+  $cVast = create "TimeReg"."Client" (
+    Name = 'Vastgoed Kroon B.V.', ShortName = 'Vastgoed Kroon',
+    RateAgreement = 'Standard rates', ReportEmail = 'administratie@vastgoedkroon.nl');
+  add $cVast to $lClient;
+  $cBerg = create "TimeReg"."Client" (
+    Name = 'Bergland Verzekeringen', ShortName = 'Bergland',
+    RateAgreement = 'Panel rates (capped)', ReportEmail = 'panel@bergland.nl');
+  add $cBerg to $lClient;
+  $cInt = create "TimeReg"."Client" (
+    Name = 'Internal', ShortName = 'Internal', RateAgreement = '—');
+  add $cInt to $lClient;
+
+  -- --- Fee earners ------------------------------------------------------
+  -- Joost Haverkamp is the supervising partner for the whole demo team.
+  $eJoost = create "TimeReg"."Employee" (
+    FullName = 'Joost Haverkamp', ShortName = 'J. Haverkamp', Initials = 'JH',
+    Email = 'j.haverkamp@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    IsPartner = true, SortOrder = 1,
+    "TimeReg"."Employee_Role" = $rPartner);
+  add $eJoost to $lEmployee;
+
+  $eCoen = create "TimeReg"."Employee" (
+    FullName = 'Coen Okonkwo', ShortName = 'C. Okonkwo', Initials = 'CO',
+    Email = 'c.okonkwo@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    SortOrder = 2,
+    "TimeReg"."Employee_Role" = $rCounsel,
+    "TimeReg"."Employee_Manager" = $eJoost);
+  add $eCoen to $lEmployee;
+
+  $eMaartje = create "TimeReg"."Employee" (
+    FullName = 'Maartje de Vries', ShortName = 'M. de Vries', Initials = 'MV',
+    Email = 'm.devries@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    SortOrder = 3,
+    "TimeReg"."Employee_Role" = $rSenior,
+    "TimeReg"."Employee_Manager" = $eJoost);
+  add $eMaartje to $lEmployee;
+
+  $eLieke = create "TimeReg"."Employee" (
+    FullName = 'Lieke de Groot', ShortName = 'L. de Groot', Initials = 'LG',
+    Email = 'l.degroot@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    SortOrder = 4,
+    "TimeReg"."Employee_Role" = $rSenior,
+    "TimeReg"."Employee_Manager" = $eJoost);
+  add $eLieke to $lEmployee;
+
+  $ePieter = create "TimeReg"."Employee" (
+    FullName = 'Pieter Ravensbergen', ShortName = 'P. Ravensbergen', Initials = 'PR',
+    Email = 'p.ravensbergen@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    SortOrder = 5,
+    "TimeReg"."Employee_Role" = $rAssoc,
+    "TimeReg"."Employee_Manager" = $eJoost);
+  add $ePieter to $lEmployee;
+
+  $eFatima = create "TimeReg"."Employee" (
+    FullName = 'Fatima El Amrani', ShortName = 'F. El Amrani', Initials = 'FE',
+    Email = 'f.elamrani@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    SortOrder = 6,
+    "TimeReg"."Employee_Role" = $rAssoc,
+    "TimeReg"."Employee_Manager" = $eJoost);
+  add $eFatima to $lEmployee;
+
+  $eRuben = create "TimeReg"."Employee" (
+    FullName = 'Ruben Vliet', ShortName = 'R. Vliet', Initials = 'RV',
+    Email = 'r.vliet@vdh-law.nl', TargetUtilisation = 78, FTE = 0.5, ContractHours = 20,
+    SortOrder = 7,
+    "TimeReg"."Employee_Role" = $rAssoc,
+    "TimeReg"."Employee_Manager" = $eJoost);
+  add $eRuben to $lEmployee;
+
+  $eSanne = create "TimeReg"."Employee" (
+    FullName = 'Sanne Bakhuis', ShortName = 'S. Bakhuis', Initials = 'SB',
+    Email = 's.bakhuis@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    SortOrder = 8,
+    "TimeReg"."Employee_Role" = $rTrainee,
+    "TimeReg"."Employee_Manager" = $eJoost);
+  add $eSanne to $lEmployee;
+
+  $eMarja = create "TimeReg"."Employee" (
+    FullName = 'Marja Stok', ShortName = 'M. Stok', Initials = 'MS',
+    Email = 'm.stok@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    SortOrder = 9,
+    "TimeReg"."Employee_Role" = $rPara,
+    "TimeReg"."Employee_Manager" = $eJoost);
+  add $eMarja to $lEmployee;
+
+  -- Partners referenced as responsible partner but outside the demo team.
+  $eBergsma = create "TimeReg"."Employee" (
+    FullName = 'Anouk Bergsma', ShortName = 'A. Bergsma', Initials = 'AB',
+    Email = 'a.bergsma@vdh-law.nl', TargetUtilisation = 78, FTE = 1, ContractHours = 40,
+    IsPartner = true, SortOrder = 10,
+    "TimeReg"."Employee_Role" = $rPartner);
+  add $eBergsma to $lEmployee;
+
+  -- --- Matters ----------------------------------------------------------
+  -- BudgetPct drives the bar on My matters; BudgetBucket is the same value
+  -- quantised to 0-20 because a widget cannot take a computed width.
+  $mAurora = create "TimeReg"."Matter" (
+    Code = 'M-2214', Name = 'Project Aurora — Meridian Labs', Practice = 'Corporate M&A',
+    OpenedDate = dateTime(2026, 2, 4), BudgetHours = 1450, FeeCap = 425000,
+    UsedHours = 1298,
+    BudgetLabel = '1.450', UsedLabel = '1.298', BudgetPct = 89, BudgetBucket = 18,
+    "TimeReg"."Matter_Client" = $cAbn, "TimeReg"."Matter_ResponsiblePartner" = $eJoost);
+  add $mAurora to $lMatter;
+
+  $mConcession = create "TimeReg"."Matter" (
+    Code = 'M-1980', Name = 'Concession dispute Maasvlakte', Practice = 'Litigation',
+    OpenedDate = dateTime(2025, 9, 15), BudgetHours = 900, UsedHours = 549,
+    BudgetLabel = '900', UsedLabel = '549',
+    BudgetPct = 61, BudgetBucket = 12,
+    "TimeReg"."Matter_Client" = $cRijn, "TimeReg"."Matter_ResponsiblePartner" = $eBergsma);
+  add $mConcession to $lMatter;
+
+  $mPatent = create "TimeReg"."Matter" (
+    Code = 'M-2301', Name = 'Patent opposition EP3 118 442', Practice = 'IP',
+    OpenedDate = dateTime(2026, 3, 2), BudgetHours = 240, UsedHours = 168.5,
+    BudgetLabel = '240', UsedLabel = '168',
+    BudgetPct = 70, BudgetBucket = 14,
+    "TimeReg"."Matter_Client" = $cKess, "TimeReg"."Matter_ResponsiblePartner" = $eJoost);
+  add $mPatent to $lMatter;
+
+  $mGovernance = create "TimeReg"."Matter" (
+    Code = 'M-2288', Name = 'Governance review board', Practice = 'Corporate M&A',
+    OpenedDate = dateTime(2026, 1, 20), BudgetHours = 180, UsedHours = 61.2,
+    BudgetLabel = '180', UsedLabel = '61',
+    BudgetPct = 34, BudgetBucket = 7,
+    "TimeReg"."Matter_Client" = $cNieuw, "TimeReg"."Matter_ResponsiblePartner" = $eCoen);
+  add $mGovernance to $lMatter;
+
+  $mFramework = create "TimeReg"."Matter" (
+    Code = 'M-2119', Name = 'Framework advice employment', Practice = 'Employment',
+    OpenedDate = dateTime(2025, 11, 3), BudgetHours = 320, UsedHours = 153.6,
+    BudgetLabel = '320', UsedLabel = '154',
+    BudgetPct = 48, BudgetBucket = 10,
+    "TimeReg"."Matter_Client" = $cKess, "TimeReg"."Matter_ResponsiblePartner" = $eLieke);
+  add $mFramework to $lMatter;
+
+  $mRefi = create "TimeReg"."Matter" (
+    Code = 'M-2260', Name = 'Refinancing facility B', Practice = 'Banking & Finance',
+    OpenedDate = dateTime(2026, 2, 18), BudgetHours = 640, UsedHours = 140.8,
+    BudgetLabel = '640', UsedLabel = '141',
+    BudgetPct = 22, BudgetBucket = 4,
+    "TimeReg"."Matter_Client" = $cDelta, "TimeReg"."Matter_ResponsiblePartner" = $eBergsma);
+  add $mRefi to $lMatter;
+
+  $mMerger = create "TimeReg"."Matter" (
+    Code = 'M-2305', Name = 'Merger clearance ACM filing', Practice = 'Competition',
+    OpenedDate = dateTime(2026, 5, 11), BudgetHours = 300, UsedHours = 36,
+    BudgetLabel = '300', UsedLabel = '36',
+    BudgetPct = 12, BudgetBucket = 2,
+    "TimeReg"."Matter_Client" = $cAbn, "TimeReg"."Matter_ResponsiblePartner" = $eJoost);
+  add $mMerger to $lMatter;
+
+  $mLease = create "TimeReg"."Matter" (
+    Code = 'M-2277', Name = 'Lease dispute Zuidas', Practice = 'Real Estate',
+    OpenedDate = dateTime(2026, 4, 7), BudgetHours = 200, UsedHours = 190,
+    BudgetLabel = '200', UsedLabel = '190',
+    BudgetPct = 95, BudgetBucket = 19,
+    "TimeReg"."Matter_Client" = $cVast, "TimeReg"."Matter_ResponsiblePartner" = $eCoen);
+  add $mLease to $lMatter;
+
+  $mBd = create "TimeReg"."Matter" (
+    Code = 'NB-BD', Name = 'Business development · pitches', Practice = 'Internal',
+    IsInternal = true, BudgetPct = 0, BudgetBucket = 0,
+    "TimeReg"."Matter_Client" = $cInt);
+  add $mBd to $lMatter;
+
+  $mAdmin = create "TimeReg"."Matter" (
+    Code = 'NB-ADM', Name = 'Internal · administration', Practice = 'Internal',
+    IsInternal = true, BudgetPct = 0, BudgetBucket = 0,
+    "TimeReg"."Matter_Client" = $cInt);
+  add $mAdmin to $lMatter;
+
+  -- --- Negotiated rate matrix -------------------------------------------
+  -- Only the five clients shown on the rate card have negotiated rates; the
+  -- rest are billed at the role's standard rate. A missing row means the role
+  -- is not staffed for that client.
+  $cr1 = create "TimeReg"."ClientRate" (Rate = 444, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rPartner);
+  add $cr1 to $lClientRate;
+  $cr2 = create "TimeReg"."ClientRate" (Rate = 361, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rCounsel);
+  add $cr2 to $lClientRate;
+  $cr3 = create "TimeReg"."ClientRate" (Rate = 287, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rSenior);
+  add $cr3 to $lClientRate;
+  $cr4 = create "TimeReg"."ClientRate" (Rate = 217, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rAssoc);
+  add $cr4 to $lClientRate;
+  $cr5 = create "TimeReg"."ClientRate" (Rate = 153, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rTrainee);
+  add $cr5 to $lClientRate;
+  $cr6 = create "TimeReg"."ClientRate" (Rate = 130, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rPara);
+  add $cr6 to $lClientRate;
+
+  $cr7 = create "TimeReg"."ClientRate" (Rate = 455, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rPartner);
+  add $cr7 to $lClientRate;
+  $cr8 = create "TimeReg"."ClientRate" (Rate = 370, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rCounsel);
+  add $cr8 to $lClientRate;
+  $cr9 = create "TimeReg"."ClientRate" (Rate = 295, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rSenior);
+  add $cr9 to $lClientRate;
+  $cr10 = create "TimeReg"."ClientRate" (Rate = 225, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rAssoc);
+  add $cr10 to $lClientRate;
+  $cr11 = create "TimeReg"."ClientRate" (Rate = 160, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rTrainee);
+  add $cr11 to $lClientRate;
+  $cr12 = create "TimeReg"."ClientRate" (Rate = 135, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rPara);
+  add $cr12 to $lClientRate;
+
+  -- Kessler is a single blended rate for every role; partner time therefore
+  -- falls below the cost + 40% floor and is flagged on the rate card.
+  $cr13 = create "TimeReg"."ClientRate" (Rate = 275, IsBelowFloor = true, "TimeReg"."ClientRate_Client" = $cKess, "TimeReg"."ClientRate_Role" = $rPartner);
+  add $cr13 to $lClientRate;
+  $cr14 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rCounsel);
+  add $cr14 to $lClientRate;
+  $cr15 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rSenior);
+  add $cr15 to $lClientRate;
+  $cr16 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rAssoc);
+  add $cr16 to $lClientRate;
+  $cr17 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rTrainee);
+  add $cr17 to $lClientRate;
+
+  $cr18 = create "TimeReg"."ClientRate" (Rate = 384, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rPartner);
+  add $cr18 to $lClientRate;
+  $cr19 = create "TimeReg"."ClientRate" (Rate = 312, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rCounsel);
+  add $cr19 to $lClientRate;
+  $cr20 = create "TimeReg"."ClientRate" (Rate = 248, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rSenior);
+  add $cr20 to $lClientRate;
+  $cr21 = create "TimeReg"."ClientRate" (Rate = 188, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rAssoc);
+  add $cr21 to $lClientRate;
+  $cr22 = create "TimeReg"."ClientRate" (Rate = 132, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rTrainee);
+  add $cr22 to $lClientRate;
+  $cr23 = create "TimeReg"."ClientRate" (Rate = 112, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rPara);
+  add $cr23 to $lClientRate;
+
+  $cr24 = create "TimeReg"."ClientRate" (Rate = 420, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rPartner);
+  add $cr24 to $lClientRate;
+  $cr25 = create "TimeReg"."ClientRate" (Rate = 350, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rCounsel);
+  add $cr25 to $lClientRate;
+  $cr26 = create "TimeReg"."ClientRate" (Rate = 280, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rSenior);
+  add $cr26 to $lClientRate;
+  $cr27 = create "TimeReg"."ClientRate" (Rate = 210, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rAssoc);
+  add $cr27 to $lClientRate;
+
+  -- --- Rate card change log ---------------------------------------------
+  $cr28 = create "TimeReg"."RateChange" (ChangeDate = dateTime(2026, 7, 1), DateLabel = '01 Jul 2026', SortOrder = 1,
+    Description = 'Rijnmond framework indexed +2,1% per contract art. 8.3 — approved A. Bergsma');
+  add $cr28 to $lRateChange;
+  $cr29 = create "TimeReg"."RateChange" (ChangeDate = dateTime(2026, 5, 14), DateLabel = '14 May 2026', SortOrder = 2,
+    Description = 'Kessler blended rate € 275 introduced for all roles; trainee time now chargeable');
+  add $cr29 to $lRateChange;
+  $cr30 = create "TimeReg"."RateChange" (ChangeDate = dateTime(2026, 4, 1), DateLabel = '01 Apr 2026', SortOrder = 3,
+    Description = 'Nieuw Amsterdam NGO discount extended to 31 Dec 2026');
+  add $cr30 to $lRateChange;
+  $cr31 = create "TimeReg"."RateChange" (ChangeDate = dateTime(2026, 1, 1), DateLabel = '01 Jan 2026', SortOrder = 4,
+    Description = 'Rate card version 2026.1 effective; cost rates recalculated from payroll');
+  add $cr31 to $lRateChange;
+
+  -- Commit in dependency order: a child is only committed once its
+  -- referenced parent is already in the database.
+  commit $lRole;
+  commit $lTaskCode;
+  commit $lClient;
+  commit $lEmployee;
+  commit $lMatter;
+  commit $lClientRate;
+  commit $lRateChange;
+  log info node 'TimeRegSeed' 'Seeded reference data';
+  return true;
+end;
+/

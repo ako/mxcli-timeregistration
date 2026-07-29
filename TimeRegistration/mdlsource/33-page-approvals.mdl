@@ -1,0 +1,121 @@
+/**
+ * Team approvals — the supervising partner's queue for a week.
+ *
+ * One row per fee earner with the week's totals, the billable ratio, the value
+ * it represents and any flag raised against it, then the entries that need a
+ * closer look before the week is signed off.
+ */
+create or replace page "TimeReg"."Approvals" (
+  Title: 'Team approvals',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'approvals',
+  Folder: 'Manage'
+)
+{
+  container apPage (Class: 'vdh-page') {
+
+    container apTop (Class: 'vdh-topbar') {
+      dynamictext apTitle (Content: 'Team approvals', Class: 'vdh-topbar-title')
+      dynamictext apSub (Content: 'Week 30 · team of J. Haverkamp', Class: 'vdh-topbar-sub')
+      container apSpacer (Class: 'vdh-topbar-spacer') { dynamictext apSpacerText (Content: ' ') }
+      dynamictext apPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
+      dynamictext apPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      actionbutton apLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container apBody (Class: 'vdh-body') {
+
+      container apBar (Class: 'vdh-row') {
+        container apSegWrap (Class: 'vdh-seg') {
+          dynamictext apSegPending (Content: 'Pending 5', Class: 'btn vdh-seg--on')
+          dynamictext apSegApproved (Content: 'Approved 6', Class: 'btn')
+          dynamictext apSegRejected (Content: 'Rejected 1', Class: 'btn')
+          dynamictext apSegNot (Content: 'Not submitted 3', Class: 'btn')
+        }
+        container apBarSpacer (Class: 'vdh-spacer') { dynamictext apBarSpacerText (Content: ' ') }
+        dynamictext apSelected (Content: '3 selected · 118.0 h · € 34.960', Class: 'vdh-caption')
+      }
+
+      container apHead (Class: 'vdh-thead vdh-mt-l') {
+        dynamictext aphEmployee (Content: 'Employee', Class: 'vdh-w-fill')
+        dynamictext aphRole (Content: 'Role', Class: 'vdh-w-150')
+        dynamictext aphRecorded (Content: 'Recorded', Class: 'vdh-w-88 vdh-right')
+        dynamictext aphBillable (Content: 'Billable', Class: 'vdh-w-88 vdh-right')
+        dynamictext aphRatio (Content: 'Ratio', Class: 'vdh-w-140')
+        dynamictext aphValue (Content: 'Value', Class: 'vdh-w-104 vdh-right')
+        dynamictext aphFlags (Content: 'Flags', Class: 'vdh-w-140')
+        dynamictext aphStatus (Content: 'Status', Class: 'vdh-w-120')
+        dynamictext aphOpen (Content: ' ', Class: 'vdh-w-72 vdh-right')
+      }
+
+      listview apList (DataSource: microflow "TimeReg"."DS_TeamWeek", Class: 'vdh-table') {
+        container apRowItem (Class: 'vdh-trow') {
+          dynamictext apName (
+            Content: '{1}',
+            ContentParams: [{1} = Timesheet_Employee/FullName],
+            Class: 'vdh-w-fill vdh-cell-title'
+          )
+          dynamictext apRole (
+            Content: '{1}',
+            ContentParams: [{1} = Timesheet_Employee/Employee_Role/Name],
+            Class: 'vdh-w-150 vdh-fg-muted'
+          )
+          dynamictext apRecorded (Attribute: RecordedLabel, Class: 'vdh-w-88 vdh-right vdh-num')
+          dynamictext apBillable (Attribute: BillableLabel, Class: 'vdh-w-88 vdh-right vdh-num')
+          container apRatioCell (Class: 'vdh-w-140 vdh-row') {
+            container apRatioMeter (Class: 'vdh-meter vdh-w-88') {
+              container apRatioFill (
+                Class: 'vdh-meter-fill',
+                DynamicClasses: '''vdh-w-b'' + toString($currentObject/RatioBucket) + (if $currentObject/RatioPct >= 85 then '' vdh-meter-fill--green'' else if $currentObject/RatioPct >= 75 then '' vdh-meter-fill--amber'' else '' vdh-meter-fill--grey'')'
+              ) {
+                dynamictext apRatioFillText (Content: ' ')
+              }
+            }
+            dynamictext apRatioPct (Content: '{1}%', ContentParams: [{1} = RatioPct], Class: 'vdh-w-40 vdh-right vdh-caption')
+          }
+          dynamictext apValue (Attribute: AmountLabel, Class: 'vdh-w-104 vdh-right vdh-num')
+          dynamictext apFlags (
+            Attribute: Flags,
+            Class: 'vdh-w-140 vdh-caption',
+            DynamicClasses: 'if $currentObject/Flags = empty then ''vdh-fg-faint'' else ''vdh-fg-ox'''
+          )
+          container apStatusCell (Class: 'vdh-w-120') {
+            dynamictext apStatus (
+              Attribute: StatusLabel,
+              Class: 'vdh-chip',
+              DynamicClasses: 'if $currentObject/Status = TimeReg.ENUM_TimesheetStatus.Approved then ''vdh-chip--ok'' else if $currentObject/Status = TimeReg.ENUM_TimesheetStatus.Submitted then ''vdh-chip--warn'' else if $currentObject/Status = TimeReg.ENUM_TimesheetStatus.NotSubmitted then ''vdh-chip--danger'' else ''vdh-chip--neutral'''
+            )
+          }
+          container apOpenCell (Class: 'vdh-w-72 vdh-right') {
+            actionbutton apApprove (
+              Caption: 'Approve',
+              Action: microflow "TimeReg"."ACT_ApproveWeek"("Timesheet": $currentObject),
+              Class: 'vdh-link'
+            )
+          }
+        }
+      }
+
+      container apFoot (Class: 'vdh-tfoot') {
+        dynamictext apFootLabel (Content: 'Team week 30 · 9 people', Class: 'vdh-w-fill')
+        dynamictext apFootTotals (Content: '329.5 h recorded · 281.0 billable · € 84.320', Class: 'vdh-num')
+      }
+
+      -- Flagged entries -------------------------------------------------------
+      container apFlagPanel (Class: 'vdh-panel vdh-mt-l') {
+        dynamictext apFlagTitle (Content: 'Review queue · flagged entries', Class: 'vdh-panel-title')
+        listview apFlags2 (
+          DataSource: database from "TimeReg"."ReviewFlag" sort by SortOrder asc,
+          Class: 'vdh-table'
+        ) {
+          container apFlagRow (Class: 'vdh-trow') {
+            dynamictext apFlagWho (Attribute: PersonLabel, Class: 'vdh-w-150')
+            dynamictext apFlagWhat (Attribute: Description, Class: 'vdh-w-fill vdh-note')
+            dynamictext apFlagHours (Attribute: HoursLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+            dynamictext apFlagReason (Attribute: FlagLabel, Class: 'vdh-w-140 vdh-right vdh-caption vdh-fg-ox')
+          }
+        }
+      }
+    }
+  }
+}

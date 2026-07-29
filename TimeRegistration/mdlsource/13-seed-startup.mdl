@@ -1,0 +1,34 @@
+/**
+ * After-startup demo data.
+ *
+ * Guarded so it only ever runs against an empty database: once a client
+ * exists the flow returns immediately, which makes a restart cheap and stops
+ * a second boot from duplicating the dataset.
+ *
+ * Wired to the project's AfterStartup setting, so it must return a Boolean.
+ *
+ * @returns true once the database holds the demo dataset
+ */
+create or modify microflow "TimeReg"."ASU_SeedDemoData" ()
+returns boolean as $ok
+folder 'Seed'
+begin
+  retrieve $existing from "TimeReg"."Client" limit 1;
+
+  if $existing != empty then
+    return true;
+  end if;
+
+  log info node 'TimeRegSeed' 'Empty database — seeding van Duyn & Haverkamp demo data';
+
+  $refs = call microflow "TimeReg"."SED_Reference" ();
+  $week = call microflow "TimeReg"."SED_Week30" ();
+  $period = call microflow "TimeReg"."SED_Period" ();
+
+  log info node 'TimeRegSeed' 'Demo data ready';
+  return true;
+end;
+/
+
+alter settings model AfterStartupMicroflow = "TimeReg"."ASU_SeedDemoData";
+/
