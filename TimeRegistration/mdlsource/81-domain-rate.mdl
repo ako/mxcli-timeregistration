@@ -1,0 +1,30 @@
+/**
+ * TimeRegistration — a rate card that follows the period, part 1: the domain
+ *
+ * A negotiated rate is not a fact about a client, it is a fact about a client
+ * *and a date* — which is exactly what the rate card's own change log has been
+ * saying all along:
+ *
+ *   01 Jul 2026  Rijnmond framework indexed +2,1% per contract art. 8.3
+ *   14 May 2026  Kessler blended rate € 275 introduced for all roles
+ *   01 Apr 2026  Nieuw Amsterdam NGO discount extended to 31 Dec 2026
+ *
+ * ClientRate held one row per client/role with no dates, so the card could only
+ * ever show today's agreement. Two dates turn it into a history.
+ */
+alter entity "TimeReg"."ClientRate" add attribute if not exists "ValidFrom": datetime;
+/
+
+/** Empty means open-ended — the agreement in force until it is superseded. */
+alter entity "TimeReg"."ClientRate" add attribute if not exists "ValidTo": datetime;
+/
+
+/**
+ * A one-line caption for the rate card, so the page can state the date it is
+ * quoting. Non-persistent: it is built on demand and never stored.
+ */
+@Position(700, 1460)
+create or modify non-persistent entity "TimeReg"."RateCardCaption" (
+  Label: String(80)
+);
+/

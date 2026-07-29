@@ -443,23 +443,23 @@ end;
 /**
  * Records which period a person is looking at.
  *
- * @param $Employee whose selection it is
  * @param $Period the month to move to
  * @returns true when the selection was stored
  */
 create or modify microflow "TimeReg"."ACT_SetSelectedPeriod" (
-  $Employee: "TimeReg"."Employee",
   $Period: "TimeReg"."Period"
 )
 returns boolean as $ok
 folder 'Logic'
 begin
-  if $Employee = empty then
+  retrieve $me from System.User where [id = '[%CurrentUser%]'] limit 1;
+
+  if $me = empty then
     return false;
   end if;
 
   retrieve $existing from "TimeReg"."PeriodSelection"
-    where ["TimeReg"."PeriodSelection_Employee" = $Employee]
+    where ["TimeReg"."PeriodSelection_User" = $me]
     limit 1;
 
   if $existing != empty then
@@ -469,7 +469,7 @@ begin
   end if;
 
   $selection = create "TimeReg"."PeriodSelection" (
-    "TimeReg"."PeriodSelection_Employee" = $Employee,
+    "TimeReg"."PeriodSelection_User" = $me,
     "TimeReg"."PeriodSelection_Period" = $Period);
   commit $selection;
   return true;

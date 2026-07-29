@@ -32,7 +32,7 @@ and boot again.
 | Report · per customer | `/p/report-customer` | Approved time by client, role mix, realisation, statement distribution |
 | Report · per matter | `/p/report-matter` | Project Aurora: task breakdown, team, burn vs budget |
 | Report · per manager & employee | `/p/report-people` | Utilisation, value, cost and margin per fee earner |
-| Rate card | `/p/rate-card` | Standard card and the negotiated client rate matrix, with the change log |
+| Rate card | `/p/rate-card` | Standard card and the negotiated client rate matrix as it stood in the selected month, with the change log |
 
 ## Domain model
 
@@ -178,6 +178,45 @@ derived month leaves those three panels empty, which is the truth.
 An open derived month is recomputed each time it is opened, because time is
 still going into it. `Period.IsDerived` is what keeps that away from July: the
 seeded snapshot was never derived, so it is never recomputed.
+
+### The rate card is a history, not a snapshot
+
+A negotiated rate is not a fact about a client, it is a fact about a client *and
+a date* — which is what the card's own change log had been saying all along:
+
+```
+01 Jul 2026   Rijnmond framework indexed +2,1% per contract art. 8.3
+14 May 2026   Kessler blended rate € 275 introduced for all roles
+01 Apr 2026   Nieuw Amsterdam NGO discount extended to 31 Dec 2026
+```
+
+`ClientRate` held one row per client/role with no dates, so the card could only
+show today's agreement. It now carries `ValidFrom` and `ValidTo` (empty = open
+ended), and the seed reflects the log: the Rijnmond rows start on 1 July with a
+superseded set behind them, Kessler starts on 14 May with nothing before it, the
+Nieuw Amsterdam discount runs 1 April to 31 December.
+
+`DS_ClientRateAt(client, role, date)` is the single place that reads the window,
+and both the card and time entry go through it, so they cannot disagree about
+what was agreed when. `DS_ResolveRate` gained a date parameter and
+`ACT_SaveTimeEntry` passes the entry's own date — a rate agreed in July never
+reprices June's time.
+
+The card prices **as at the end of the selected month**, and says so, because a
+mid-month change took effect for part of that month and showing the superseded
+agreement for the whole of it would be the wrong half of the truth. The change
+log stops at the same date.
+
+| Period | Rijnmond senior | Kessler senior | Change log |
+|---|---|---|---|
+| Jul 2026 | € 295 | € 275 | four entries, including the indexation |
+| Jun 2026 | € 289 — before the +2,1% | € 275 | three |
+| Apr 2026 | € 289 | — no agreement | two |
+
+The standard and cost-rate columns are not versioned: `Role` carries one
+`StandardRate` and one `CostRate`, so those two columns show today's card in
+every month. Versioning them needs a `RoleRate` entity, and the margin figures
+on the per-people report would have to read it too.
 
 ## Approval is a Mendix Workflow
 
@@ -334,6 +373,9 @@ This is a prototype dataset, not a credential store.
   A date picker, or a "this week" button, would need a date-to-Monday
   conversion, and Mendix's `daysBetween` is unsigned (finding 50), so it is more
   care than it looks.
+- **Role standard and cost rates are not versioned**, so those two columns of
+  the rate card show today's figures in every month. Only the negotiated client
+  matrix has a history.
 - **A derived month is thinner than the seeded one.** `ACT_RecalculatePeriod`
   produces the five summaries the report screens read; the role-mix percentages
   on the per-customer report, the utilisation histogram and the timeliness bands

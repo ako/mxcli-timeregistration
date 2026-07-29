@@ -523,8 +523,22 @@ create or replace page "TimeReg"."RateCard" (
       dynamictext rkTitle (Content: 'Rate card & role cost', Class: 'vdh-topbar-title')
       dynamictext rkSub (Content: 'Version 2026.1', Class: 'vdh-topbar-sub')
       container rkSpacer (Class: 'vdh-topbar-spacer') { dynamictext rkSpacerText (Content: ' ') }
-      dynamictext rkPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
-      dynamictext rkPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      -- Period selector. The negotiated matrix below is the agreement in
+      -- force in the month shown here, not today's.
+      dataview rkNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton rkPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_RateCardPrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rkPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton rkNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_RateCardNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rkPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
       actionbutton rkLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
     }
 
@@ -538,7 +552,9 @@ create or replace page "TimeReg"."RateCard" (
           dynamictext rkSeg4 (Content: 'History', Class: 'btn')
         }
         container rkBarSpacer (Class: 'vdh-spacer') { dynamictext rkBarSpacerText (Content: ' ') }
-        dynamictext rkEffective (Content: 'Effective 1 Jan 2026 · next revision 1 Jan 2027', Class: 'vdh-caption')
+        dataview rkCaption (DataSource: microflow "TimeReg"."DS_RateCardCaption") {
+          dynamictext rkEffective (Attribute: Label, Class: 'vdh-caption')
+        }
         dynamictext rkNew (Content: 'New rate version', Class: 'btn vdh-btn vdh-btn--ox')
       }
 
@@ -598,7 +614,7 @@ create or replace page "TimeReg"."RateCard" (
             container rkLogPanel (Class: 'vdh-panel') {
               dynamictext rkLogTitle (Content: 'Change log', Class: 'vdh-panel-title')
               listview rkLog (
-                DataSource: database from "TimeReg"."RateChange" sort by SortOrder asc,
+                DataSource: microflow "TimeReg"."DS_PeriodRateChanges",
                 Class: 'vdh-table'
               ) {
                 container rkLogRow (Class: 'vdh-trow vdh-row--top') {

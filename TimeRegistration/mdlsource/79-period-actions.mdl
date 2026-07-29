@@ -24,8 +24,6 @@ begin
     return false;
   end if;
 
-  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
-
   declare $first datetime = [%CurrentDateTime%];
   declare $target datetime = [%CurrentDateTime%];
   set $first = parseDateTime('1-' + toString($Period/MonthNumber) + '-' + toString($Period/Year), 'd-M-yyyy');
@@ -37,7 +35,7 @@ begin
   set $month = parseInteger(formatDateTime($target, 'M'));
 
   $opened = call microflow "TimeReg"."ACT_EnsurePeriod" ("Year" = $year, "MonthNumber" = $month);
-  $moved = call microflow "TimeReg"."ACT_SetSelectedPeriod" ("Employee" = $employee, "Period" = $opened);
+  $moved = call microflow "TimeReg"."ACT_SetSelectedPeriod" ("Period" = $opened);
   return true;
 end;
 /
@@ -58,8 +56,6 @@ begin
     return false;
   end if;
 
-  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
-
   declare $first datetime = [%CurrentDateTime%];
   declare $target datetime = [%CurrentDateTime%];
   set $first = parseDateTime('1-' + toString($Period/MonthNumber) + '-' + toString($Period/Year), 'd-M-yyyy');
@@ -71,7 +67,7 @@ begin
   set $month = parseInteger(formatDateTime($target, 'M'));
 
   $opened = call microflow "TimeReg"."ACT_EnsurePeriod" ("Year" = $year, "MonthNumber" = $month);
-  $moved = call microflow "TimeReg"."ACT_SetSelectedPeriod" ("Employee" = $employee, "Period" = $opened);
+  $moved = call microflow "TimeReg"."ACT_SetSelectedPeriod" ("Period" = $opened);
   return true;
 end;
 /
@@ -144,6 +140,24 @@ returns boolean as $ok folder 'Logic'
 begin
   $moved = call microflow "TimeReg"."ACT_PeriodForward" ("Period" = $Period);
   show page "TimeReg"."ReportPeople";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_RateCardPrev" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodBack" ("Period" = $Period);
+  show page "TimeReg"."RateCard";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_RateCardNext" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodForward" ("Period" = $Period);
+  show page "TimeReg"."RateCard";
   return true;
 end;
 /

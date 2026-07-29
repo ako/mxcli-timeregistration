@@ -16,8 +16,12 @@
 create or modify persistent entity "TimeReg"."PeriodSelection" ();
 /
 
-create or modify association "TimeReg"."PeriodSelection_Employee"
-from "TimeReg"."PeriodSelection" to "TimeReg"."Employee"
+-- Keyed to the account, not to the Employee record. Practice management signs
+-- in without a fee-earner record, and the rate card and the reports are exactly
+-- the screens that account lives on: an Employee-keyed selection could never
+-- move for them.
+create or modify association "TimeReg"."PeriodSelection_User"
+from "TimeReg"."PeriodSelection" to System.User
 type reference;
 /
 

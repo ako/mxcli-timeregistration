@@ -245,65 +245,81 @@ begin
   -- Only the five clients shown on the rate card have negotiated rates; the
   -- rest are billed at the role's standard rate. A missing row means the role
   -- is not staffed for that client.
-  $cr1 = create "TimeReg"."ClientRate" (Rate = 444, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rPartner);
+  $cr1 = create "TimeReg"."ClientRate" (Rate = 444, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rPartner, ValidFrom = dateTime(2026, 1, 1));
   add $cr1 to $lClientRate;
-  $cr2 = create "TimeReg"."ClientRate" (Rate = 361, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rCounsel);
+  $cr2 = create "TimeReg"."ClientRate" (Rate = 361, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rCounsel, ValidFrom = dateTime(2026, 1, 1));
   add $cr2 to $lClientRate;
-  $cr3 = create "TimeReg"."ClientRate" (Rate = 287, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rSenior);
+  $cr3 = create "TimeReg"."ClientRate" (Rate = 287, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rSenior, ValidFrom = dateTime(2026, 1, 1));
   add $cr3 to $lClientRate;
-  $cr4 = create "TimeReg"."ClientRate" (Rate = 217, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rAssoc);
+  $cr4 = create "TimeReg"."ClientRate" (Rate = 217, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rAssoc, ValidFrom = dateTime(2026, 1, 1));
   add $cr4 to $lClientRate;
-  $cr5 = create "TimeReg"."ClientRate" (Rate = 153, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rTrainee);
+  $cr5 = create "TimeReg"."ClientRate" (Rate = 153, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rTrainee, ValidFrom = dateTime(2026, 1, 1));
   add $cr5 to $lClientRate;
-  $cr6 = create "TimeReg"."ClientRate" (Rate = 130, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rPara);
+  $cr6 = create "TimeReg"."ClientRate" (Rate = 130, "TimeReg"."ClientRate_Client" = $cAbn,   "TimeReg"."ClientRate_Role" = $rPara, ValidFrom = dateTime(2026, 1, 1));
   add $cr6 to $lClientRate;
 
-  $cr7 = create "TimeReg"."ClientRate" (Rate = 455, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rPartner);
+  $cr7 = create "TimeReg"."ClientRate" (Rate = 455, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rPartner, ValidFrom = dateTime(2026, 7, 1));
   add $cr7 to $lClientRate;
-  $cr8 = create "TimeReg"."ClientRate" (Rate = 370, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rCounsel);
+  $cr8 = create "TimeReg"."ClientRate" (Rate = 370, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rCounsel, ValidFrom = dateTime(2026, 7, 1));
   add $cr8 to $lClientRate;
-  $cr9 = create "TimeReg"."ClientRate" (Rate = 295, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rSenior);
+  $cr9 = create "TimeReg"."ClientRate" (Rate = 295, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rSenior, ValidFrom = dateTime(2026, 7, 1));
   add $cr9 to $lClientRate;
-  $cr10 = create "TimeReg"."ClientRate" (Rate = 225, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rAssoc);
+  $cr10 = create "TimeReg"."ClientRate" (Rate = 225, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rAssoc, ValidFrom = dateTime(2026, 7, 1));
   add $cr10 to $lClientRate;
-  $cr11 = create "TimeReg"."ClientRate" (Rate = 160, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rTrainee);
+  $cr11 = create "TimeReg"."ClientRate" (Rate = 160, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rTrainee, ValidFrom = dateTime(2026, 7, 1));
   add $cr11 to $lClientRate;
-  $cr12 = create "TimeReg"."ClientRate" (Rate = 135, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rPara);
+  $cr12 = create "TimeReg"."ClientRate" (Rate = 135, "TimeReg"."ClientRate_Client" = $cRijn,  "TimeReg"."ClientRate_Role" = $rPara, ValidFrom = dateTime(2026, 7, 1));
   add $cr12 to $lClientRate;
+
+  -- The Rijnmond agreement before the 1 July indexation. Each is the current
+  -- rate divided by 1,021, which is what the change log's "+2,1%" means; the
+  -- rate card shows these for any month up to June.
+  $cr7a = create "TimeReg"."ClientRate" (Rate = 446, ValidFrom = dateTime(2026, 1, 1), ValidTo = dateTime(2026, 6, 30), "TimeReg"."ClientRate_Client" = $cRijn, "TimeReg"."ClientRate_Role" = $rPartner);
+  add $cr7a to $lClientRate;
+  $cr8a = create "TimeReg"."ClientRate" (Rate = 362, ValidFrom = dateTime(2026, 1, 1), ValidTo = dateTime(2026, 6, 30), "TimeReg"."ClientRate_Client" = $cRijn, "TimeReg"."ClientRate_Role" = $rCounsel);
+  add $cr8a to $lClientRate;
+  $cr9a = create "TimeReg"."ClientRate" (Rate = 289, ValidFrom = dateTime(2026, 1, 1), ValidTo = dateTime(2026, 6, 30), "TimeReg"."ClientRate_Client" = $cRijn, "TimeReg"."ClientRate_Role" = $rSenior);
+  add $cr9a to $lClientRate;
+  $cr10a = create "TimeReg"."ClientRate" (Rate = 220, ValidFrom = dateTime(2026, 1, 1), ValidTo = dateTime(2026, 6, 30), "TimeReg"."ClientRate_Client" = $cRijn, "TimeReg"."ClientRate_Role" = $rAssoc);
+  add $cr10a to $lClientRate;
+  $cr11a = create "TimeReg"."ClientRate" (Rate = 157, ValidFrom = dateTime(2026, 1, 1), ValidTo = dateTime(2026, 6, 30), "TimeReg"."ClientRate_Client" = $cRijn, "TimeReg"."ClientRate_Role" = $rTrainee);
+  add $cr11a to $lClientRate;
+  $cr12a = create "TimeReg"."ClientRate" (Rate = 132, ValidFrom = dateTime(2026, 1, 1), ValidTo = dateTime(2026, 6, 30), "TimeReg"."ClientRate_Client" = $cRijn, "TimeReg"."ClientRate_Role" = $rPara);
+  add $cr12a to $lClientRate;
 
   -- Kessler is a single blended rate for every role; partner time therefore
   -- falls below the cost + 40% floor and is flagged on the rate card.
-  $cr13 = create "TimeReg"."ClientRate" (Rate = 275, IsBelowFloor = true, "TimeReg"."ClientRate_Client" = $cKess, "TimeReg"."ClientRate_Role" = $rPartner);
+  $cr13 = create "TimeReg"."ClientRate" (Rate = 275, IsBelowFloor = true, "TimeReg"."ClientRate_Client" = $cKess, "TimeReg"."ClientRate_Role" = $rPartner, ValidFrom = dateTime(2026, 5, 14));
   add $cr13 to $lClientRate;
-  $cr14 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rCounsel);
+  $cr14 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rCounsel, ValidFrom = dateTime(2026, 5, 14));
   add $cr14 to $lClientRate;
-  $cr15 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rSenior);
+  $cr15 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rSenior, ValidFrom = dateTime(2026, 5, 14));
   add $cr15 to $lClientRate;
-  $cr16 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rAssoc);
+  $cr16 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rAssoc, ValidFrom = dateTime(2026, 5, 14));
   add $cr16 to $lClientRate;
-  $cr17 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rTrainee);
+  $cr17 = create "TimeReg"."ClientRate" (Rate = 275, "TimeReg"."ClientRate_Client" = $cKess,  "TimeReg"."ClientRate_Role" = $rTrainee, ValidFrom = dateTime(2026, 5, 14));
   add $cr17 to $lClientRate;
 
-  $cr18 = create "TimeReg"."ClientRate" (Rate = 384, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rPartner);
+  $cr18 = create "TimeReg"."ClientRate" (Rate = 384, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rPartner, ValidFrom = dateTime(2026, 4, 1), ValidTo = dateTime(2026, 12, 31));
   add $cr18 to $lClientRate;
-  $cr19 = create "TimeReg"."ClientRate" (Rate = 312, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rCounsel);
+  $cr19 = create "TimeReg"."ClientRate" (Rate = 312, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rCounsel, ValidFrom = dateTime(2026, 4, 1), ValidTo = dateTime(2026, 12, 31));
   add $cr19 to $lClientRate;
-  $cr20 = create "TimeReg"."ClientRate" (Rate = 248, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rSenior);
+  $cr20 = create "TimeReg"."ClientRate" (Rate = 248, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rSenior, ValidFrom = dateTime(2026, 4, 1), ValidTo = dateTime(2026, 12, 31));
   add $cr20 to $lClientRate;
-  $cr21 = create "TimeReg"."ClientRate" (Rate = 188, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rAssoc);
+  $cr21 = create "TimeReg"."ClientRate" (Rate = 188, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rAssoc, ValidFrom = dateTime(2026, 4, 1), ValidTo = dateTime(2026, 12, 31));
   add $cr21 to $lClientRate;
-  $cr22 = create "TimeReg"."ClientRate" (Rate = 132, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rTrainee);
+  $cr22 = create "TimeReg"."ClientRate" (Rate = 132, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rTrainee, ValidFrom = dateTime(2026, 4, 1), ValidTo = dateTime(2026, 12, 31));
   add $cr22 to $lClientRate;
-  $cr23 = create "TimeReg"."ClientRate" (Rate = 112, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rPara);
+  $cr23 = create "TimeReg"."ClientRate" (Rate = 112, "TimeReg"."ClientRate_Client" = $cNieuw, "TimeReg"."ClientRate_Role" = $rPara, ValidFrom = dateTime(2026, 4, 1), ValidTo = dateTime(2026, 12, 31));
   add $cr23 to $lClientRate;
 
-  $cr24 = create "TimeReg"."ClientRate" (Rate = 420, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rPartner);
+  $cr24 = create "TimeReg"."ClientRate" (Rate = 420, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rPartner, ValidFrom = dateTime(2026, 1, 1));
   add $cr24 to $lClientRate;
-  $cr25 = create "TimeReg"."ClientRate" (Rate = 350, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rCounsel);
+  $cr25 = create "TimeReg"."ClientRate" (Rate = 350, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rCounsel, ValidFrom = dateTime(2026, 1, 1));
   add $cr25 to $lClientRate;
-  $cr26 = create "TimeReg"."ClientRate" (Rate = 280, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rSenior);
+  $cr26 = create "TimeReg"."ClientRate" (Rate = 280, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rSenior, ValidFrom = dateTime(2026, 1, 1));
   add $cr26 to $lClientRate;
-  $cr27 = create "TimeReg"."ClientRate" (Rate = 210, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rAssoc);
+  $cr27 = create "TimeReg"."ClientRate" (Rate = 210, "TimeReg"."ClientRate_Client" = $cBerg,  "TimeReg"."ClientRate_Role" = $rAssoc, ValidFrom = dateTime(2026, 1, 1));
   add $cr27 to $lClientRate;
 
   -- --- Rate card change log ---------------------------------------------

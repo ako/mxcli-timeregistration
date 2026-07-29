@@ -711,6 +711,38 @@ set $budgetPct = round($matterHours div $matter/BudgetHours * 100);   -- rejecte
 Hoisting the attribute into a variable first satisfies it, and reads better
 anyway.
 
+### 53. MDL048 rejects `[id = '[%CurrentUser%]']`, which works **[bug]**
+
+Resolving the signed-in account is the standard Mendix idiom, and `mxcli check`
+calls it an error:
+
+```mdl
+retrieve $me from System.User where [id = '[%CurrentUser%]'] limit 1;
+```
+```
+$ ./mxcli check mdlsource/78-period-datasources.mdl
+  ✗ retrieve '$me' constrains the object id against a value
+    (`[id = '[%CurrentUser%]']`), which Mendix XPath does not support
+    (CE0161 "Error(s) in XPath constraint") — there is no id operator reachable
+    from a microflow expression  [MDL048]
+```
+
+It is supported, and it runs. The same line has been in `ACT_ClaimTask` since the
+workflow work, where it is what assigns a user task to the person completing it —
+and the database says it worked:
+
+```
+$ psql … -c "select u.name, t.state from system\$workflowusertask_assignees j …"
+ j.haverkamp@vdh-law.nl | Completed
+```
+
+`mx check` reports 0 errors on the same project, and `mxcli exec` writes the
+microflow regardless — the rule only costs you a false alarm. Worth knowing
+before you go looking for a way round something that is not broken.
+
+The counterpart to finding 27: the MDL0xx diagnostics are mostly excellent, and
+MDL045 (finding 52) and this one are the two that cried wolf.
+
 ---
 
 ## Workflows

@@ -17,8 +17,10 @@
 /**
  * The period being reported on.
  *
- * Falls back to the earliest open period — the one the firm has to close next —
- * which is July 2026 in the seeded dataset.
+ * Keyed to the signed-in account rather than to a fee-earner record, because
+ * practice management has no Employee and the report screens are exactly where
+ * that account works. Falls back to the earliest open period — the one the firm
+ * has to close next, which is July 2026 in the seeded dataset.
  *
  * @returns the selected period
  */
@@ -26,11 +28,11 @@ create or modify microflow "TimeReg"."DS_SelectedPeriod" ()
 returns "TimeReg"."Period" as $period
 folder 'Datasources'
 begin
-  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  retrieve $me from System.User where [id = '[%CurrentUser%]'] limit 1;
 
-  if $employee != empty then
+  if $me != empty then
     retrieve $selection from "TimeReg"."PeriodSelection"
-      where ["TimeReg"."PeriodSelection_Employee" = $employee]
+      where ["TimeReg"."PeriodSelection_User" = $me]
       limit 1;
 
     if $selection != empty then

@@ -8,10 +8,10 @@
  * (finding 19 — MDL cannot set it, so today the datasources bypass it).
  */
 grant "TimeReg"."FeeEarner" on "TimeReg"."PeriodSelection" (read *)
-  where '[TimeReg.PeriodSelection_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+  where '[TimeReg.PeriodSelection_User = ''[%CurrentUser%]'']';
 /
 grant "TimeReg"."Partner" on "TimeReg"."PeriodSelection" (create, read *, write *)
-  where '[TimeReg.PeriodSelection_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+  where '[TimeReg.PeriodSelection_User = ''[%CurrentUser%]'']';
 /
 grant "TimeReg"."Administrator" on "TimeReg"."PeriodSelection" (create, read *, write *);
 /
@@ -72,4 +72,26 @@ grant execute on microflow "TimeReg"."DS_PeriodReports"     to "TimeReg"."Partne
 grant execute on microflow "TimeReg"."DS_PeriodUtilisation" to "TimeReg"."Partner", "TimeReg"."Administrator";
 /
 grant execute on microflow "TimeReg"."DS_PeriodTimeliness"  to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+-- The rate card. Its matrix is the agreement in force in the selected month, so
+-- it needs the same navigation as the reports; the card itself is
+-- administrator-only, as it always was.
+grant "TimeReg"."Administrator" on "TimeReg"."RateCardCaption" (create, read *, write *);
+/
+grant "TimeReg"."Partner" on "TimeReg"."RateCardCaption" (create, read *, write *);
+/
+grant execute on microflow "TimeReg"."DS_SelectedPeriodEnd"      to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_ClientRateAt"           to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_ClientRateBelowFloorAt" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_RateCardCaption"        to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodRateChanges"      to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_RateCardPrev"          to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_RateCardNext"          to "TimeReg"."Partner", "TimeReg"."Administrator";
 /
