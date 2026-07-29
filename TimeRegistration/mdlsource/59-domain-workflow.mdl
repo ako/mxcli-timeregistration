@@ -1,0 +1,12 @@
+/**
+ * TimeRegistration — workflow link
+ *
+ * Mendix does not generate an association between a workflow and its context
+ * entity, so the week keeps its own reference to the workflow instance that is
+ * approving it. ACT_SubmitWeek sets it when it starts the workflow; the task
+ * page uses it to find the week the task is about.
+ */
+create association "TimeReg"."Timesheet_Workflow"
+from "TimeReg"."Timesheet" to System.Workflow
+type reference;
+/

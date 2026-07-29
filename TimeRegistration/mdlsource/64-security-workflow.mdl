@@ -1,0 +1,27 @@
+/**
+ * Access for the workflow screens.
+ *
+ * The inbox and the approval task belong to whoever approves: a partner, and
+ * practice management. A fee earner never receives one of these tasks.
+ */
+grant view on page "TimeReg"."MyTasks"        to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant view on page "TimeReg"."WF_ApproveTask" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+grant execute on microflow "TimeReg"."DS_MyOpenTasks"   to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_TaskTimesheet" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_WF_Approvers" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+-- The two decisions. A fee earner has neither, so the only way into them is a
+-- task the engine assigned.
+grant execute on microflow "TimeReg"."ACT_ApproveFromTask" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_ReturnFromTask"  to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+grant execute on microflow "TimeReg"."ACT_ClaimTask" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/

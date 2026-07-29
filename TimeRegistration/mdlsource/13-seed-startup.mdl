@@ -26,6 +26,10 @@ begin
   $period = call microflow "TimeReg"."SED_Period" ();
   $accounts = call microflow "TimeReg"."SED_Accounts" ();
 
+  -- Last: starting an approval workflow assigns its task to the supervising
+  -- partner's account, which SED_Accounts has only just created.
+  $workflows = call microflow "TimeReg"."SED_Workflows" ();
+
   log info node 'TimeRegSeed' 'Demo data ready';
   return true;
 end;

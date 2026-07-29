@@ -1,0 +1,211 @@
+/**
+ * MyTasks is declared first because the two pages reference each other (the
+ * task page links back to the inbox); the real definition replaces it below.
+ */
+create or replace page "TimeReg"."MyTasks" (
+  Title: 'My tasks',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Manage'
+)
+{
+  container mtStub (Class: 'vdh-page') { dynamictext mtStubText (Content: 'My tasks') }
+}
+/
+
+/**
+ * The approval task.
+ *
+ * Bound to System.WorkflowUserTask, as a workflow task page must be. The week
+ * itself comes from DS_TaskTimesheet, and the two buttons complete the task with
+ * the outcome the workflow branches on — the workflow, not the button, decides
+ * what happens next.
+ */
+create or replace page "TimeReg"."WF_ApproveTask" (
+  Title: 'Approve week timesheet',
+  Layout: Atlas_Core.Atlas_Default,
+  Folder: 'Manage',
+  Params: { $Task: System.WorkflowUserTask }
+)
+{
+  container wtPage (Class: 'vdh-page') {
+
+    container wtTop (Class: 'vdh-topbar') {
+      dynamictext wtTitle (Content: 'Approval task', Class: 'vdh-topbar-title')
+      dataview wtTaskHead (DataSource: $Task) {
+        dynamictext wtSub (Attribute: Name, Class: 'vdh-topbar-sub')
+      }
+      container wtSpacer (Class: 'vdh-topbar-spacer') { dynamictext wtSpacerText (Content: ' ') }
+      actionbutton wtBack (Caption: 'My tasks', Action: show_page "TimeReg"."MyTasks", Class: 'vdh-btn')
+    }
+
+    -- The grid sits inside a DataView on the task because a microflow
+    -- datasource argument only resolves $currentObject, never a page parameter.
+    dataview wtCtx (DataSource: $Task) {
+    container wtBody (Class: 'vdh-body') {
+      layoutgrid wtCols (Class: 'vdh-cols') {
+        row wtRow {
+
+          column wtColSheet (DesktopWidth: 7) {
+            dataview wtSheet (DataSource: microflow "TimeReg"."DS_TaskTimesheet"("Task": $currentObject)) {
+              container wtPanel (Class: 'vdh-panel') {
+                dynamictext wtPanelTitle (Content: 'Week under review', Class: 'vdh-panel-title')
+                container wtPanelBody (Class: 'vdh-body') {
+                  dynamictext wtWho (
+                    Content: '{1} · {2}',
+                    ContentParams: [{1} = Timesheet_Employee/FullName, {2} = Timesheet_Employee/Employee_Role/Name],
+                    Class: 'vdh-h2'
+                  )
+                  -- Week number and year rather than the two DateTimes: the app
+                  -- formats every other date through a precomputed *Label
+                  -- string, and Timesheet has none for the week range.
+                  dynamictext wtWeek (
+                    Content: 'Week {1} · {2}',
+                    ContentParams: [{1} = WeekNumber, {2} = Year],
+                    Class: 'vdh-caption'
+                  )
+
+                  container wtFigures (Class: 'vdh-row vdh-mt-l') {
+                    container wtF1 (Class: 'vdh-w-140 vdh-col') {
+                      dynamictext wtF1L (Content: 'Recorded', Class: 'vdh-kpi-label')
+                      dynamictext wtF1V (Attribute: RecordedLabel, Class: 'vdh-num--mid')
+                    }
+                    container wtF2 (Class: 'vdh-w-140 vdh-col') {
+                      dynamictext wtF2L (Content: 'Billable', Class: 'vdh-kpi-label')
+                      dynamictext wtF2V (Attribute: BillableLabel, Class: 'vdh-num--mid')
+                    }
+                    container wtF3 (Class: 'vdh-w-140 vdh-col') {
+                      dynamictext wtF3L (Content: 'Value', Class: 'vdh-kpi-label')
+                      dynamictext wtF3V (Attribute: AmountLabel, Class: 'vdh-num--mid')
+                    }
+                    container wtF4 (Class: 'vdh-w-140 vdh-col') {
+                      dynamictext wtF4L (Content: 'Ratio', Class: 'vdh-kpi-label')
+                      dynamictext wtF4V (Content: '{1}%', ContentParams: [{1} = RatioPct], Class: 'vdh-num--mid')
+                    }
+                  }
+
+                  dynamictext wtFlags (Attribute: Flags, Class: 'vdh-caption vdh-fg-ox vdh-mt-l')
+                }
+              }
+
+              container wtEntriesPanel (Class: 'vdh-panel vdh-mt-l') {
+                dynamictext wtEntriesTitle (Content: 'Entries in this week', Class: 'vdh-panel-title')
+                listview wtEntries (
+                  DataSource: $currentObject/"TimeReg"."TimeEntry_Timesheet",
+                  Class: 'vdh-table'
+                ) {
+                  container wtEntryRow (Class: 'vdh-trow') {
+                    dynamictext wtEntryDate (Attribute: EntryDate, Class: 'vdh-w-104 vdh-caption')
+                    container wtEntryWhat (Class: 'vdh-w-fill') {
+                      dynamictext wtEntryMatter (
+                        Content: '{1}',
+                        ContentParams: [{1} = TimeEntry_Matter/Name],
+                        Class: 'vdh-cell-title'
+                      )
+                      dynamictext wtEntryTask (
+                        Content: '{1} {2}',
+                        ContentParams: [{1} = TimeEntry_TaskCode/Code, {2} = TimeEntry_TaskCode/Name],
+                        Class: 'vdh-cell-sub'
+                      )
+                    }
+                    dynamictext wtEntryHours (Attribute: HoursLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+                  }
+                }
+              }
+            }
+          }
+
+          column wtColAction (DesktopWidth: 5) {
+            container wtTask {
+              container wtActionPanel (Class: 'vdh-panel') {
+                dynamictext wtActionTitle (Content: 'Decision', Class: 'vdh-panel-title')
+                container wtActionBody (Class: 'vdh-body') {
+                  dynamictext wtTaskDesc (Attribute: Description, Class: 'vdh-note')
+                  dynamictext wtTaskDue (
+                    Content: 'Due {1}',
+                    ContentParams: [{1} = DueDate],
+                    Class: 'vdh-caption vdh-mt-l'
+                  )
+
+                  -- The buttons run a microflow that changes the week and then
+                  -- sets the task outcome, rather than completing the task and
+                  -- letting the workflow branch do the work: mxcli's workflow
+                  -- call-microflow activity does not load in the runtime
+                  -- (finding 39).
+                  container wtButtons (Class: 'vdh-row vdh-mt-l') {
+                    actionbutton wtApprove (
+                      Caption: 'Approve week',
+                      Action: microflow "TimeReg"."ACT_ApproveFromTask"("Task": $currentObject),
+                      Class: 'vdh-btn vdh-btn--teal'
+                    )
+                    actionbutton wtReturn (
+                      Caption: 'Return with note',
+                      Action: microflow "TimeReg"."ACT_ReturnFromTask"("Task": $currentObject),
+                      Class: 'vdh-btn'
+                    )
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    }
+  }
+}
+/
+
+/**
+ * My tasks — the approver's inbox.
+ *
+ * The list the enumeration-and-microflow version could not offer: whatever the
+ * workflow has assigned to this user, whichever process produced it.
+ */
+create or replace page "TimeReg"."MyTasks" (
+  Title: 'My tasks',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'my-tasks',
+  Folder: 'Manage'
+)
+{
+  container mtPage (Class: 'vdh-page') {
+
+    container mtTop (Class: 'vdh-topbar') {
+      dynamictext mtTitle (Content: 'My tasks', Class: 'vdh-topbar-title')
+      dynamictext mtSub (Content: 'Assigned to me by the workflow engine', Class: 'vdh-topbar-sub')
+      container mtSpacer (Class: 'vdh-topbar-spacer') { dynamictext mtSpacerText (Content: ' ') }
+      actionbutton mtQueue (Caption: 'Approval queue', Action: show_page "TimeReg"."Approvals", Class: 'vdh-btn')
+    }
+
+    container mtBody (Class: 'vdh-body') {
+
+      container mtHead (Class: 'vdh-thead') {
+        dynamictext mthTask (Content: 'Task', Class: 'vdh-w-fill')
+        dynamictext mthStarted (Content: 'Started', Class: 'vdh-w-180')
+        dynamictext mthDue (Content: 'Due', Class: 'vdh-w-180')
+        dynamictext mthOpen (Content: ' ', Class: 'vdh-w-96 vdh-right')
+      }
+
+      listview mtList (
+        DataSource: microflow "TimeReg"."DS_MyOpenTasks",
+        Class: 'vdh-table'
+      ) {
+        container mtRow (Class: 'vdh-trow') {
+          container mtWhat (Class: 'vdh-w-fill') {
+            dynamictext mtName (Attribute: Name, Class: 'vdh-cell-title')
+            dynamictext mtDesc (Attribute: Description, Class: 'vdh-cell-sub')
+          }
+          dynamictext mtStarted (Attribute: StartTime, Class: 'vdh-w-180 vdh-caption')
+          dynamictext mtDue (Attribute: DueDate, Class: 'vdh-w-180 vdh-caption')
+          container mtOpenCell (Class: 'vdh-w-96 vdh-right') {
+            actionbutton mtOpen (
+              Caption: 'Open',
+              Action: show_page "TimeReg"."WF_ApproveTask"($Task = $currentObject),
+              Class: 'vdh-link'
+            )
+          }
+        }
+      }
+    }
+  }
+}

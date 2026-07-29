@@ -178,12 +178,12 @@ html, body, .mx-page {
 
 // Section labels. The Mendix navigation model has no group header, so they are
 // injected before the first item of each group (1 = My work, 4 = Manage,
-// 6 = Reports, 9 = Administration).
+// 7 = Reports, 10 = Administration).
 .mx-navigationtree li { position: relative; }
 .mx-navigationtree li:nth-child(1)::before,
 .mx-navigationtree li:nth-child(4)::before,
-.mx-navigationtree li:nth-child(6)::before,
-.mx-navigationtree li:nth-child(9)::before {
+.mx-navigationtree li:nth-child(7)::before,
+.mx-navigationtree li:nth-child(10)::before {
   display: block;
   padding: 16px 16px 6px;
   font: 600 9.5px var(--vdh-mono);
@@ -193,12 +193,12 @@ html, body, .mx-page {
 }
 .mx-navigationtree li:nth-child(1)::before { content: 'My work'; padding-top: 0; }
 .mx-navigationtree li:nth-child(4)::before { content: 'Manage'; }
-.mx-navigationtree li:nth-child(6)::before { content: 'Reports'; }
-.mx-navigationtree li:nth-child(9)::before { content: 'Administration'; }
+.mx-navigationtree li:nth-child(7)::before { content: 'Reports'; }
+.mx-navigationtree li:nth-child(10)::before { content: 'Administration'; }
 
 // Count badges on Week timesheet (30) and Approvals (5).
 .mx-navigationtree li:nth-child(2) > a::after,
-.mx-navigationtree li:nth-child(4) > a::after {
+.mx-navigationtree li:nth-child(5) > a::after {
   margin-left: auto;
   padding: 1px 5px;
   border-radius: 2px;
@@ -207,9 +207,9 @@ html, body, .mx-page {
   color: #a59e93;
 }
 .mx-navigationtree li:nth-child(2) > a::after { content: '30'; }
-.mx-navigationtree li:nth-child(4) > a::after { content: '5'; }
+.mx-navigationtree li:nth-child(5) > a::after { content: '5'; }
 .mx-navigationtree li:nth-child(2) > a.active::after,
-.mx-navigationtree li:nth-child(4) > a.active::after {
+.mx-navigationtree li:nth-child(5) > a.active::after {
   background: var(--vdh-ox); color: #fff;
 }
 

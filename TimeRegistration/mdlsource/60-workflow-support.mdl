@@ -1,0 +1,149 @@
+/**
+ * Who may pick up the approval task for a week.
+ *
+ * The supervising partner on the fee earner's record. Returning a list rather
+ * than a single user is what the workflow engine expects, and it leaves room
+ * for a second approver or a delegate later.
+ *
+ * A targeting microflow must accept the workflow instance as well as the
+ * context entity, in that order (CE6677).
+ *
+ * @param $Workflow the running workflow instance
+ * @param $Timesheet the week the task is about
+ * @returns the accounts allowed to complete the task
+ */
+create or modify microflow "TimeReg"."ACT_WF_Approvers" (
+  $Workflow: System.Workflow,
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns list of System.User as $approvers
+folder 'Workflow'
+begin
+  $approvers = create list of System.User;
+
+  retrieve $employee from $Timesheet/"TimeReg"."Timesheet_Employee";
+  if $employee = empty then
+    return $approvers;
+  end if;
+
+  retrieve $manager from $employee/"TimeReg"."Employee_Manager";
+  if $manager = empty then
+    return $approvers;
+  end if;
+
+  retrieve $account from $manager/"TimeReg"."Employee_Account";
+  if $account != empty then
+    add $account to $approvers;
+  end if;
+
+  return $approvers;
+end;
+/
+
+/**
+ * The week a workflow user task is about.
+ *
+ * System.WorkflowUserTask has a direct reference to its workflow, so this is one
+ * hop each way: task -> workflow, then back to the Timesheet that recorded the
+ * workflow when it was submitted. Routing through System.WorkflowActivity does
+ * not survive the build (CE1613), and there is no need to.
+ *
+ * @param $Task the user task being displayed
+ * @returns the timesheet under review
+ */
+create or modify microflow "TimeReg"."DS_TaskTimesheet" (
+  $Task: System.WorkflowUserTask
+)
+returns "TimeReg"."Timesheet" as $timesheet
+folder 'Workflow'
+begin
+  retrieve $workflow from $Task/System.WorkflowUserTask_Workflow;
+
+  retrieve $timesheet from "TimeReg"."Timesheet"
+    where ["TimeReg"."Timesheet_Workflow" = $workflow]
+    limit 1;
+  return $timesheet;
+end;
+/
+
+/**
+ * Claims a task for the signed-in user.
+ *
+ * Mendix separates the users a task is *targeted* at from the one it is
+ * *assigned* to, and only an assignee may complete it — `set task outcome`
+ * on an unassigned task is refused with "You can't complete this user task,
+ * it is not assigned to you" (finding 44). Studio Pro's generated task page
+ * has a Take button for this; here the decision buttons claim the task on the
+ * approver's behalf, which is the same thing without the extra click.
+ *
+ * @param $Task the task being acted on
+ * @returns true when the task is assigned to the signed-in user
+ */
+create or modify microflow "TimeReg"."ACT_ClaimTask" (
+  $Task: System.WorkflowUserTask
+)
+returns boolean as $ok
+folder 'Workflow'
+begin
+  retrieve $me from System.User where [id = '[%CurrentUser%]'] limit 1;
+
+  if $me = empty then
+    return false;
+  end if;
+
+  change $Task (System.WorkflowUserTask_Assignees = $me);
+  commit $Task;
+  return true;
+end;
+/
+
+/**
+ * Approves the week the task is about, then completes the task.
+ *
+ * The pair of activities the workflow's outcome branch cannot hold (see
+ * 62-workflow.mdl): the domain change first, then `set task outcome`, which is
+ * what actually completes the user task and lets the engine record who decided
+ * what. The order matters — once the outcome is set the task is gone.
+ *
+ * @param $Task the task the partner is looking at
+ */
+create or modify microflow "TimeReg"."ACT_ApproveFromTask" (
+  $Task: System.WorkflowUserTask
+)
+folder 'Workflow'
+begin
+  $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $Task);
+
+  $timesheet = call microflow "TimeReg"."DS_TaskTimesheet" ("Task" = $Task);
+
+  if $timesheet != empty then
+    $approved = call microflow "TimeReg"."ACT_ApproveWeek" ("Timesheet" = $timesheet);
+  end if;
+
+  set task outcome $Task 'Approve';
+  show page "TimeReg"."MyTasks";
+end;
+/
+
+/**
+ * Returns the week to the fee earner, then completes the task.
+ *
+ * @param $Task the task the partner is looking at
+ */
+create or modify microflow "TimeReg"."ACT_ReturnFromTask" (
+  $Task: System.WorkflowUserTask
+)
+folder 'Workflow'
+begin
+  $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $Task);
+
+  $timesheet = call microflow "TimeReg"."DS_TaskTimesheet" ("Task" = $Task);
+
+  if $timesheet != empty then
+    $returned = call microflow "TimeReg"."ACT_ReturnWeek" ("Timesheet" = $timesheet);
+  end if;
+
+  set task outcome $Task 'Return';
+  show page "TimeReg"."MyTasks";
+end;
+/

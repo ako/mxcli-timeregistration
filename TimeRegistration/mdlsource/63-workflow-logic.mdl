@@ -1,0 +1,54 @@
+/**
+ * The tasks the workflow engine has assigned to the signed-in user.
+ *
+ * @returns this user's open user tasks, oldest first
+ */
+create or modify microflow "TimeReg"."DS_MyOpenTasks" ()
+returns list of System.WorkflowUserTask as $tasks
+folder 'Workflow'
+begin
+  retrieve $tasks from System.WorkflowUserTask
+    where [System.WorkflowUserTask_TargetUsers = '[%CurrentUser%]']
+    sort by System.WorkflowUserTask.StartTime asc;
+  return $tasks;
+end;
+/
+
+/**
+ * Submits a week for approval by starting the approval workflow.
+ *
+ * The workflow instance is recorded on the timesheet so the task page can find
+ * its way back — Mendix does not generate an association between a workflow and
+ * its context entity.
+ *
+ * @param $Timesheet the week being submitted
+ * @returns true when the week moved to Submitted and the workflow started
+ */
+create or modify microflow "TimeReg"."ACT_SubmitWeek" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $Timesheet);
+
+  $workflow = call workflow "TimeReg"."TimesheetApproval" (Context = $Timesheet);
+
+  change $Timesheet (
+    Status = "TimeReg"."ENUM_TimesheetStatus"."Submitted",
+    StatusLabel = 'submitted',
+    SubmittedOn = [%CurrentDateTime%],
+    "TimeReg"."Timesheet_Workflow" = $workflow);
+  commit $Timesheet refresh;
+
+  $audit = create "TimeReg"."AuditEntry" (
+    EventTime = [%CurrentDateTime%],
+    EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+    Description = 'Week submitted for approval — task assigned to the supervising partner',
+    SortOrder = 0,
+    "TimeReg"."AuditEntry_Timesheet" = $Timesheet);
+  commit $audit;
+
+  return true;
+end;
+/

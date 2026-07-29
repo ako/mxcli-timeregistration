@@ -557,6 +557,343 @@ group lays out as a row:
 
 ---
 
+## Workflows
+
+Everything in this section comes from replacing the enumeration-and-microflow
+approval with a real Mendix Workflow document. `CREATE WORKFLOW` works, and the
+resulting process runs — but the one activity every approval workflow needs
+does not, and neither checker says so.
+
+### 39. A workflow that calls a microflow builds cleanly and then the runtime refuses to load the model **[bug]**
+
+The worst finding of this session, and the direct sequel to finding 1: both
+checkers pass, and the failure lands at runtime — not on the workflow, on the
+*whole application*.
+
+The natural way to write an approval workflow is an outcome branch that calls a
+microflow:
+
+```mdl
+user task Review 'Approve week timesheet'
+  page "TimeReg"."WF_ApproveTask"
+  outcomes
+    'Approve' { call microflow TimeReg.ACT_ApproveWeek
+                  with (Timesheet = '$workflowContext'); }
+    'Return'  { call microflow TimeReg.ACT_ReturnWeek
+                  with (Timesheet = '$workflowContext'); };
+```
+
+Both checkers are happy:
+
+```
+$ ./mxcli check mdlsource/62-workflow.mdl
+✓ Syntax OK (1 statements)
+
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
+The app contains: 0 errors.
+```
+
+The runtime is not:
+
+```
+$ ./mxcli run --local -p TimeRegistration.mpr --ensure-db --watch
+Building (first build is cold, ~10-15s)...
+Error: starting runtime: start failed: class java.lang.RuntimeException occurred
+while executing an admin action request.
+
+2026-07-29 13:13:50.445 ERROR - Core: Failed to load model: An error occurred
+while reading the Application Model
+Caused by: java.lang.RuntimeException: An error occurred while reading the model
+file at .../deployment/model/model.mdp.
+Caused by: java.lang.RuntimeException: No new model classes have arrived within
+ten seconds, aborting model initialization(Class 'Workflows$CallMicroflowTask'
+could not be found).
+```
+
+The app does not start at all — every screen, not just the workflow.
+
+**Cause.** mxcli's generated metamodel calls the activity `CallMicroflowTask`;
+Mendix 11.12.1 calls it `CallMicroflowActivity`:
+
+```
+$ grep -c "WorkflowsCallMicroflowTask" /opt/mxcli-src/generated/metamodel/types.go
+6
+$ unzip -p ~/.mxcli/runtime/11.12.1/runtime/bundles/com.mendix.workflows-metamodel.jar \
+    | strings | grep -o 'Workflows\$CallMicroflow[A-Za-z]*' | sort -u
+Workflows$CallMicroflowActivity
+```
+
+Diffing every `Workflows$…` name mxcli can emit against the ones the runtime
+knows shows this is the only *activity* affected — the rest of what a workflow
+needs (`SingleUserTaskActivity`, `UserTaskOutcome`, `MicroflowUserTargeting`,
+`PageReference`, `Flow`, `StartWorkflowActivity`, `EndWorkflowActivity`) is
+present in both:
+
+```
+$ comm -13 runtime-names.txt mxcli-names.txt
+Workflows$Annotation
+Workflows$BezierCurve
+Workflows$BooleanCase
+Workflows$CallMicroflowTask      <- the one that is actually reachable
+Workflows$FloatingAnnotation
+Workflows$FlowLine
+Workflows$OrthogonalPath
+Workflows$StringCase
+Workflows$VoidCase
+Workflows$WorkflowMetaData
+```
+
+**Workaround.** Leave the outcome branches empty and do the work on the way
+*in* to the outcome. There is no `complete task` microflow statement, but there
+*is* `set task outcome`, which completes the task with a named outcome — so a
+microflow can do the domain change and then complete the task:
+
+```mdl
+create or modify microflow "TimeReg"."ACT_ApproveFromTask" ($Task: System.WorkflowUserTask)
+begin
+  $claimed   = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $Task);
+  $timesheet = call microflow "TimeReg"."DS_TaskTimesheet" ("Task" = $Task);
+  if $timesheet != empty then
+    $approved = call microflow "TimeReg"."ACT_ApproveWeek" ("Timesheet" = $timesheet);
+  end if;
+  set task outcome $Task 'Approve';
+  show page "TimeReg"."MyTasks";
+end;
+```
+
+The task page's buttons call that instead of `complete_task`. The outcomes still
+exist and the engine still records which one was chosen; the branch bodies have
+nothing left to do. Verified end to end — see APP.md.
+
+### 40. A workflow `call microflow` with no parameter mapping passes both checkers **[gap]**
+
+Independently of finding 39, an unmapped required parameter is invisible.
+Compare — same workflow, one with the mapping and one without:
+
+```mdl
+call microflow TimeReg.ACT_ApproveWeek with (Timesheet = '$workflowContext');   -- mapped
+call microflow TimeReg.ACT_ApproveWeek;                                          -- unmapped
+```
+
+```
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr    # mapped
+The app contains: 0 errors.
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr    # unmapped
+The app contains: 0 errors.
+```
+
+`ACT_ApproveWeek` has one required parameter. Studio Pro flags an unmapped
+parameter as an error; here nothing does, and the workflow would fail at the
+activity. Write the mapping even where it looks obvious.
+
+### 41. The `with (…)` parameter name must be bare; the qualified form corrupts the model **[bug]**
+
+Three spellings, three outcomes. Only the third works.
+
+Fully qualified — the parameter id is written as null and `mx check` no longer
+loads the project at all:
+
+```mdl
+call microflow TimeReg.ACT_ApproveWeek
+  with (TimeReg.ACT_ApproveWeek.Timesheet = '$workflowContext');
+```
+```
+$ ./mxcli exec a.mdl -p TimeRegistration.mpr
+Created workflow: TimeReg.WF_Probe
+
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
+ERROR: System.AggregateException: One or more errors occurred. (An error occurred
+when trying to set the 'Parameter' property of a Microflow call parameter mapping
+in a Workflow with ID 8b9b8f24-b986-48ae-a684-30a0a664c1a2.)
+ ---> System.ArgumentNullException: Value cannot be null. (Parameter 'value')
+   at Mendix.Modeler.Workflows.Model.MicroflowCallParameterMapping.set_ParameterId(...)
+```
+
+Quoted — the quotes become part of the name that is looked up:
+
+```mdl
+with ("Timesheet" = '$workflowContext');
+```
+```
+[error] [CE1613] "The selected parameter 'TimeReg.ACT_ApproveWeek."Timesheet"'
+no longer exists." at Old call microflow task 'ACT_ApproveWeek'
+The app contains: 1 errors.
+```
+
+Bare — correct:
+
+```mdl
+with (Timesheet = '$workflowContext');
+```
+```
+The app contains: 0 errors.
+```
+
+This is the one place in MDL where the project's "always quote identifiers"
+rule is actively wrong.
+
+### 42. `describe workflow` does not round-trip the parameter mappings **[bug]**
+
+The skill file promises `DESCRIBE WORKFLOW` emits re-runnable MDL. It does, but
+the `with (…)` clause is dropped, so describe → drop → exec silently loses the
+mapping (which, per finding 40, nothing then reports):
+
+```
+$ ./mxcli -p TimeRegistration.mpr -c 'describe workflow "TimeReg"."WF_Probe"'
+begin
+  call microflow TimeReg.ACT_ApproveWeek -- ACT_ApproveWeek
+    outcomes
+      DEFAULT -> { };
+end workflow
+```
+
+The mapping was present — `mx check` accepted the project, and the qualified
+form of the same clause crashes it (finding 41), so it is stored. It is just
+not printed.
+
+### 43. Mendix does not associate a workflow with its context object **[platform]**
+
+A running workflow knows its context, but nothing on the context side points
+back, so a task page cannot find the object it is about. Add the association
+yourself and set it when the workflow starts:
+
+```mdl
+create association "TimeReg"."Timesheet_Workflow"
+from "TimeReg"."Timesheet" to System.Workflow
+type reference;
+```
+```mdl
+$workflow = call workflow "TimeReg"."TimesheetApproval" (Context = $Timesheet);
+change $Timesheet ("TimeReg"."Timesheet_Workflow" = $workflow);
+```
+
+The route back is `task → workflow → context`. Going by way of
+`System.WorkflowActivity` does not survive the build:
+
+```
+$ ./mxcli exec c.mdl -p TimeRegistration.mpr
+Replaced microflow: TimeReg.DS_TaskTimesheet
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
+[error] [CE1613] "The selected association 'System.WorkflowActivity_WorkflowUserTask'
+no longer exists." at Retrieve object(s) activity 'Retrieve from association'
+```
+
+Use `System.WorkflowUserTask_Workflow`, which is a direct reference.
+
+### 44. Being targeted by a task is not the same as being allowed to complete it **[platform]**
+
+`set task outcome` on a task the signed-in user is only *targeted* by is
+refused in the browser, with nothing in the server log:
+
+```
+[console] [Client] You can't complete this user task, it is not assigned to you.
+          Error: You can't complete this user task, it is not assigned to you.
+```
+
+`System.WorkflowUserTask` has both `_TargetUsers` (eligible) and `_Assignees`
+(actually holding it). Studio Pro's generated task page has a Take button for
+the transition. MDL has no "assign task" statement, but the association is an
+ordinary one:
+
+```mdl
+retrieve $me from System.User where [id = '[%CurrentUser%]'] limit 1;
+change $Task (System.WorkflowUserTask_Assignees = $me);
+commit $Task;
+```
+
+### 45. A targeting microflow must accept the workflow as well as the context **[platform]**
+
+The obvious signature — just the context entity — is rejected, and the message
+says exactly what is wanted:
+
+```
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
+[error] [CE6677] "The microflow selected for assigning this user task should accept
+parameters of type 'System.Workflow' and 'TimeReg.Timesheet'. Instead the selected
+microflow 'TimeReg.ACT_WF_Approvers' expects 'TimeReg.Timesheet'." at User task
+'Approve week timesheet'
+```
+
+Both parameters, in that order, even when the microflow only reads one of them.
+
+### 46. A microflow datasource cannot be handed a page parameter **[platform]**
+
+A page bound to `System.WorkflowUserTask` cannot pass that parameter to a
+microflow datasource. Every spelling — `"Task": $Task`, `Task = $Task`,
+`$Task = $Task` — produces the same error, because the only argument a
+datasource can resolve is `$currentObject`:
+
+```mdl
+create or replace page "TimeReg"."WF_Probe" (
+  URL: 'wf-probe',
+  Params: { $Task: System.WorkflowUserTask }
+) {
+  container pPage {
+    dataview pSheet (DataSource: microflow "TimeReg"."DS_TaskTimesheet"("Task": $Task)) { … }
+  }
+}
+```
+```
+[error] [CE1571] "No argument has been selected for parameter 'Task' and no default
+is available. Please select an argument manually." at Data view 'pSheet'
+[error] [CE5601] "The URL property of this Page is missing a parameter segment for
+parameter "Task"." at Page 'TimeReg.WF_Probe'
+```
+
+Two findings for the price of one: a page with a parameter also needs a URL
+segment for it, or no `URL:` at all.
+
+**Workaround for CE1571.** Wrap the body in a DataView on the parameter, which
+makes it `$currentObject` for everything inside:
+
+```mdl
+dataview wtCtx (DataSource: $Task) {
+  dataview wtSheet (DataSource: microflow "TimeReg"."DS_TaskTimesheet"("Task": $currentObject)) { … }
+}
+```
+
+### 47. System-module enumerations are invisible to mxcli **[gap]**
+
+Filtering user tasks by state means naming `System.WorkflowUserTaskState`, and
+mxcli cannot see it — the System module is loaded from the runtime, not from the
+`.mpr`:
+
+```
+$ ./mxcli -p TimeRegistration.mpr -c 'describe enumeration System.WorkflowUserTaskState'
+Error: enumeration not found: System.WorkflowUserTaskState
+
+$ ./mxcli -p TimeRegistration.mpr -c 'show enumerations in System'
+| Qualified Name | Module | Name | Folder | Values |
+|----------------|--------|------|--------|--------|
+
+(0 enumerations)
+```
+
+Entities are documented in `.ai-context/skills/system-module.md`; the
+enumerations are not. Constrain on an attribute instead — `[EndTime = empty]`
+selects the open tasks without naming a value that cannot be looked up.
+
+### 48. There is no `complete task` statement, and the error does not hint at the one that exists **[gap]**
+
+```mdl
+complete task $Task with outcome 'Approve';
+```
+```
+$ ./mxcli check t1.mdl
+Syntax errors found:
+  - line 5:2 missing END at 'complete'
+  - line 5:16 extraneous input '$Task' expecting the start of a statement
+    (create, alter, drop, show, describe, …)
+```
+
+The statement is `set task outcome $Task 'Approve';`. It is in the grammar
+(`MDLMicroflow.g4`, `setTaskOutcomeStatement`) and it works, but it is in none
+of the bundled skill files, including `write-workflows.md` — reading the `.g4`
+was the only way to find it, alongside `open user task`, `notify workflow`,
+`lock workflow` and `workflow operation abort|pause|restart|retry|continue`.
+
+---
+
 ## Things that worked better than expected
 
 ### 25. Associations can be set inside `create`

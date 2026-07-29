@@ -26,6 +26,7 @@ and boot again.
 | My matters | `/p/my-matters` | The fee earner's book of work, budget consumption, notices, WTD check |
 | Week timesheet | `/p/week` | The week grid — matter × task rows, seven day columns, composition, value, audit trail |
 | Time entry | `/p/new-entry` | Records an entry; rate resolved from the client agreement on save |
+| My tasks | `/p/my-tasks` | The approver's inbox — whatever the workflow engine has assigned them |
 | Team approvals | `/p/approvals` | The partner's queue for a week, with the flagged entries to review |
 | Monthly rollup | `/p/rollup` | Firm KPIs, hours by week/matter/role, the close checklist, WTD exceptions |
 | Report · per customer | `/p/report-customer` | Approved time by client, role mix, realisation, statement distribution |
@@ -67,12 +68,62 @@ The transactional half of the app is real, not staged:
   disagree.
 - `DS_WeekRows` pivots the week's entries onto matter × task rows with seven day
   columns; `DS_WeekTotals` produces the day-total band.
-- `ACT_SubmitWeek` / `ACT_ApproveWeek` / `ACT_ReturnWeek` move the week's status
-  and append to its audit trail. `ACT_LockPeriod` closes the period.
+- `ACT_SubmitWeek` starts the approval workflow, `ACT_ApproveWeek` /
+  `ACT_ReturnWeek` move the week's status and append to its audit trail.
+  `ACT_LockPeriod` closes the period.
 
 Verified end to end: recording 3.25 h on Wednesday moved that day 8.00 → 11.25,
 the week 36.5 → 39.8, and the value € 9.142 → € 10.036 — exactly 3.25 × € 275,
 the Kessler blended rate picked up from the rate agreement.
+
+## Approval is a Mendix Workflow
+
+`TimeReg.TimesheetApproval` is a real workflow document, not a status
+enumeration with buttons. Its context entity is `Timesheet`.
+
+```
+ACT_SubmitWeek                     start workflow, record it on the Timesheet
+  └─ user task "Approve week timesheet"
+       targeting  ACT_WF_Approvers → the fee earner's supervising partner
+       page       WF_ApproveTask
+       due date   addDays([%CurrentDateTime%], 3)
+       outcomes   Approve · Return
+```
+
+Three things the enumeration could not give: a task assigned to a named person,
+a due date the engine tracks, and a decision history the platform keeps.
+
+**My tasks** (`/p/my-tasks`) is the approver's inbox, reading
+`System.WorkflowUserTask` for the signed-in user. The Team approvals queue is
+still there, but its per-row button now says *Open task* and routes into the
+same task page — a week can no longer be approved behind the workflow's back.
+
+**Where the decision actually happens.** The natural shape is an outcome branch
+that calls a microflow. It builds, and then the runtime refuses to load the
+model: mxcli writes that activity as `Workflows$CallMicroflowTask`, which Mendix
+11.12.1 calls `Workflows$CallMicroflowActivity`. `mx check` reports 0 errors
+either way (finding 39 in [FINDINGS.md](FINDINGS.md)). So the outcome branches
+are empty and the work happens on the way in: the task page's buttons call
+`ACT_ApproveFromTask` / `ACT_ReturnFromTask`, which claim the task, run
+`ACT_ApproveWeek` / `ACT_ReturnWeek`, and then `set task outcome` — which is
+what completes the task and tells the engine which branch was taken. The
+outcomes are still the workflow's; only the branch bodies moved.
+
+**Mendix does not link a workflow to its context object**, so `Timesheet_Workflow`
+does, set when the workflow starts. That association is how the task page finds
+the week it is about.
+
+### Verified end to end
+
+| Step | Result |
+|---|---|
+| Boot on an empty database | 2 workflows started for the 2 submitted weeks, both tasks targeted at `j.haverkamp@vdh-law.nl`, due 3 days out |
+| Partner opens **My tasks** | 2 tasks, with description and due date |
+| Opens a task, clicks **Approve week** | task completed, workflow `Completed`, Pieter Ravensbergen's week `submitted` → `approved`, audit trail: *"Week approved by the supervising partner"* |
+| Maartje de Vries submits her week | third workflow started, inbox goes 1 → 2, audit trail: *"Week submitted for approval — task assigned to the supervising partner"* |
+| Partner clicks **Open task** in the approvals queue, then **Return with note** | task completed with the `Return` outcome, Fatima El Amrani's week → `returned` |
+
+Final state: 2 workflows `Completed`, 1 `InProgress`, 1 open task.
 
 ## Styling
 
@@ -115,7 +166,7 @@ Production security level, three roles, and row-level access rules.
 | Role | Sees | Can do |
 |---|---|---|
 | **FeeEarner** | My matters, Week timesheet, Time entry | Record, edit and submit **their own** time |
-| **Partner** | + Approvals, Monthly rollup, all three reports | Approve or return **their team's** weeks |
+| **Partner** | + My tasks, Approvals, Monthly rollup, all three reports | Approve or return **their team's** weeks |
 | **Administrator** | + Rate card | Maintain rates, close the period, manage users |
 
 **Identity.** `Employee_Account` links a fee earner to the account they sign in
@@ -147,8 +198,8 @@ documentation. Lists fed by `database from …` are scoped by the rules as norma
 |---|---|---|---|
 | m.devries@vdh-law.nl (fee earner) | 3 items | 36.5 h — hers | no access |
 | p.ravensbergen@vdh-law.nl (fee earner) | 3 items | empty — cannot see Maartje's | no access |
-| j.haverkamp@vdh-law.nl (partner) | 8 items | his own | his 9 reports |
-| praktijkbeheer@vdh-law.nl (practice mgmt) | 9 items | none — no fee-earner record | firm-wide |
+| j.haverkamp@vdh-law.nl (partner) | 9 items | his own | his 9 reports |
+| praktijkbeheer@vdh-law.nl (practice mgmt) | 10 items | none — no fee-earner record | firm-wide |
 
 Pieter's empty week is the proof: he has no entries of his own in the demo
 dataset, and the access rules stop him seeing anyone else's.
@@ -165,11 +216,15 @@ This is a prototype dataset, not a credential store.
   parser has no command to set it — see finding 36. It needs Studio Pro.
 - **No SSO.** The design's Entra ID and smartcard buttons are not implemented;
   the page uses the platform's local sign-in.
-- **No Mendix Workflow.** Approval is an enumeration plus microflows
-  (`ACT_SubmitWeek` / `ACT_ApproveWeek` / `ACT_ReturnWeek`), matching the
-  mockup's bulk-approval grid. There is no workflow definition, no user tasks
-  and no task inbox — worth adding if delegation, escalation or reminders are
-  wanted.
+- **No escalation or delegation on the workflow.** The user task has a due date
+  the engine tracks, but nothing acts when it passes. A boundary timer event
+  would be the place — it needs an activity in its body, which runs into the
+  same finding 39.
+- **The approvals queue still shows every week.** Weeks without a running
+  workflow (already approved, still draft) show an *Open task* button that does
+  nothing. Hiding it needs a conditional-visibility expression across the
+  association, which MDL-WIDGET13 does not allow — a precomputed `HasOpenTask`
+  boolean on `Timesheet` would fix it.
 - **Static controls.** Week navigation (‹ ›), the filter chips, `Copy last week`,
   `Add row`, `Export XLSX` and the report-set buttons are presentational.
 - **Fixed period.** The screens are pinned to week 30 / July 2026 rather than
