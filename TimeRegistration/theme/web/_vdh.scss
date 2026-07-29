@@ -857,3 +857,13 @@ html, body, .mx-page {
 // A DataView used purely to bind one header value must not break the flex row.
 .vdh-topbar .mx-dataview,
 .vdh-topbar .mx-dataview-content { display: contents; }
+
+// The period selector in a report topbar: the same chrome as the week
+// navigation, laid out as one row so the ‹ name › group reads as a unit.
+.vdh-periodnav,
+.vdh-periodnav > .mx-dataview-content {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
+.vdh-periodnav .vdh-period { margin-left: 4px; }

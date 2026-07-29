@@ -1,0 +1,477 @@
+/**
+ * TimeRegistration — period-aware reporting, part 2: the logic
+ */
+
+/**
+ * Derives a period's month-end summaries from the entries recorded into it.
+ *
+ * The July 2026 figures are a seeded snapshot matching the design handoff, and
+ * ACT_EnsurePeriod deliberately leaves them alone. This is what any *other*
+ * month gets: the same five summaries, computed from the entry table, so
+ * stepping to August produces real numbers rather than five empty screens.
+ *
+ * Two honest limits. The app has no write-off concept, so billed value equals
+ * standard value and a derived period realises at 100%. And utilisation is
+ * against a flat 140-hour month rather than a per-contract target, because
+ * Employee carries no FTE.
+ *
+ * @param $Period the month to summarise
+ * @returns true when the summaries were written
+ */
+create or modify microflow "TimeReg"."ACT_RecalculatePeriod" (
+  $Period: "TimeReg"."Period"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  if $Period = empty then
+    return false;
+  end if;
+
+  -- Marks the period as computed rather than seeded, which is what lets
+  -- ACT_EnsurePeriod refresh it later without touching July's snapshot.
+  change $Period (IsDerived = true);
+  commit $Period;
+
+  -- dateTime() takes hardcoded constants only (MDL046), so the first of the
+  -- month is parsed rather than constructed.
+  declare $from datetime = [%CurrentDateTime%];
+  declare $to datetime = [%CurrentDateTime%];
+  set $from = parseDateTime('1-' + toString($Period/MonthNumber) + '-' + toString($Period/Year), 'd-M-yyyy');
+  set $to = addMonths($from, 1);
+
+  -- Everything below reads this window. A month is a date range on TimeEntry,
+  -- not an association: an entry belongs to the month it was worked in.
+  retrieve $entries from "TimeReg"."TimeEntry"
+    where ["EntryDate" >= $from and "EntryDate" < $to];
+  $recorded = sum($entries.Hours);
+  $value = sum($entries.AmountValue);
+
+  retrieve $billableEntries from "TimeReg"."TimeEntry"
+    where ["EntryDate" >= $from and "EntryDate" < $to
+       and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+  $billable = sum($billableEntries.Hours);
+
+  declare $billablePct decimal = 0;
+  if $recorded > 0 then
+    set $billablePct = round($billable div $recorded * 100);
+  end if;
+
+  -- Firm KPIs ---------------------------------------------------------------
+  retrieve $oldStats from "TimeReg"."PeriodStat"
+    where ["TimeReg"."PeriodStat_Period" = $Period];
+  loop $oldStat in $oldStats
+  begin
+    delete $oldStat;
+  end loop;
+
+  retrieve $employees from "TimeReg"."Employee" sort by TimeReg.Employee.SortOrder asc;
+  $feeEarnerCount = count($employees);
+
+  retrieve $unsubmitted from "TimeReg"."Timesheet"
+    where ["WeekStart" >= $from and "WeekStart" < $to
+       and "Status" != "TimeReg"."ENUM_TimesheetStatus"."Approved"];
+  $notSubmitted = count($unsubmitted);
+
+  $stat = create "TimeReg"."PeriodStat" (
+    RecordedHours = $recorded,
+    BillableHours = $billable,
+    BillablePct = $billablePct,
+    StandardValue = $value,
+    RealisationPct = 100,
+    RealisationDelta = 0,
+    FeeEarnerCount = $feeEarnerCount,
+    NotSubmittedCount = $notSubmitted,
+    RecordedLabel = formatDecimal($recorded, '#,##0.0'),
+    BillableLabel = formatDecimal($billable, '#,##0.0'),
+    StandardLabel = '€ ' + replaceAll(formatDecimal($value, '#,##0'), ',', '.'),
+    RealisationLabel = '100%',
+    DeltaLabel = '—',
+    BillablePctLabel = formatDecimal($billablePct, '###0') + '%',
+    "TimeReg"."PeriodStat_Period" = $Period);
+  commit $stat;
+
+  -- Per matter ---------------------------------------------------------------
+  retrieve $oldMatterRows from "TimeReg"."MatterMonthSummary"
+    where ["TimeReg"."MatterMonthSummary_Period" = $Period];
+  loop $oldMatterRow in $oldMatterRows
+  begin
+    delete $oldMatterRow;
+  end loop;
+
+  declare $matterSeq integer = 0;
+  retrieve $matters from "TimeReg"."Matter" sort by TimeReg.Matter.Code asc;
+
+  loop $matter in $matters
+  begin
+    retrieve $matterEntries from "TimeReg"."TimeEntry"
+      where ["EntryDate" >= $from and "EntryDate" < $to
+         and "TimeReg"."TimeEntry_Matter" = $matter];
+    $matterHours = sum($matterEntries.Hours);
+    $matterValue = sum($matterEntries.AmountValue);
+
+    if $matterHours > 0 then
+      declare $matterBucket integer = 0;
+      if $recorded > 0 then
+        set $matterBucket = round($matterHours div $recorded * 20);
+      end if;
+
+      -- Hoisted: the checker reads the '/' of an association path inside a
+      -- `div` as a second division operator and rejects the line (MDL045).
+      declare $matterBudget decimal = 0;
+      set $matterBudget = $matter/BudgetHours;
+
+      declare $budgetPct integer = 0;
+      if $matterBudget > 0 then
+        set $budgetPct = round($matterHours div $matterBudget * 100);
+      end if;
+
+      declare $meter string = 'vdh-meter-fill vdh-meter-fill--green';
+      if $budgetPct >= 90 then
+        set $meter = 'vdh-meter-fill vdh-meter-fill--amber';
+      end if;
+      if $budgetPct >= 100 then
+        set $meter = 'vdh-meter-fill vdh-meter-fill--red';
+      end if;
+
+      declare $avgRate decimal = 0;
+      if $matterHours > 0 then
+        set $avgRate = $matterValue div $matterHours;
+      end if;
+
+      set $matterSeq = $matterSeq + 1;
+      $matterRow = create "TimeReg"."MatterMonthSummary" (
+        Hours = $matterHours,
+        AmountValue = $matterValue,
+        HoursBucket = $matterBucket,
+        SortOrder = $matterSeq,
+        IsFirmWide = true,
+        MeterClass = $meter,
+        BudgetPct = $budgetPct,
+        RateLabel = '€ ' + formatDecimal($avgRate, '###0'),
+        HoursLabel = formatDecimal($matterHours, '#,##0.0'),
+        ValueLabel = '€ ' + replaceAll(formatDecimal($matterValue, '#,##0'), ',', '.'),
+        "TimeReg"."MatterMonthSummary_Matter" = $matter,
+        "TimeReg"."MatterMonthSummary_Period" = $Period);
+      commit $matterRow;
+    end if;
+  end loop;
+
+  -- Per matter, per fee earner: the "my matters" slice ------------------------
+  loop $employee in $employees
+  begin
+    declare $mySeq integer = 0;
+
+    loop $myMatter in $matters
+    begin
+      retrieve $myEntries from "TimeReg"."TimeEntry"
+        where ["EntryDate" >= $from and "EntryDate" < $to
+           and "TimeReg"."TimeEntry_Matter" = $myMatter
+           and "TimeReg"."TimeEntry_Employee" = $employee];
+      $myHours = sum($myEntries.Hours);
+      $myValue = sum($myEntries.AmountValue);
+
+      if $myHours > 0 then
+        declare $myBudget decimal = 0;
+        declare $myUsed decimal = 0;
+        set $myBudget = $myMatter/BudgetHours;
+        set $myUsed = $myMatter/UsedHours;
+
+        declare $myBudgetPct integer = 0;
+        if $myBudget > 0 then
+          set $myBudgetPct = round($myUsed div $myBudget * 100);
+        end if;
+
+        declare $myMeter string = 'vdh-meter-fill vdh-meter-fill--green';
+        if $myBudgetPct >= 90 then
+          set $myMeter = 'vdh-meter-fill vdh-meter-fill--amber';
+        end if;
+        if $myBudgetPct >= 100 then
+          set $myMeter = 'vdh-meter-fill vdh-meter-fill--red';
+        end if;
+
+        declare $myRate decimal = 0;
+        if $myHours > 0 then
+          set $myRate = $myValue div $myHours;
+        end if;
+
+        set $mySeq = $mySeq + 1;
+        $myRow = create "TimeReg"."MatterMonthSummary" (
+          Hours = $myHours,
+          AmountValue = $myValue,
+          HoursBucket = round($myBudgetPct div 5),
+          SortOrder = $mySeq,
+          IsFirmWide = false,
+          MeterClass = $myMeter,
+          BudgetPct = $myBudgetPct,
+          RateLabel = '€ ' + formatDecimal($myRate, '###0'),
+          HoursLabel = formatDecimal($myHours, '#,##0.0'),
+          ValueLabel = '€ ' + replaceAll(formatDecimal($myValue, '#,##0'), ',', '.'),
+          "TimeReg"."MatterMonthSummary_Matter" = $myMatter,
+          "TimeReg"."MatterMonthSummary_Employee" = $employee,
+          "TimeReg"."MatterMonthSummary_Period" = $Period);
+        commit $myRow;
+      end if;
+    end loop;
+  end loop;
+
+  -- Per fee earner -----------------------------------------------------------
+  retrieve $oldEmployeeRows from "TimeReg"."EmployeeMonthSummary"
+    where ["TimeReg"."EmployeeMonthSummary_Period" = $Period];
+  loop $oldEmployeeRow in $oldEmployeeRows
+  begin
+    delete $oldEmployeeRow;
+  end loop;
+
+  declare $employeeSeq integer = 0;
+
+  loop $person in $employees
+  begin
+    retrieve $personEntries from "TimeReg"."TimeEntry"
+      where ["EntryDate" >= $from and "EntryDate" < $to
+         and "TimeReg"."TimeEntry_Employee" = $person];
+    $personHours = sum($personEntries.Hours);
+    $personValue = sum($personEntries.AmountValue);
+
+    retrieve $personBillable from "TimeReg"."TimeEntry"
+      where ["EntryDate" >= $from and "EntryDate" < $to
+         and "TimeReg"."TimeEntry_Employee" = $person
+         and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+    $personBillableHours = sum($personBillable.Hours);
+
+    if $personHours > 0 then
+      retrieve $personRole from $person/"TimeReg"."Employee_Role";
+
+      declare $costRate decimal = 0;
+      if $personRole != empty then
+        set $costRate = $personRole/CostRate;
+      end if;
+
+      declare $cost decimal = 0;
+      set $cost = $personHours * $costRate;
+
+      declare $margin decimal = 0;
+      if $personValue > 0 then
+        set $margin = round(($personValue - $cost) div $personValue * 100);
+      end if;
+
+      -- 140 hours is the firm's nominal billable month; Employee carries no FTE.
+      declare $utilisation decimal = 0;
+      set $utilisation = round($personBillableHours div 140 * 100);
+
+      set $employeeSeq = $employeeSeq + 1;
+      $personRow = create "TimeReg"."EmployeeMonthSummary" (
+        RecordedHours = $personHours,
+        BillableHours = $personBillableHours,
+        UtilisationPct = $utilisation,
+        UtilisationBucket = round($utilisation div 5),
+        AmountValue = $personValue,
+        CostValue = $cost,
+        MarginPct = $margin,
+        SortOrder = $employeeSeq,
+        RecordedLabel = formatDecimal($personHours, '#,##0.0'),
+        BillableLabel = formatDecimal($personBillableHours, '#,##0.0'),
+        ValueLabel = '€ ' + replaceAll(formatDecimal($personValue, '#,##0'), ',', '.'),
+        CostLabel = '€ ' + replaceAll(formatDecimal($cost, '#,##0'), ',', '.'),
+        MarginLabel = formatDecimal($margin, '###0') + '%',
+        CostRateLabel = '€ ' + formatDecimal($costRate, '###0'),
+        "TimeReg"."EmployeeMonthSummary_Employee" = $person,
+        "TimeReg"."EmployeeMonthSummary_Period" = $Period);
+      commit $personRow;
+    end if;
+  end loop;
+
+  -- Per client ---------------------------------------------------------------
+  retrieve $oldClientRows from "TimeReg"."ClientMonthSummary"
+    where ["TimeReg"."ClientMonthSummary_Period" = $Period];
+  loop $oldClientRow in $oldClientRows
+  begin
+    delete $oldClientRow;
+  end loop;
+
+  declare $clientSeq integer = 0;
+  retrieve $clients from "TimeReg"."Client" sort by TimeReg.Client.Name asc;
+
+  loop $client in $clients
+  begin
+    retrieve $clientEntries from "TimeReg"."TimeEntry"
+      where ["EntryDate" >= $from and "EntryDate" < $to
+         and "TimeReg"."TimeEntry_Matter"/"TimeReg"."Matter"/"TimeReg"."Matter_Client" = $client];
+    $clientHours = sum($clientEntries.Hours);
+    $clientValue = sum($clientEntries.AmountValue);
+
+    if $clientHours > 0 then
+      retrieve $clientMatters from "TimeReg"."Matter"
+        where ["TimeReg"."Matter_Client" = $client];
+      $clientMatterCount = count($clientMatters);
+
+      declare $clientRate decimal = 0;
+      set $clientRate = $clientValue div $clientHours;
+
+      declare $concentration integer = 0;
+      if $value > 0 then
+        set $concentration = round($clientValue div $value * 100);
+      end if;
+
+      set $clientSeq = $clientSeq + 1;
+      $clientRow = create "TimeReg"."ClientMonthSummary" (
+        MatterCount = $clientMatterCount,
+        Hours = $clientHours,
+        StandardValue = $clientValue,
+        BilledValue = $clientValue,
+        RealisationPct = 100,
+        AvgRate = $clientRate,
+        MixPartnerPct = 0,
+        MixSeniorPct = 0,
+        MixAssociatePct = 0,
+        MixSupportPct = 0,
+        ConcentrationPct = $concentration,
+        ConcentrationBucket = round($concentration div 5),
+        SortOrder = $clientSeq,
+        HoursLabel = formatDecimal($clientHours, '#,##0.0'),
+        StandardLabel = '€ ' + replaceAll(formatDecimal($clientValue, '#,##0'), ',', '.'),
+        BilledLabel = '€ ' + replaceAll(formatDecimal($clientValue, '#,##0'), ',', '.'),
+        RealisationLabel = '100%',
+        AvgRateLabel = '€ ' + formatDecimal($clientRate, '###0'),
+        "TimeReg"."ClientMonthSummary_Client" = $client,
+        "TimeReg"."ClientMonthSummary_Period" = $Period);
+      commit $clientRow;
+    end if;
+  end loop;
+
+  -- Per role -----------------------------------------------------------------
+  retrieve $oldRoleRows from "TimeReg"."RoleMonthSummary"
+    where ["TimeReg"."RoleMonthSummary_Period" = $Period];
+  loop $oldRoleRow in $oldRoleRows
+  begin
+    delete $oldRoleRow;
+  end loop;
+
+  declare $roleSeq integer = 0;
+  retrieve $roles from "TimeReg"."Role" sort by TimeReg.Role.SortOrder asc;
+
+  loop $role in $roles
+  begin
+    retrieve $roleEntries from "TimeReg"."TimeEntry"
+      where ["EntryDate" >= $from and "EntryDate" < $to
+         and "TimeReg"."TimeEntry_Employee"/"TimeReg"."Employee"/"TimeReg"."Employee_Role" = $role];
+    $roleHours = sum($roleEntries.Hours);
+
+    if $roleHours > 0 then
+      declare $roleBucket integer = 0;
+      if $recorded > 0 then
+        set $roleBucket = round($roleHours div $recorded * 20);
+      end if;
+
+      set $roleSeq = $roleSeq + 1;
+      $roleRow = create "TimeReg"."RoleMonthSummary" (
+        Hours = $roleHours,
+        HoursBucket = $roleBucket,
+        SortOrder = $roleSeq,
+        HoursLabel = formatDecimal($roleHours, '#,##0.0'),
+        "TimeReg"."RoleMonthSummary_Role" = $role,
+        "TimeReg"."RoleMonthSummary_Period" = $Period);
+      commit $roleRow;
+    end if;
+  end loop;
+
+  return true;
+end;
+/
+
+/**
+ * Finds, or opens, the period for a year and month.
+ *
+ * A month that has never been reported on is created and summarised on the
+ * spot. The guard is the presence of a PeriodStat, exactly as the week screen
+ * guards on WeekRangeLabel: July 2026 arrives from the seed with its snapshot
+ * already in place and is never recomputed, so the handoff's figures survive.
+ *
+ * @param $Year the calendar year
+ * @param $MonthNumber 1-12
+ * @returns the period, summarised
+ */
+create or modify microflow "TimeReg"."ACT_EnsurePeriod" (
+  $Year: integer,
+  $MonthNumber: integer
+)
+returns "TimeReg"."Period" as $period
+folder 'Logic'
+begin
+  retrieve $existing from "TimeReg"."Period"
+    where ["Year" = $Year and "MonthNumber" = $MonthNumber]
+    limit 1;
+
+  if $existing != empty then
+    retrieve $stat from "TimeReg"."PeriodStat"
+      where ["TimeReg"."PeriodStat_Period" = $existing]
+      limit 1;
+
+    -- Never summarised, or derived and still open: an open month keeps moving
+    -- as time is recorded into it, so its figures are recomputed on each visit.
+    -- A locked month keeps the numbers it was closed on, and July 2026 keeps
+    -- the seeded snapshot because nothing ever set IsDerived on it.
+    declare $stale boolean = false;
+    if $stat = empty then
+      set $stale = true;
+    end if;
+    if $existing/IsDerived and $existing/Status = "TimeReg"."ENUM_PeriodStatus"."Open" then
+      set $stale = true;
+    end if;
+
+    if $stale then
+      $summarised = call microflow "TimeReg"."ACT_RecalculatePeriod" ("Period" = $existing);
+    end if;
+    return $existing;
+  end if;
+
+  declare $firstOfMonth datetime = [%CurrentDateTime%];
+  set $firstOfMonth = parseDateTime('1-' + toString($MonthNumber) + '-' + toString($Year), 'd-M-yyyy');
+
+  $period = create "TimeReg"."Period" (
+    Name = formatDateTime($firstOfMonth, 'MMM yyyy'),
+    Year = $Year,
+    MonthNumber = $MonthNumber,
+    Status = "TimeReg"."ENUM_PeriodStatus"."Open");
+  commit $period;
+
+  $recalc = call microflow "TimeReg"."ACT_RecalculatePeriod" ("Period" = $period);
+  return $period;
+end;
+/
+
+/**
+ * Records which period a person is looking at.
+ *
+ * @param $Employee whose selection it is
+ * @param $Period the month to move to
+ * @returns true when the selection was stored
+ */
+create or modify microflow "TimeReg"."ACT_SetSelectedPeriod" (
+  $Employee: "TimeReg"."Employee",
+  $Period: "TimeReg"."Period"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  if $Employee = empty then
+    return false;
+  end if;
+
+  retrieve $existing from "TimeReg"."PeriodSelection"
+    where ["TimeReg"."PeriodSelection_Employee" = $Employee]
+    limit 1;
+
+  if $existing != empty then
+    change $existing ("TimeReg"."PeriodSelection_Period" = $Period);
+    commit $existing;
+    return true;
+  end if;
+
+  $selection = create "TimeReg"."PeriodSelection" (
+    "TimeReg"."PeriodSelection_Employee" = $Employee,
+    "TimeReg"."PeriodSelection_Period" = $Period);
+  commit $selection;
+  return true;
+end;
+/

@@ -1,0 +1,75 @@
+/**
+ * TimeRegistration — period-aware reporting, part 5: access
+ *
+ * A period selection is a private preference, like a week selection. Only the
+ * report screens can change one, and those belong to the partner and to
+ * practice management; a fee earner has read access so that the rule still
+ * holds if a microflow's "apply entity access" flag is ever switched on
+ * (finding 19 — MDL cannot set it, so today the datasources bypass it).
+ */
+grant "TimeReg"."FeeEarner" on "TimeReg"."PeriodSelection" (read *)
+  where '[TimeReg.PeriodSelection_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant "TimeReg"."Partner" on "TimeReg"."PeriodSelection" (create, read *, write *)
+  where '[TimeReg.PeriodSelection_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant "TimeReg"."Administrator" on "TimeReg"."PeriodSelection" (create, read *, write *);
+/
+
+-- Reading the selection. DS_MyMatters resolves it for a fee earner's own
+-- screen, so all three roles need the resolver.
+grant execute on microflow "TimeReg"."DS_SelectedPeriod"      to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+-- The period-scoped report lists. Their pages are partner-level already; the
+-- grants match, so a fee earner cannot reach firm-wide figures by any route.
+grant execute on microflow "TimeReg"."DS_PeriodClients"       to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodEmployees"     to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodRoles"         to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodWeeks"         to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodCloseChecks"   to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodExceptions"    to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodTrend"         to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+-- Moving the selection, and opening a month that has never been reported on.
+grant execute on microflow "TimeReg"."ACT_PeriodBack"          to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_PeriodForward"       to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_EnsurePeriod"        to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_RecalculatePeriod"   to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_SetSelectedPeriod"   to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+grant execute on microflow "TimeReg"."ACT_RollupPrev"          to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_RollupNext"          to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_ReportCustomerPrev"  to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_ReportCustomerNext"  to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_ReportMatterPrev"    to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_ReportMatterNext"    to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_ReportPeoplePrev"    to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_ReportPeopleNext"    to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+grant execute on microflow "TimeReg"."DS_PeriodReports"     to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodUtilisation" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodTimeliness"  to "TimeReg"."Partner", "TimeReg"."Administrator";
+/

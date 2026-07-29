@@ -129,6 +129,56 @@ their own timesheet.
 | Log 2.50 h | week 31 totals 2.50 h; the composition bar shows one IP slice, the value panel one Kessler Pharma line at the rate that was applied |
 | **‹** six times from week 30 | 29, 28, 27, 26, 25, 24 — with the dates to match |
 
+## Periods
+
+The month-end summaries were always keyed to a `Period` — `PeriodStat`,
+`ClientMonthSummary`, `EmployeeMonthSummary`, `MatterMonthSummary`,
+`RoleMonthSummary`, `WeekSummary`, `TrendPoint`, `CloseCheck` and
+`WorkingTimeException` all carry a `_Period` reference. What was missing was a
+reason to use it: only July 2026 had rows, so every report list could read
+`database from …` unconstrained and still look right. With a second month in the
+database those screens would have shown two periods stacked on each other.
+
+**`PeriodSelection`** holds one period per employee, exactly as `WeekSelection`
+holds one Monday. `DS_SelectedPeriod` falls back to the earliest *open* period —
+the one the firm has to close next, which is July 2026 in the seeded dataset.
+
+**‹ ›** in the header of the rollup and all three reports move a month at a
+time, and the selection is shared: step to August on the rollup, open the
+per-customer report, and it is already on August. Fourteen report lists now read
+their period rather than the whole table.
+
+**Opening a month summarises it.** `ACT_EnsurePeriod` creates a period that has
+never been reported on and calls `ACT_RecalculatePeriod`, which derives the five
+summaries from the entry table. The guard is the presence of a `PeriodStat`, so
+July 2026 arrives from the seed with the handoff's figures and is never
+recomputed — the numbers that match the design stay exactly as they were.
+
+Two honest limits on a derived month. The app has no write-off concept, so
+billed equals standard and realisation is 100%. And utilisation is measured
+against a flat 140-hour month, because `Employee` carries no FTE.
+
+Three lists on the report screens were month-scoped in life but not in the model
+— the statement distribution, the utilisation histogram, the timeliness bands.
+They gained a `_Period` reference so August does not show July's decoration; a
+derived month leaves those three panels empty, which is the truth.
+
+### Verified end to end
+
+| Step | Result |
+|---|---|
+| Monthly rollup | Jul 2026 · 4.182 h recorded, 3.614 billable, € 1,15M — the seeded snapshot, untouched |
+| **›** | Aug 2026 · created and summarised on the spot: 0.0 h, € 0 |
+| Open **Per customer** | already on Aug 2026, no client rows and no statements |
+| **‹** there | Jul 2026 · 11 rows |
+| Open **Per manager & employee** | follows to Jul 2026 · 13 rows |
+| Back to the rollup | Jul 2026 with its original figures |
+| Book 6.00 h into the week of 3 Aug, reopen the Aug rollup | 6.0 recorded, 6.0 billable, € 1.650 at 100% — 6 × € 275, the Kessler rate; the per-people report now lists Maartje |
+
+An open derived month is recomputed each time it is opened, because time is
+still going into it. `Period.IsDerived` is what keeps that away from July: the
+seeded snapshot was never derived, so it is never recomputed.
+
 ## Approval is a Mendix Workflow
 
 `TimeReg.TimesheetApproval` is a real workflow document, not a status
@@ -280,8 +330,15 @@ This is a prototype dataset, not a credential store.
   boolean on `Timesheet` would fix it.
 - **Static controls.** The filter chips, `Export XLSX` and the report-set buttons
   are still presentational. (‹ ›, `Copy last week` and `Add row` now work.)
-- **Reports are still monthly and fixed.** The rollup and the three report
-  screens read July 2026 snapshots; only the week screens follow the selection.
-- **No week picker.** You reach a week by stepping to it. A date picker, or a
-  "this week" button, would need a date-to-Monday conversion, and Mendix's
-  `daysBetween` is unsigned (finding 50), so it is more care than it looks.
+- **No week or period picker.** You reach a week or a month by stepping to it.
+  A date picker, or a "this week" button, would need a date-to-Monday
+  conversion, and Mendix's `daysBetween` is unsigned (finding 50), so it is more
+  care than it looks.
+- **A derived month is thinner than the seeded one.** `ACT_RecalculatePeriod`
+  produces the five summaries the report screens read; the role-mix percentages
+  on the per-customer report, the utilisation histogram and the timeliness bands
+  are seeded decoration for July and come out empty for any other month.
+- **The period chips on the work screens are static.** "Period Jul 2026 · open /
+  Jun 2026 · locked" in the topbar of the week, entry, my-matters and approvals
+  screens describes the firm's close status, not the report selection, and does
+  not move.

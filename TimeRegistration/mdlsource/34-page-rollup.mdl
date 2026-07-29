@@ -16,10 +16,26 @@ create or replace page "TimeReg"."MonthlyRollup" (
 
     container ruTop (Class: 'vdh-topbar') {
       dynamictext ruTitle (Content: 'Monthly rollup', Class: 'vdh-topbar-title')
-      dynamictext ruSub (Content: 'July 2026 · firm-wide', Class: 'vdh-topbar-sub')
+      dynamictext ruSub (Content: 'Firm-wide', Class: 'vdh-topbar-sub')
       container ruSpacer (Class: 'vdh-topbar-spacer') { dynamictext ruSpacerText (Content: ' ') }
-      dynamictext ruPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
-      dynamictext ruPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+
+      -- The period selector. Every list on the screen reads the same selection,
+      -- so it belongs in the header rather than beside any one panel.
+      dataview ruNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton ruPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_RollupPrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext ruPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton ruNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_RollupNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext ruPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
+
       actionbutton ruLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
     }
 
@@ -33,7 +49,7 @@ create or replace page "TimeReg"."MonthlyRollup" (
               container ruKpi1 (Class: 'vdh-kpi') {
                 dynamictext ruK1Label (Content: 'Recorded', Class: 'vdh-kpi-label')
                 dynamictext ruK1Value (Attribute: RecordedLabel, Class: 'vdh-kpi-value')
-                dynamictext ruK1Sub (Content: 'hours · 48 fee earners', Class: 'vdh-kpi-sub')
+                dynamictext ruK1Sub (Content: 'hours · {1} fee earners', ContentParams: [{1} = FeeEarnerCount], Class: 'vdh-kpi-sub')
               }
             }
             column ruK2 (DesktopWidth: 2) {
@@ -46,7 +62,7 @@ create or replace page "TimeReg"."MonthlyRollup" (
             column ruK3 (DesktopWidth: 3) {
               container ruKpi3 (Class: 'vdh-kpi') {
                 dynamictext ruK3Label (Content: 'Value at standard', Class: 'vdh-kpi-label')
-                dynamictext ruK3Value (Content: '€ 1,15M', Class: 'vdh-kpi-value')
+                dynamictext ruK3Value (Attribute: StandardLabel, Class: 'vdh-kpi-value')
                 dynamictext ruK3Sub (Content: 'before write-offs', Class: 'vdh-kpi-sub')
               }
             }
@@ -54,7 +70,7 @@ create or replace page "TimeReg"."MonthlyRollup" (
               container ruKpi4 (Class: 'vdh-kpi') {
                 dynamictext ruK4Label (Content: 'Realisation', Class: 'vdh-kpi-label')
                 dynamictext ruK4Value (Attribute: RealisationLabel, Class: 'vdh-kpi-value vdh-fg-teal')
-                dynamictext ruK4Sub (Content: '+{1} pt vs June', ContentParams: [{1} = DeltaLabel], Class: 'vdh-kpi-sub')
+                dynamictext ruK4Sub (Content: '{1} vs the previous month', ContentParams: [{1} = DeltaLabel], Class: 'vdh-kpi-sub')
               }
             }
             column ruK5 (DesktopWidth: 3) {
@@ -81,7 +97,7 @@ create or replace page "TimeReg"."MonthlyRollup" (
               }
               container ruWeekBody (Class: 'vdh-body') {
                 listview ruWeeks (
-                  DataSource: database from "TimeReg"."WeekSummary" sort by SortOrder asc,
+                  DataSource: microflow "TimeReg"."DS_PeriodWeeks",
                   Class: 'vdh-chart'
                 ) {
                   container ruWeekCol (Class: 'vdh-chart-col') {
@@ -127,7 +143,7 @@ create or replace page "TimeReg"."MonthlyRollup" (
                   column ruSplitR (DesktopWidth: 6) {
                     dynamictext ruRoleTitle (Content: 'Hours by role', Class: 'vdh-panel-title')
                     listview ruRoles (
-                      DataSource: database from "TimeReg"."RoleMonthSummary" sort by SortOrder asc,
+                      DataSource: microflow "TimeReg"."DS_PeriodRoles",
                       Class: 'vdh-table'
                     ) {
                       container ruRoleRow (Class: 'vdh-trow') {
@@ -155,9 +171,9 @@ create or replace page "TimeReg"."MonthlyRollup" (
           column ruColRight (DesktopWidth: 5) {
 
             container ruClosePanel (Class: 'vdh-panel vdh-panel--ink') {
-              dynamictext ruCloseTitle (Content: 'Month close · Jul 2026', Class: 'vdh-panel-title')
+              dynamictext ruCloseTitle (Content: 'Month close', Class: 'vdh-panel-title')
               listview ruChecks (
-                DataSource: database from "TimeReg"."CloseCheck" sort by SortOrder asc,
+                DataSource: microflow "TimeReg"."DS_PeriodCloseChecks",
                 Class: 'vdh-table'
               ) {
                 container ruCheckRow (Class: 'vdh-trow') {
@@ -171,7 +187,9 @@ create or replace page "TimeReg"."MonthlyRollup" (
                 }
               }
               container ruCloseFoot (Class: 'vdh-body') {
-                dataview ruClosePeriod (DataSource: microflow "TimeReg"."DS_CurrentPeriod") {
+                -- The selected period, not the firm's next-to-close one: the
+                -- checklist above it belongs to the month being looked at.
+                dataview ruClosePeriod (DataSource: microflow "TimeReg"."DS_SelectedPeriod") {
                   actionbutton ruLock (
                     Caption: 'Lock period & release reports',
                     Action: microflow "TimeReg"."ACT_LockPeriod"("Period": $currentObject),
@@ -184,7 +202,7 @@ create or replace page "TimeReg"."MonthlyRollup" (
             container ruWtdPanel (Class: 'vdh-panel vdh-mt-l') {
               dynamictext ruWtdTitle (Content: 'Working-time exceptions', Class: 'vdh-panel-title')
               listview ruWtd (
-                DataSource: database from "TimeReg"."WorkingTimeException" sort by SortOrder asc,
+                DataSource: microflow "TimeReg"."DS_PeriodExceptions",
                 Class: 'vdh-table'
               ) {
                 container ruWtdRow (Class: 'vdh-trow') {
@@ -201,7 +219,7 @@ create or replace page "TimeReg"."MonthlyRollup" (
               dynamictext ruTrendTitle (Content: 'Realisation trend', Class: 'vdh-panel-title')
               container ruTrendBody (Class: 'vdh-body') {
                 listview ruTrend (
-                  DataSource: database from "TimeReg"."TrendPoint" sort by SortOrder asc,
+                  DataSource: microflow "TimeReg"."DS_PeriodTrend",
                   Class: 'vdh-chart vdh-chart--short'
                 ) {
                   container ruTrendCol (Class: 'vdh-chart-col') {
@@ -211,10 +229,14 @@ create or replace page "TimeReg"."MonthlyRollup" (
                     ) { dynamictext ruTrendBarText (Content: ' ') }
                   }
                 }
+                -- The axis used to name the seeded window and quote July's
+                -- realisation. It sits outside the PeriodStat DataView, so it
+                -- says what the chart is rather than restating a figure it
+                -- cannot reach.
                 container ruTrendAxis (Class: 'vdh-row') {
-                  dynamictext ruTrendFrom (Content: 'Aug 25', Class: 'vdh-caption vdh-w-fill')
-                  dynamictext ruTrendNow (Content: '92.1% now', Class: 'vdh-caption')
-                  dynamictext ruTrendTo (Content: 'Jul 26', Class: 'vdh-caption vdh-w-fill vdh-right')
+                  dynamictext ruTrendFrom (Content: 'Twelve months to', Class: 'vdh-caption vdh-w-fill')
+                  dynamictext ruTrendNow (Content: 'the selected period', Class: 'vdh-caption')
+                  dynamictext ruTrendTo (Content: ' ', Class: 'vdh-caption vdh-w-fill vdh-right')
                 }
               }
             }

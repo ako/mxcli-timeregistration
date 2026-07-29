@@ -25,7 +25,7 @@ create or modify persistent entity "TimeReg"."WeekSelection" (
 );
 /
 
-create association "TimeReg"."WeekSelection_Employee"
+create or modify association "TimeReg"."WeekSelection_Employee"
 from "TimeReg"."WeekSelection" to "TimeReg"."Employee"
 type reference;
 /

@@ -6,7 +6,7 @@
  * approving it. ACT_SubmitWeek sets it when it starts the workflow; the task
  * page uses it to find the week the task is about.
  */
-create association "TimeReg"."Timesheet_Workflow"
+create or modify association "TimeReg"."Timesheet_Workflow"
 from "TimeReg"."Timesheet" to System.Workflow
 type reference;
 /

@@ -41,7 +41,8 @@ begin
     StandardValue = 1150000, RealisationPct = 92.1, RealisationDelta = 1.4,
     FeeEarnerCount = 48, NotSubmittedCount = 3,
     "TimeReg"."PeriodStat_Period" = $pJul,
-    RecordedLabel = '4.182', BillableLabel = '3.614', RealisationLabel = '92,1%', DeltaLabel = '1,4', BillablePctLabel = '86,4%');
+    RecordedLabel = '4.182', BillableLabel = '3.614', StandardLabel = '€ 1,15M',
+    RealisationLabel = '92,1%', DeltaLabel = '+1,4 pt', BillablePctLabel = '86,4%');
   add $stat to $lPeriodStat;
 
   -- --- Month-close checklist --------------------------------------------
@@ -149,16 +150,16 @@ begin
 
   -- --- Monthly client statements ----------------------------------------
   $d1 = create "TimeReg"."ClientReport" (Title = 'ABN Delta Holding — July statement', Detail = 'to f.strijker@abndelta.nl · with time detail',
-    Status = "TimeReg"."ENUM_ReportStatus"."Sent", StatusLabel = 'sent 1 Aug', SortOrder = 1, "TimeReg"."ClientReport_Client" = $cAbn);
+    Status = "TimeReg"."ENUM_ReportStatus"."Sent", StatusLabel = 'sent 1 Aug', SortOrder = 1, "TimeReg"."ClientReport_Client" = $cAbn,  "TimeReg"."ClientReport_Period" = $pJul);
   add $d1 to $lClientReport;
   $d2 = create "TimeReg"."ClientReport" (Title = 'Rijnmond Port — July statement', Detail = 'awaiting partner sign-off (A. Bergsma)',
-    Status = "TimeReg"."ENUM_ReportStatus"."Held", StatusLabel = 'held', SortOrder = 2, "TimeReg"."ClientReport_Client" = $cRijn);
+    Status = "TimeReg"."ENUM_ReportStatus"."Held", StatusLabel = 'held', SortOrder = 2, "TimeReg"."ClientReport_Client" = $cRijn, "TimeReg"."ClientReport_Period" = $pJul);
   add $d2 to $lClientReport;
   $d3 = create "TimeReg"."ClientReport" (Title = 'Kessler Pharma — July statement', Detail = 'blocked: 2 entries without narrative',
-    Status = "TimeReg"."ENUM_ReportStatus"."Blocked", StatusLabel = 'blocked', SortOrder = 3, "TimeReg"."ClientReport_Client" = $cKess);
+    Status = "TimeReg"."ENUM_ReportStatus"."Blocked", StatusLabel = 'blocked', SortOrder = 3, "TimeReg"."ClientReport_Client" = $cKess, "TimeReg"."ClientReport_Period" = $pJul);
   add $d3 to $lClientReport;
   $d4 = create "TimeReg"."ClientReport" (Title = 'Stichting Nieuw Amsterdam — July', Detail = 'scheduled 2 Aug 06:00 · PDF + XLSX',
-    Status = "TimeReg"."ENUM_ReportStatus"."Scheduled", StatusLabel = 'scheduled', SortOrder = 4, "TimeReg"."ClientReport_Client" = $cNieuw);
+    Status = "TimeReg"."ENUM_ReportStatus"."Scheduled", StatusLabel = 'scheduled', SortOrder = 4, "TimeReg"."ClientReport_Client" = $cNieuw,"TimeReg"."ClientReport_Period" = $pJul);
   add $d4 to $lClientReport;
 
   -- --- Per-employee report ----------------------------------------------
@@ -353,34 +354,34 @@ begin
   add $b6 to $lMatterBurn;
 
   -- --- Utilisation distribution and timeliness --------------------------
-  $u01 = create "TimeReg"."UtilisationBar" (Label = '50%',        HeightBucket = 4,  SortOrder = 1);
+  $u01 = create "TimeReg"."UtilisationBar" (Label = '50%',        HeightBucket = 4,  SortOrder = 1, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u01 to $lUtilisationBar;
-  $u02 = create "TimeReg"."UtilisationBar" (HeightBucket = 6,  SortOrder = 2);
+  $u02 = create "TimeReg"."UtilisationBar" (HeightBucket = 6,  SortOrder = 2, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u02 to $lUtilisationBar;
-  $u03 = create "TimeReg"."UtilisationBar" (HeightBucket = 9,  SortOrder = 3);
+  $u03 = create "TimeReg"."UtilisationBar" (HeightBucket = 9,  SortOrder = 3, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u03 to $lUtilisationBar;
-  $u04 = create "TimeReg"."UtilisationBar" (HeightBucket = 12, SortOrder = 4);
+  $u04 = create "TimeReg"."UtilisationBar" (HeightBucket = 12, SortOrder = 4, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u04 to $lUtilisationBar;
-  $u05 = create "TimeReg"."UtilisationBar" (HeightBucket = 15, SortOrder = 5);
+  $u05 = create "TimeReg"."UtilisationBar" (HeightBucket = 15, SortOrder = 5, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u05 to $lUtilisationBar;
-  $u06 = create "TimeReg"."UtilisationBar" (Label = 'target 78%', HeightBucket = 20, IsTarget = true, SortOrder = 6);
+  $u06 = create "TimeReg"."UtilisationBar" (Label = 'target 78%', HeightBucket = 20, IsTarget = true, SortOrder = 6, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u06 to $lUtilisationBar;
-  $u07 = create "TimeReg"."UtilisationBar" (HeightBucket = 17, SortOrder = 7);
+  $u07 = create "TimeReg"."UtilisationBar" (HeightBucket = 17, SortOrder = 7, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u07 to $lUtilisationBar;
-  $u08 = create "TimeReg"."UtilisationBar" (HeightBucket = 13, SortOrder = 8);
+  $u08 = create "TimeReg"."UtilisationBar" (HeightBucket = 13, SortOrder = 8, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u08 to $lUtilisationBar;
-  $u09 = create "TimeReg"."UtilisationBar" (HeightBucket = 8,  SortOrder = 9);
+  $u09 = create "TimeReg"."UtilisationBar" (HeightBucket = 8,  SortOrder = 9, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u09 to $lUtilisationBar;
-  $u10 = create "TimeReg"."UtilisationBar" (Label = '100%',       HeightBucket = 4,  SortOrder = 10);
+  $u10 = create "TimeReg"."UtilisationBar" (Label = '100%',       HeightBucket = 4,  SortOrder = 10, "TimeReg"."UtilisationBar_Period" = $pJul);
   add $u10 to $lUtilisationBar;
 
-  $z1 = create "TimeReg"."TimelinessBand" (Label = 'Same day', Pct = 61, Bucket = 12, SeverityClass = 'ss-band--ok',    SortOrder = 1);
+  $z1 = create "TimeReg"."TimelinessBand" (Label = 'Same day', Pct = 61, Bucket = 12, SeverityClass = 'ss-band--ok',    SortOrder = 1, "TimeReg"."TimelinessBand_Period" = $pJul);
   add $z1 to $lTimelinessBand;
-  $z2 = create "TimeReg"."TimelinessBand" (Label = '1–2 days', Pct = 24, Bucket = 5,  SeverityClass = 'ss-band--teal',  SortOrder = 2);
+  $z2 = create "TimeReg"."TimelinessBand" (Label = '1–2 days', Pct = 24, Bucket = 5,  SeverityClass = 'ss-band--teal',  SortOrder = 2, "TimeReg"."TimelinessBand_Period" = $pJul);
   add $z2 to $lTimelinessBand;
-  $z3 = create "TimeReg"."TimelinessBand" (Label = '3–5 days', Pct = 11, Bucket = 2,  SeverityClass = 'ss-band--warn',  SortOrder = 3);
+  $z3 = create "TimeReg"."TimelinessBand" (Label = '3–5 days', Pct = 11, Bucket = 2,  SeverityClass = 'ss-band--warn',  SortOrder = 3, "TimeReg"."TimelinessBand_Period" = $pJul);
   add $z3 to $lTimelinessBand;
-  $z4 = create "TimeReg"."TimelinessBand" (Label = '> 5 days', Pct = 4,  Bucket = 1,  SeverityClass = 'ss-band--over',  SortOrder = 4);
+  $z4 = create "TimeReg"."TimelinessBand" (Label = '> 5 days', Pct = 4,  Bucket = 1,  SeverityClass = 'ss-band--over',  SortOrder = 4, "TimeReg"."TimelinessBand_Period" = $pJul);
   add $z4 to $lTimelinessBand;
 
   -- --- Recording rules shown on the entry form --------------------------

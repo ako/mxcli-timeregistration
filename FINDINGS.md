@@ -637,6 +637,80 @@ Worth knowing that `ACT_SaveTimeEntry`, written weeks earlier in this project,
 clamps `daysBetween(entryDate, now)` with `if $late < 0 then set $late = 0` —
 dead code written by someone (me) who assumed the opposite.
 
+### 51. `create association` is not idempotent, and the failure cascades into an unloadable project **[bug]**
+
+`create or modify entity` exists and re-running it is a no-op. `create
+association` has no such form in the skill files, and re-running one is a hard
+error:
+
+```
+$ ./mxcli exec mdlsource/76-domain-period.mdl -p TimeRegistration.mpr
+Error: association already exists: TimeReg.PeriodSelection_Employee
+```
+
+Same shape as finding 23 (`create microflow`), and the fix is the same — `create
+or modify association` parses and works, it is simply undocumented:
+
+```mdl
+create or modify association "TimeReg"."ClientReport_Period"
+from "TimeReg"."ClientReport" to "TimeReg"."Period"
+type reference;
+```
+
+**The cascade is the expensive part.** The error aborts the script at the first
+duplicate, so the three *new* associations further down the file were never
+created. The next script set those associations inside a `create` activity, and
+mxcli wrote them as unresolved **attribute** references without complaining:
+
+```
+$ ./mxcli exec mdlsource/12-seed-period.mdl -p TimeRegistration.mpr
+Replaced microflow: TimeReg.SED_Period
+
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
+ERROR: Mendix.Modeler.Storage.StorageLoadException: One or more invalid values were
+detected while loading the project: Mendix.Modeler.Projects.Project:
+ - Change in  has an invalid value '' for property Attribute. The text
+   'TimeReg.TimelinessBand_Period' is not a valid AttributeIdentifier.
+```
+
+Not "0 errors", not "1 error" — `mx check` cannot load the `.mpr` at all. A
+member assignment naming something that does not exist should be rejected by
+`mxcli exec`, or at least by `--references`; instead it corrupts the project and
+the only clue is a .NET load exception two commands later.
+
+### 52. `dateTime()` accepts literal constants only **[platform]**
+
+Summarising a month means the first of it, and the obvious spelling does not
+compile:
+
+```mdl
+set $from = dateTime($Period/Year, $Period/MonthNumber, 1);
+```
+```
+$ ./mxcli check mdlsource/77-period-logic.mdl
+  ✗ set 'from' calls dateTime()/dateTimeUTC() with a non-literal argument, which
+    Mendix rejects (CE0117 "Error(s) in expression") — these functions accept
+    only hardcoded numeric constants  [MDL046]
+```
+
+Credit where due: `mxcli check` catches this before MxBuild does, and names the
+rule. The way round is to parse rather than construct:
+
+```mdl
+set $from = parseDateTime('1-' + toString($Period/MonthNumber) + '-' + toString($Period/Year), 'd-M-yyyy');
+set $to = addMonths($from, 1);
+```
+
+Its neighbour MDL045 is less accurate — it reads the `/` of an association path
+inside a `div` as a second division operator and rejects a correct line:
+
+```mdl
+set $budgetPct = round($matterHours div $matter/BudgetHours * 100);   -- rejected
+```
+
+Hoisting the attribute into a variable first satisfies it, and reads better
+anyway.
+
 ---
 
 ## Workflows

@@ -12,18 +12,30 @@ create or replace page "TimeReg"."ReportCustomer" (
 
     container rcTop (Class: 'vdh-topbar') {
       dynamictext rcTitle (Content: 'Report · per customer', Class: 'vdh-topbar-title')
-      dynamictext rcSub (Content: 'July 2026 · approved time only', Class: 'vdh-topbar-sub')
+      dynamictext rcSub (Content: 'Approved time only', Class: 'vdh-topbar-sub')
       container rcSpacer (Class: 'vdh-topbar-spacer') { dynamictext rcSpacerText (Content: ' ') }
-      dynamictext rcPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
-      dynamictext rcPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      -- Period selector. Every figure below reads the same selection.
+      dataview rcNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton rcPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_ReportCustomerPrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rcPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton rcNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_ReportCustomerNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rcPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
       actionbutton rcLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
     }
 
     container rcBody (Class: 'vdh-body') {
 
       container rcBar (Class: 'vdh-row') {
-        dynamictext rcFilter1 (Content: 'Period: Jul 2026', Class: 'btn vdh-btn')
-        dynamictext rcFilter2 (Content: 'Practice: all', Class: 'btn vdh-btn')
+                dynamictext rcFilter2 (Content: 'Practice: all', Class: 'btn vdh-btn')
         dynamictext rcFilter3 (Content: 'Status: approved only', Class: 'btn vdh-btn')
         container rcBarSpacer (Class: 'vdh-spacer') { dynamictext rcBarSpacerText (Content: ' ') }
         dynamictext rcExport (Content: 'Export XLSX', Class: 'btn vdh-btn')
@@ -43,7 +55,7 @@ create or replace page "TimeReg"."ReportCustomer" (
       }
 
       listview rcList (
-        DataSource: database from "TimeReg"."ClientMonthSummary" sort by SortOrder asc,
+        DataSource: microflow "TimeReg"."DS_PeriodClients",
         Class: 'vdh-table'
       ) {
         container rcRow (Class: 'vdh-trow') {
@@ -91,7 +103,7 @@ create or replace page "TimeReg"."ReportCustomer" (
               dynamictext rcConcTitle (Content: 'Client concentration · billed value', Class: 'vdh-panel-title')
               container rcConcBody (Class: 'vdh-body') {
                 listview rcConc (
-                  DataSource: database from "TimeReg"."ClientMonthSummary" sort by SortOrder asc,
+                  DataSource: microflow "TimeReg"."DS_PeriodClients",
                   Class: 'vdh-chart'
                 ) {
                   container rcConcCol (Class: 'vdh-chart-col') {
@@ -114,7 +126,7 @@ create or replace page "TimeReg"."ReportCustomer" (
             container rcDistPanel (Class: 'vdh-panel') {
               dynamictext rcDistTitle (Content: 'Report distribution', Class: 'vdh-panel-title')
               listview rcDist (
-                DataSource: database from "TimeReg"."ClientReport" sort by SortOrder asc,
+                DataSource: microflow "TimeReg"."DS_PeriodReports",
                 Class: 'vdh-table'
               ) {
                 container rcDistRow (Class: 'vdh-trow') {
@@ -154,8 +166,21 @@ create or replace page "TimeReg"."ReportMatter" (
       dynamictext rmTitle (Content: 'Report · per matter', Class: 'vdh-topbar-title')
       dynamictext rmSub (Content: 'M-2214 Project Aurora', Class: 'vdh-topbar-sub')
       container rmSpacer (Class: 'vdh-topbar-spacer') { dynamictext rmSpacerText (Content: ' ') }
-      dynamictext rmPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
-      dynamictext rmPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      -- Period selector. Every figure below reads the same selection.
+      dataview rmNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton rmPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_ReportMatterPrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rmPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton rmNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_ReportMatterNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rmPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
       actionbutton rmLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
     }
 
@@ -212,7 +237,7 @@ create or replace page "TimeReg"."ReportMatter" (
 
           column rmColTasks (DesktopWidth: 7) {
             container rmTaskPanel (Class: 'vdh-panel') {
-              dynamictext rmTaskTitle (Content: 'Hours & value by task code · Jul 2026', Class: 'vdh-panel-title')
+              dynamictext rmTaskTitle (Content: 'Hours & value by task code', Class: 'vdh-panel-title')
               container rmTaskHead (Class: 'vdh-thead') {
                 dynamictext rmthTask (Content: 'Task', Class: 'vdh-w-fill')
                 dynamictext rmthPartner (Content: 'Partner', Class: 'vdh-w-72 vdh-right')
@@ -321,18 +346,30 @@ create or replace page "TimeReg"."ReportPeople" (
 
     container rpTop (Class: 'vdh-topbar') {
       dynamictext rpTitle (Content: 'Report · per manager & employee', Class: 'vdh-topbar-title')
-      dynamictext rpSub (Content: 'July 2026', Class: 'vdh-topbar-sub')
+      dynamictext rpSub (Content: 'Utilisation, value and margin', Class: 'vdh-topbar-sub')
       container rpSpacer (Class: 'vdh-topbar-spacer') { dynamictext rpSpacerText (Content: ' ') }
-      dynamictext rpPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
-      dynamictext rpPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      -- Period selector. Every figure below reads the same selection.
+      dataview rpNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton rpPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_ReportPeoplePrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rpPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton rpNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_ReportPeopleNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rpPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
       actionbutton rpLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
     }
 
     container rpBody (Class: 'vdh-body') {
 
       container rpBar (Class: 'vdh-row') {
-        dynamictext rpFilter1 (Content: 'Jul 2026', Class: 'btn vdh-btn')
-        dynamictext rpFilter2 (Content: 'Group by: supervising partner', Class: 'btn vdh-btn')
+                dynamictext rpFilter2 (Content: 'Group by: supervising partner', Class: 'btn vdh-btn')
         container rpBarSpacer (Class: 'vdh-spacer') { dynamictext rpBarSpacerText (Content: ' ') }
         dynamictext rpTargets (Content: 'Target utilisation 78% · firm average 74,6%', Class: 'vdh-caption')
       }
@@ -350,7 +387,7 @@ create or replace page "TimeReg"."ReportPeople" (
       }
 
       listview rpList (
-        DataSource: database from "TimeReg"."EmployeeMonthSummary" sort by SortOrder asc,
+        DataSource: microflow "TimeReg"."DS_PeriodEmployees",
         Class: 'vdh-table'
       ) {
         container rpRow (Class: 'vdh-trow') {
@@ -399,7 +436,7 @@ create or replace page "TimeReg"."ReportPeople" (
               dynamictext rpDistTitle (Content: 'Utilisation distribution', Class: 'vdh-panel-title')
               container rpDistBody (Class: 'vdh-body') {
                 listview rpDist (
-                  DataSource: database from "TimeReg"."UtilisationBar" sort by SortOrder asc,
+                  DataSource: microflow "TimeReg"."DS_PeriodUtilisation",
                   Class: 'vdh-chart vdh-chart--short'
                 ) {
                   container rpDistCol (Class: 'vdh-chart-col') {
@@ -417,7 +454,7 @@ create or replace page "TimeReg"."ReportPeople" (
             container rpTimePanel (Class: 'vdh-panel') {
               dynamictext rpTimeTitle (Content: 'Timeliness of recording', Class: 'vdh-panel-title')
               listview rpTime (
-                DataSource: database from "TimeReg"."TimelinessBand" sort by SortOrder asc,
+                DataSource: microflow "TimeReg"."DS_PeriodTimeliness",
                 Class: 'vdh-table'
               ) {
                 container rpTimeRow (Class: 'vdh-trow') {

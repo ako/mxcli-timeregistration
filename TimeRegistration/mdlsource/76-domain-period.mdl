@@ -1,0 +1,59 @@
+/**
+ * TimeRegistration — period-aware reporting, part 1: the domain
+ *
+ * The month-end summaries were always keyed to a Period — ClientMonthSummary,
+ * EmployeeMonthSummary, MatterMonthSummary, RoleMonthSummary, PeriodStat,
+ * WeekSummary, TrendPoint, CloseCheck and WorkingTimeException all carry a
+ * `_Period` reference. What was missing is a reason to use it: only July 2026
+ * had rows, so every report screen could read `database from …` unfiltered and
+ * still look right.
+ *
+ * All that is needed here is somewhere to remember which period is being looked
+ * at. It mirrors WeekSelection exactly, and for the same reason: a partner who
+ * moves from the rollup to a report and back should still be in August.
+ */
+@Position(100, 1460)
+create or modify persistent entity "TimeReg"."PeriodSelection" ();
+/
+
+create or modify association "TimeReg"."PeriodSelection_Employee"
+from "TimeReg"."PeriodSelection" to "TimeReg"."Employee"
+type reference;
+/
+
+create or modify association "TimeReg"."PeriodSelection_Period"
+from "TimeReg"."PeriodSelection" to "TimeReg"."Period"
+type reference;
+/
+
+/**
+ * Three lists on the report screens are month-scoped in life but were not in the
+ * model, because only one month existed: the statement distribution, the
+ * utilisation histogram and the timeliness bands. Without a period they would
+ * show July's decoration beside August's figures.
+ */
+create or modify association "TimeReg"."ClientReport_Period"
+from "TimeReg"."ClientReport" to "TimeReg"."Period"
+type reference;
+/
+
+create or modify association "TimeReg"."UtilisationBar_Period"
+from "TimeReg"."UtilisationBar" to "TimeReg"."Period"
+type reference;
+/
+
+create or modify association "TimeReg"."TimelinessBand_Period"
+from "TimeReg"."TimelinessBand" to "TimeReg"."Period"
+type reference;
+/
+
+/**
+ * Whether this period's summaries were computed from the entry table.
+ *
+ * July 2026 arrives from the seed with the design handoff's figures and stays
+ * false, so it is never recomputed. A month opened by navigating to it is
+ * derived, and while it is still open it is recomputed every time it is opened —
+ * an open month is still moving.
+ */
+alter entity "TimeReg"."Period" add attribute if not exists "IsDerived": boolean;
+/
