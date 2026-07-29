@@ -1,0 +1,53 @@
+# --- Build artifacts -------------------------------------------------------
+bin/
+dist/
+build/
+out/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+
+# --- Mendix project artifacts ----------------------------------------------
+# .mpr files are binary model scratch; keep them out of git.
+*.mpr
+*.mpr.bak
+*.mpr-journal
+*.mpr.lock
+*.mpk
+*.mda
+deployment/
+releases/
+modeler-backup/
+*.launch
+# Mendix build/runtime output
+javasource/**/proxies/
+.mendix-cache/
+
+# --- Local tool caches -----------------------------------------------------
+.mxcli/
+mxbuild/
+runtime/
+*.jar
+node_modules/
+.npm/
+.cache/
+.playwright/
+__pycache__/
+
+# --- Screenshots / scratch -------------------------------------------------
+screenshots/
+*.png.tmp
+tmp/
+scratch/
+
+# --- Editor / OS -----------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Claude local overrides ------------------------------------------------
+.claude/settings.local.json
