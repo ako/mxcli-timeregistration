@@ -9,8 +9,14 @@ cd TimeRegistration
 ./mxcli run --local -p TimeRegistration.mpr --ensure-db --watch
 ```
 
-- **[APP.md](APP.md)** — what the app does, its domain model, and where it
-  departs from the handoff.
+Sign in with any seeded account, password `VdhDemo2026!` —
+`m.devries@vdh-law.nl` (fee earner), `j.haverkamp@vdh-law.nl` (partner),
+`praktijkbeheer@vdh-law.nl` (practice management).
+
+- **[APP.md](APP.md)** — what the app does, its domain model, its security
+  model, and where it departs from the handoff.
+- **[FINDINGS.md](FINDINGS.md)** — every mxcli bug, surprise and workaround hit
+  while building it, with commands and output.
 - **[TOOLING.md](TOOLING.md)** — installed versions, the pinned mxcli commit, and
   how the toolchain rebuilds itself.
 

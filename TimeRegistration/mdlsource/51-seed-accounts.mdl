@@ -1,0 +1,76 @@
+/**
+ * Seed — sign-in accounts
+ *
+ * One account per fee earner, linked to the Employee record. The account is
+ * what the access rules resolve against, so this link is what makes "my
+ * timesheet" and "my team" mean anything.
+ *
+ * All demo accounts share one password; this is a prototype dataset, not a
+ * credential store.
+ */
+create or modify microflow "TimeReg"."SED_Accounts" ()
+returns boolean as $ok
+folder 'Seed'
+begin
+  declare $password string = 'VdhDemo2026!';
+
+  retrieve $roleFeeEarner from System.UserRole where Name = 'FeeEarner' limit 1;
+  retrieve $rolePartner from System.UserRole where Name = 'Partner' limit 1;
+  retrieve $roleAdmin from System.UserRole where Name = 'Administrator' limit 1;
+
+  retrieve $employees from "TimeReg"."Employee" sort by TimeReg.Employee.SortOrder asc;
+
+  $accounts = create list of Administration.Account;
+
+  loop $employee in $employees
+  begin
+    retrieve $existing from Administration.Account where Name = $employee/Email limit 1;
+
+    if $existing = empty then
+      $account = create Administration.Account (
+        Name = $employee/Email,
+        Password = $password,
+        FullName = $employee/FullName,
+        Email = $employee/Email,
+        IsLocalUser = true,
+        Active = true,
+        Blocked = false,
+        WebServiceUser = false,
+        IsAnonymous = false);
+
+      -- A partner approves the team, so they get the wider role.
+      if $employee/IsPartner then
+        change $account (System.UserRoles = $rolePartner);
+      else
+        change $account (System.UserRoles = $roleFeeEarner);
+      end if;
+
+      add $account to $accounts;
+      change $employee ("TimeReg"."Employee_Account" = $account);
+    end if;
+  end loop;
+
+  commit $accounts;
+  commit $employees;
+
+  -- A practice-management account for the rate card and user administration.
+  retrieve $backOffice from Administration.Account where Name = 'praktijkbeheer@vdh-law.nl' limit 1;
+  if $backOffice = empty then
+    $admin = create Administration.Account (
+      Name = 'praktijkbeheer@vdh-law.nl',
+      Password = $password,
+      FullName = 'Praktijkbeheer',
+      Email = 'praktijkbeheer@vdh-law.nl',
+      IsLocalUser = true,
+      Active = true,
+      Blocked = false,
+      WebServiceUser = false,
+      IsAnonymous = false);
+    change $admin (System.UserRoles = $roleAdmin);
+    commit $admin;
+  end if;
+
+  log info node 'TimeRegSeed' 'Seeded sign-in accounts';
+  return true;
+end;
+/

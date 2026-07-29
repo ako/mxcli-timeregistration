@@ -132,9 +132,9 @@ html, body, .mx-page {
   border-top: 1px solid var(--vdh-chrome-line);
   background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='212' height='51'>\
 <circle cx='29' cy='25' r='13' fill='%232c3037'/>\
-<text x='29' y='29' fill='%23cfc7bb' font-family='monospace' font-size='10' font-weight='600' text-anchor='middle'>MV</text>\
-<text x='50' y='22' fill='%23e9e3d9' font-family='sans-serif' font-size='11.5'>Maartje de Vries</text>\
-<text x='50' y='35' fill='%237c7669' font-family='monospace' font-size='9.5'>Senior Associate</text></svg>") no-repeat;
+<text x='29' y='29' fill='%23cfc7bb' font-family='monospace' font-size='10' font-weight='600' text-anchor='middle'>VH</text>\
+<text x='50' y='22' fill='%23e9e3d9' font-family='sans-serif' font-size='11.5'>Signed in</text>\
+<text x='50' y='35' fill='%237c7669' font-family='monospace' font-size='9.5'>van Duyn &amp; Haverkamp</text></svg>") no-repeat;
 }
 
 // --- Navigation items --------------------------------------------------------
@@ -685,3 +685,149 @@ html, body, .mx-page {
 .vdh-thead > * + *,
 .vdh-tfoot > * + * { margin-left: 12px; }
 .vdh-row { flex-wrap: nowrap; }
+
+// =============================================================================
+//  Sign-in page (theme/web/login.html)
+//
+//  The design's two-panel lock-up: an ink panel carrying the firm's positioning
+//  next to a cream panel with the form.
+// =============================================================================
+.vdh-login {
+  display: grid;
+  grid-template-columns: 1.15fr .85fr;
+  min-height: 100vh;
+  background: var(--vdh-chrome);
+}
+
+.vdh-login-brand {
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 56px 60px;
+  background: linear-gradient(180deg, #191c21, #101216);
+}
+
+.vdh-login-mark { display: flex; align-items: center; gap: 12px; }
+.vdh-login-monogram {
+  display: grid; place-items: center;
+  width: 26px; height: 26px;
+  border: 1.5px solid var(--vdh-ox);
+  font: 600 12px var(--vdh-serif);
+  color: #f2ede4;
+}
+.vdh-login-firm {
+  font: 600 14px var(--vdh-serif);
+  letter-spacing: .02em;
+  color: #f2ede4;
+}
+
+.vdh-login-pitch { max-width: 520px; }
+.vdh-login-eyebrow {
+  font: 600 11px var(--vdh-mono);
+  letter-spacing: .16em; text-transform: uppercase;
+  color: #8c8478;
+  margin-bottom: 22px;
+}
+.vdh-login-eyebrow--dark { color: #8a8377; margin-bottom: 10px; font-size: 10px; letter-spacing: .14em; }
+
+.vdh-login-headline {
+  margin: 0 0 18px;
+  font: 400 44px/1.08 var(--vdh-serif);
+  letter-spacing: -.01em;
+  color: #f4efe6;
+  text-wrap: balance;
+}
+.vdh-login-sub {
+  margin: 0; max-width: 420px;
+  font: 400 14px/1.6 var(--vdh-sans);
+  color: #9b948a;
+}
+
+.vdh-login-compliance {
+  display: flex; gap: 28px;
+  font: 400 11px/1.5 var(--vdh-mono);
+  color: #6f695f;
+}
+
+.vdh-login-panel {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 56px;
+  background: #f7f5f1;
+}
+.vdh-login-form { width: 100%; max-width: 340px; }
+
+.vdh-login-title {
+  margin: 0 0 28px;
+  font: 400 26px/1.2 var(--vdh-serif);
+  color: var(--vdh-ink);
+}
+
+// Atlas lays .form-group out as a row (label column + control column); the
+// design stacks them, so the group is reset to plain block flow.
+.vdh-login .form-group {
+  display: block !important;
+  width: 100%;
+  margin: 0 0 14px;
+}
+.vdh-login .form-group > * { flex: none; width: 100%; }
+// Atlas floats .control-label into a left column; the design stacks it.
+.vdh-login .control-label {
+  display: block; float: none; width: 100%;
+  padding: 0 0 5px; margin: 0;
+  text-align: left;
+  font: 500 11px var(--vdh-sans);
+  color: #5f5a52;
+}
+.vdh-login .form-control {
+  display: block;
+  width: 100% !important; height: auto;
+  max-width: none;
+  padding: 9px 11px;
+  border: 1px solid var(--vdh-border-hard);
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: none;
+  font: 400 13px var(--vdh-sans);
+  color: var(--vdh-ink-2);
+}
+.vdh-login .form-control:focus { border-color: var(--vdh-ink); box-shadow: none; outline: none; }
+.vdh-login-password { font-family: var(--vdh-mono); letter-spacing: .08em; }
+
+.vdh-login-submit.btn {
+  width: 100%; margin-top: 2px; padding: 11px;
+  border: none; border-radius: 3px;
+  background: var(--vdh-ox);
+  font: 600 13px var(--vdh-sans);
+  color: #fff;
+}
+.vdh-login-submit.btn:hover { background: var(--vdh-ox-dark); color: #fff; }
+
+.vdh-login-foot {
+  display: flex; justify-content: space-between;
+  margin-top: 14px;
+  font: 400 11.5px var(--vdh-sans);
+  color: #8a8377;
+}
+.vdh-login-foot a { color: var(--vdh-ox); text-decoration: none; }
+.vdh-login-foot a:hover { text-decoration: underline; }
+
+.vdh-login-demo {
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1px solid #e3ded5;
+  font: 400 10.5px/1.7 var(--vdh-mono);
+  color: #a09a90;
+}
+.vdh-login-demo code { background: transparent; padding: 0; color: var(--vdh-ox); font-size: 10.5px; }
+
+// The error banner is hidden until login.js fills it.
+.vdh-login #loginMessage { margin-bottom: 12px; font: 400 12px var(--vdh-sans); }
+.vdh-login #loginMessage:empty { display: none; }
+
+@media (max-width: 900px) {
+  .vdh-login { grid-template-columns: 1fr; }
+  .vdh-login-brand { display: none; }
+}
+
+
+// A DataView used purely to bind one header value must not break the flex row.
+.vdh-topbar .mx-dataview,
+.vdh-topbar .mx-dataview-content { display: contents; }

@@ -48,6 +48,9 @@ a billability and the rate that applied. It hangs off a `Timesheet` (one week pe
 re-aggregating the entry table on every page load. That mirrors how a real
 time & billing system freezes a period at close.
 
+**Identity** — `Employee_Account` ties a fee earner to their sign-in account;
+every access rule and every "my" screen resolves through it.
+
 **View models** — `WeekRow` / `WeekTotal` / `RateRow` are non-persistent shapes
 built on demand, because the week grid and the rate card are pivots of data
 stored one row per day / per client-role pair.
@@ -105,12 +108,68 @@ pseudo-elements: the Mendix navigation model has no group header or badge field.
 - **Report figures are seeded snapshots** matching the handoff, not derived from
   4.182 hours of generated entries.
 
+## Security
+
+Production security level, three roles, and row-level access rules.
+
+| Role | Sees | Can do |
+|---|---|---|
+| **FeeEarner** | My matters, Week timesheet, Time entry | Record, edit and submit **their own** time |
+| **Partner** | + Approvals, Monthly rollup, all three reports | Approve or return **their team's** weeks |
+| **Administrator** | + Rate card | Maintain rates, close the period, manage users |
+
+**Identity.** `Employee_Account` links a fee earner to the account they sign in
+with. `DS_CurrentEmployee` resolves it from `[%CurrentUser%]`, so every "my"
+screen follows the session rather than a hard-wired name.
+
+**Row scoping** is XPath on the access rule, evaluated by the platform on each
+read — not a filter in a datasource:
+
+```
+[TimeReg.Timesheet_Employee/TimeReg.Employee/TimeReg.Employee_Account = '[%CurrentUser%]']
+```
+
+and for a partner's team, one hop further through `Employee_Manager`.
+
+**Member-level restrictions.** Cost rates are withheld from the fee-earner role
+on `TimeReg.Role`, and the client billing address on `TimeReg.Client` — withheld
+at the attribute, not by hiding a page.
+
+**One caveat worth knowing.** MDL cannot set a microflow's *Apply entity access*
+flag, so a microflow datasource is **not** constrained by the access rules
+(finding 19 in [FINDINGS.md](FINDINGS.md)). `DS_TeamWeek` therefore scopes to the
+signed-in partner's reports in the microflow itself, and says so in its
+documentation. Lists fed by `database from …` are scoped by the rules as normal.
+
+### Verified by signing in
+
+| Account | Menu | Own week | Approval queue |
+|---|---|---|---|
+| m.devries@vdh-law.nl (fee earner) | 3 items | 36.5 h — hers | no access |
+| p.ravensbergen@vdh-law.nl (fee earner) | 3 items | empty — cannot see Maartje's | no access |
+| j.haverkamp@vdh-law.nl (partner) | 8 items | his own | his 9 reports |
+| praktijkbeheer@vdh-law.nl (practice mgmt) | 9 items | none — no fee-earner record | firm-wide |
+
+Pieter's empty week is the proof: he has no entries of his own in the demo
+dataset, and the access rules stop him seeing anyone else's.
+
+All demo accounts use the password `VdhDemo2026!`, shown on the sign-in page.
+This is a prototype dataset, not a credential store.
+
+`mxcli lint` now reports **no** `SEC001` findings for any `TimeReg` entity (the
+38 remaining are in the Atlas / Administration / System marketplace modules).
+
 ## Not done
 
-- **Security is off.** No module roles or entity access rules — `mxcli lint`
-  reports 69 SEC001 warnings for that reason. The design's sign-in screen
-  (Entra ID / smartcard) is not implemented; the acting user is hard-wired to
-  Maartje de Vries in `DS_CurrentEmployee`.
+- **Strict XPath mode is off.** mxcli's linter recommends it (SEC005) but its
+  parser has no command to set it — see finding 36. It needs Studio Pro.
+- **No SSO.** The design's Entra ID and smartcard buttons are not implemented;
+  the page uses the platform's local sign-in.
+- **No Mendix Workflow.** Approval is an enumeration plus microflows
+  (`ACT_SubmitWeek` / `ACT_ApproveWeek` / `ACT_ReturnWeek`), matching the
+  mockup's bulk-approval grid. There is no workflow definition, no user tasks
+  and no task inbox — worth adding if delegation, escalation or reminders are
+  wanted.
 - **Static controls.** Week navigation (‹ ›), the filter chips, `Copy last week`,
   `Add row`, `Export XLSX` and the report-set buttons are presentational.
 - **Fixed period.** The screens are pinned to week 30 / July 2026 rather than

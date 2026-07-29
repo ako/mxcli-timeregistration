@@ -1,0 +1,62 @@
+/**
+ * TimeRegistration — security model, part 1: roles
+ *
+ * Three module roles matching how the firm actually works:
+ *
+ *   FeeEarner      records and submits their own time, and can see the matters
+ *                  they are staffed on. No visibility of anyone else's hours,
+ *                  of firm-wide value, or of cost and margin.
+ *   Partner        everything a fee earner has, plus approval of their own
+ *                  team's weeks and the reporting screens. Cost and margin are
+ *                  partner-level information.
+ *   Administrator  practice management: the rate card, the period close, and
+ *                  user administration.
+ */
+
+create module role "TimeReg"."FeeEarner"
+  description 'Records and submits their own time.';
+/
+
+create module role "TimeReg"."Partner"
+  description 'Approves their team''s weeks and reads the reports.';
+/
+
+create module role "TimeReg"."Administrator"
+  description 'Maintains the rate card and closes the period.';
+/
+
+-- User roles. Each aggregates the module roles it needs across the marketplace
+-- modules; System.User is required for any role that signs in.
+create user role FeeEarner (
+  "TimeReg"."FeeEarner",
+  System.User,
+  Administration.User,
+  Atlas_Core.User,
+  Atlas_Web_Content.User,
+  DataWidgets.User,
+  NanoflowCommons.User
+);
+/
+
+create user role Partner (
+  "TimeReg"."FeeEarner",
+  "TimeReg"."Partner",
+  System.User,
+  Administration.User,
+  Atlas_Core.User,
+  Atlas_Web_Content.User,
+  DataWidgets.User,
+  NanoflowCommons.User
+);
+/
+
+alter user role Administrator add module roles (
+  "TimeReg"."FeeEarner",
+  "TimeReg"."Partner",
+  "TimeReg"."Administrator",
+  Atlas_Core.Administrator,
+  Atlas_Web_Content.Administrator,
+  DataWidgets.User,
+  NanoflowCommons.User
+);
+/

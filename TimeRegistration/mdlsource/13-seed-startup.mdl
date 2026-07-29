@@ -24,6 +24,7 @@ begin
   $refs = call microflow "TimeReg"."SED_Reference" ();
   $week = call microflow "TimeReg"."SED_Week30" ();
   $period = call microflow "TimeReg"."SED_Period" ();
+  $accounts = call microflow "TimeReg"."SED_Accounts" ();
 
   log info node 'TimeRegSeed' 'Demo data ready';
   return true;

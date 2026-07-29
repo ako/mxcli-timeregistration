@@ -15,7 +15,13 @@ create or replace page "TimeReg"."MyMatters" (
 
     container mmTop (Class: 'vdh-topbar') {
       dynamictext mmTitle (Content: 'My matters', Class: 'vdh-topbar-title')
-      dynamictext mmSub (Content: 'Maartje de Vries · Senior Associate · Corporate M&A', Class: 'vdh-topbar-sub')
+      dataview mmWho (DataSource: microflow "TimeReg"."DS_CurrentEmployee") {
+        dynamictext mmSub (
+          Content: '{1} · {2}',
+          ContentParams: [{1} = FullName, {2} = Employee_Role/Name],
+          Class: 'vdh-topbar-sub'
+        )
+      }
       container mmSpacer (Class: 'vdh-topbar-spacer') { dynamictext mmSpacerText (Content: ' ') }
       dynamictext mmPeriod (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
       dynamictext mmPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')

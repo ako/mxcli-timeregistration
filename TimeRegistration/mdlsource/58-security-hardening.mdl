@@ -1,0 +1,14 @@
+/**
+ * TimeRegistration — security model, part 4: hardening
+ *
+ * A fee earner needs client names to recognise their own matters, but has no
+ * reason to read the billing contact — that address is only used on the
+ * per-customer report, which is partner-level. Lint rule SEC008.
+ *
+ * The other item SEC008's sibling rule raises, strict XPath mode (SEC005), is
+ * not settable from MDL: mxcli's own hint suggests
+ * "ALTER PROJECT SECURITY STRICT MODE ON", which its parser rejects. It has to
+ * be switched on in Studio Pro.
+ */
+revoke "TimeReg"."FeeEarner" on "TimeReg"."Client" (read (ReportEmail));
+/

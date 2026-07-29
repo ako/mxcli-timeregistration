@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta charset="utf-8" />
-        <title>Login</title>
+        <title>Sign in · van Duyn &amp; Haverkamp</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
 
@@ -10,58 +10,94 @@
     </head>
 
     <body>
-        <div class="loginpage">
-            <div class="loginpage-left">
-                <div class="loginpage-image"></div>
-            </div>
-            <div class="loginpage-right">
-                <div class="loginpage-formwrapper">
-                    <h2 id="loginHeader">Sign in</h2>
-                    <form id="loginForm" class="loginpage-form" autocomplete="off">
-                        <div>
-                            <div id="loginMessage" class="alert alert-danger"></div>
-                            <div class="form-group">
-                                <label class="control-label" id="usernameLabel" for="usernameInput">User name</label>
-                                <div class="inputwrapper">
-                                    <input
-                                        id="usernameInput"
-                                        class="form-control"
-                                        type="text"
-                                        placeholder="User name"
-                                        autocorrect="off"
-                                        autocapitalize="none"
-                                        autocomplete="off"
-                                    />
-                                    <span class="glyphicon glyphicon-user"></span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="control-label" id="passwordLabel" for="passwordInput">Password</label>
-                                <div class="inputwrapper">
-                                    <input
-                                        id="passwordInput"
-                                        class="form-control"
-                                        type="password"
-                                        placeholder="Password"
-                                        autocorrect="off"
-                                        autocapitalize="none"
-                                        autocomplete="off"
-                                    />
-                                    <span class="glyphicon glyphicon-eye-close" id="passwordToggle"></span>
-                                </div>
-                            </div>
-                            <button id="loginButton" type="submit" class="btn btn-success btn-lg">Sign in</button>
-                        </div>
-                    </form>
+        <!--
+            The ids below (loginForm, usernameInput, passwordInput, loginButton,
+            loginMessage) are what theme/web/js/login.js binds to — keep them.
+        -->
+        <div class="vdh-login">
+            <div class="vdh-login-brand">
+                <div class="vdh-login-mark">
+                    <span class="vdh-login-monogram">VH</span>
+                    <span class="vdh-login-firm">van Duyn &amp; Haverkamp</span>
+                </div>
+
+                <div class="vdh-login-pitch">
+                    <div class="vdh-login-eyebrow">Tijdschrijven · Time &amp; Billing</div>
+                    <h1 class="vdh-login-headline">Every tenth of an hour, on the right matter.</h1>
+                    <p class="vdh-login-sub">
+                        Firm-wide time capture, weekly approval and monthly client reporting.
+                        Period locks and audit trail per entry.
+                    </p>
+                </div>
+
+                <div class="vdh-login-compliance">
+                    <span>ISO 27001</span><span>AVG / GDPR</span><span>WTD 2003/88/EC</span>
                 </div>
             </div>
-            <div class="loginpage-logo">
-                <img src="logo.png" role="presentation" height="45" alt="" />
+
+            <div class="vdh-login-panel">
+                <div class="vdh-login-form">
+                    <div class="vdh-login-eyebrow vdh-login-eyebrow--dark">Sign in</div>
+                    <h2 id="loginHeader" class="vdh-login-title">Firm account</h2>
+
+                    <form id="loginForm" autocomplete="off">
+                        <div id="loginMessage" class="alert alert-danger"></div>
+
+                        <div class="form-group">
+                            <label class="control-label" id="usernameLabel" for="usernameInput">Firm e-mail</label>
+                            <input
+                                id="usernameInput"
+                                class="form-control"
+                                type="text"
+                                value="m.devries@vdh-law.nl"
+                                placeholder="name@vdh-law.nl"
+                                autocorrect="off"
+                                autocapitalize="none"
+                                autocomplete="username"
+                            />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="control-label" id="passwordLabel" for="passwordInput">Password</label>
+                            <input
+                                id="passwordInput"
+                                class="form-control vdh-login-password"
+                                type="password"
+                                placeholder="Password"
+                                autocorrect="off"
+                                autocapitalize="none"
+                                autocomplete="current-password"
+                            />
+                        </div>
+
+                        <button id="loginButton" type="submit" class="btn vdh-login-submit">Sign in</button>
+                    </form>
+
+                    <div class="vdh-login-foot">
+                        <span>2FA required off-network</span>
+                        <a href="#">Forgot password</a>
+                    </div>
+
+                    <!-- Prototype dataset: every seeded account shares one password. -->
+                    <div class="vdh-login-demo">
+                        Demo · password <code>VdhDemo2026!</code><br />
+                        m.devries@vdh-law.nl (fee earner) · j.haverkamp@vdh-law.nl (partner) ·
+                        praktijkbeheer@vdh-law.nl (practice management)
+                    </div>
+                </div>
             </div>
         </div>
 
         <script src="js/login_i18n.js?{{cachebust}}"></script>
+        <script>
+            // login.js writes the field labels and card title from i18nMap, so the
+            // design's wording is patched in between the two scripts. Error
+            // messages are left exactly as the platform ships them.
+            window.i18nMap = Object.assign(window.i18nMap || {}, {
+                username: "Firm e-mail",
+                loginHeader: "Firm account"
+            });
+        </script>
         <script src="js/login.js?{{cachebust}}"></script>
-        <script src="js/toggle-password.js?{{cachebust}}"></script>
     </body>
 </html>

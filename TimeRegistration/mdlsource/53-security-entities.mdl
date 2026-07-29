@@ -1,0 +1,195 @@
+/**
+ * TimeRegistration — security model, part 2: entity access
+ *
+ * The rules that matter are the row-level ones. A fee earner reaches their own
+ * entries and their own week and nothing else; a partner additionally reaches
+ * the weeks of the people who report to them. Both are expressed as XPath over
+ * Employee_Account, so "mine" and "my team" are resolved by the platform on
+ * every read rather than by a filter in a datasource that could be bypassed.
+ *
+ * Cost rates, margins and firm-wide value are partner-level information and are
+ * withheld from the fee-earner role at the member level, not just by hiding the
+ * page.
+ */
+
+-- ---------------------------------------------------------------------------
+-- Own time: the fee earner owns their entries and their week
+-- ---------------------------------------------------------------------------
+grant TimeReg.FeeEarner on TimeReg.TimeEntry (create, delete, read *, write *) where '[TimeReg.TimeEntry_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant TimeReg.FeeEarner on TimeReg.Timesheet (create, read *, write *) where '[TimeReg.Timesheet_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant TimeReg.FeeEarner on TimeReg.AuditEntry (create, read *) where '[TimeReg.AuditEntry_Timesheet/TimeReg.Timesheet/TimeReg.Timesheet_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant TimeReg.FeeEarner on TimeReg.WeekComposition (read *) where '[TimeReg.WeekComposition_Timesheet/TimeReg.Timesheet/TimeReg.Timesheet_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant TimeReg.FeeEarner on TimeReg.WeekValueLine (read *) where '[TimeReg.WeekValueLine_Timesheet/TimeReg.Timesheet/TimeReg.Timesheet_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant TimeReg.FeeEarner on TimeReg.Notice (read *) where '[TimeReg.Notice_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+-- read * is safe here: the row constraint already limits it to this person's
+-- own slice of a matter, and association members need granting too.
+grant TimeReg.FeeEarner on TimeReg.MatterMonthSummary (read *) where '[TimeReg.MatterMonthSummary_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+
+-- ---------------------------------------------------------------------------
+-- The partner's team: read their weeks, and move the approval status
+-- ---------------------------------------------------------------------------
+grant TimeReg.Partner on TimeReg.Timesheet (read *, write ("Status", StatusLabel, SubmittedOn, Flags)) where '[TimeReg.Timesheet_Employee/TimeReg.Employee/TimeReg.Employee_Manager/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant TimeReg.Partner on TimeReg.TimeEntry (read *) where '[TimeReg.TimeEntry_Employee/TimeReg.Employee/TimeReg.Employee_Manager/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant TimeReg.Partner on TimeReg.AuditEntry (create, read *);
+/
+grant TimeReg.Partner on TimeReg.ReviewFlag (read *);
+/
+
+-- ---------------------------------------------------------------------------
+-- Reference data: everyone reads it, practice management maintains it
+-- ---------------------------------------------------------------------------
+grant TimeReg.FeeEarner on TimeReg.Client (read *);
+/
+grant TimeReg.FeeEarner on TimeReg.Matter (read *);
+/
+grant TimeReg.FeeEarner on TimeReg.TaskCode (read *);
+/
+grant TimeReg.FeeEarner on TimeReg.Employee (read *);
+/
+grant TimeReg.FeeEarner on TimeReg.Period (read *);
+/
+-- Cost rates are withheld from fee earners at the member level.
+grant TimeReg.FeeEarner on TimeReg.Role (read (Name, Band, StandardRate, HeadCount, SortOrder));
+/
+grant TimeReg.FeeEarner on TimeReg.EntryRule (read *);
+/
+grant TimeReg.Partner on TimeReg.Role (read *);
+/
+grant TimeReg.Partner on TimeReg.ClientRate (read *);
+/
+grant TimeReg.Partner on TimeReg.RateChange (read *);
+/
+
+-- ---------------------------------------------------------------------------
+-- Reporting snapshots: partner-level information
+-- ---------------------------------------------------------------------------
+grant TimeReg.Partner on TimeReg.ClientMonthSummary (read *);
+/
+grant TimeReg.Partner on TimeReg.EmployeeMonthSummary (read *);
+/
+grant TimeReg.Partner on TimeReg.RoleMonthSummary (read *);
+/
+grant TimeReg.Partner on TimeReg.MatterMonthSummary (read *);
+/
+grant TimeReg.Partner on TimeReg.MatterTaskSummary (read *);
+/
+grant TimeReg.Partner on TimeReg.MatterTeamMember (read *);
+/
+grant TimeReg.Partner on TimeReg.MatterBurn (read *);
+/
+grant TimeReg.Partner on TimeReg.PeriodStat (read *);
+/
+grant TimeReg.Partner on TimeReg.CloseCheck (read *);
+/
+grant TimeReg.Partner on TimeReg.TrendPoint (read *);
+/
+grant TimeReg.Partner on TimeReg.WeekSummary (read *);
+/
+grant TimeReg.Partner on TimeReg.WorkingTimeException (read *);
+/
+grant TimeReg.Partner on TimeReg.ClientReport (read *);
+/
+grant TimeReg.Partner on TimeReg.UtilisationBar (read *);
+/
+grant TimeReg.Partner on TimeReg.TimelinessBand (read *);
+/
+
+-- ---------------------------------------------------------------------------
+-- Practice management: maintains the rate card and closes the period
+-- ---------------------------------------------------------------------------
+grant TimeReg.Administrator on TimeReg.Role (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.ClientRate (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.RateChange (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.Period (create, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.Client (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.Matter (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.TaskCode (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.Employee (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.ClientMonthSummary (read *);
+/
+grant TimeReg.Administrator on TimeReg.EmployeeMonthSummary (read *);
+/
+grant TimeReg.Administrator on TimeReg.RoleMonthSummary (read *);
+/
+grant TimeReg.Administrator on TimeReg.MatterMonthSummary (read *);
+/
+grant TimeReg.Administrator on TimeReg.MatterTaskSummary (read *);
+/
+grant TimeReg.Administrator on TimeReg.MatterTeamMember (read *);
+/
+grant TimeReg.Administrator on TimeReg.MatterBurn (read *);
+/
+grant TimeReg.Administrator on TimeReg.PeriodStat (read *);
+/
+grant TimeReg.Administrator on TimeReg.CloseCheck (read *);
+/
+grant TimeReg.Administrator on TimeReg.TrendPoint (read *);
+/
+grant TimeReg.Administrator on TimeReg.WeekSummary (read *);
+/
+grant TimeReg.Administrator on TimeReg.WorkingTimeException (read *);
+/
+grant TimeReg.Administrator on TimeReg.ClientReport (read *);
+/
+grant TimeReg.Administrator on TimeReg.UtilisationBar (read *);
+/
+grant TimeReg.Administrator on TimeReg.TimelinessBand (read *);
+/
+grant TimeReg.Administrator on TimeReg.TimeEntry (read *);
+/
+grant TimeReg.Administrator on TimeReg.Timesheet (read *);
+/
+grant TimeReg.Administrator on TimeReg.AuditEntry (read *);
+/
+grant TimeReg.Administrator on TimeReg.ReviewFlag (read *);
+/
+grant TimeReg.Administrator on TimeReg.Notice (read *);
+/
+grant TimeReg.Administrator on TimeReg.EntryRule (read *);
+/
+grant TimeReg.Administrator on TimeReg.WeekComposition (read *);
+/
+grant TimeReg.Administrator on TimeReg.WeekValueLine (read *);
+/
+
+-- ---------------------------------------------------------------------------
+-- View models
+--
+-- WeekRow, WeekTotal and RateRow are non-persistent shapes a datasource
+-- microflow builds per request, so every role that can open the page needs
+-- to create and read them.
+-- ---------------------------------------------------------------------------
+grant TimeReg.FeeEarner on TimeReg.WeekRow (create, delete, read *, write *);
+/
+grant TimeReg.Partner on TimeReg.WeekRow (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.WeekRow (create, delete, read *, write *);
+/
+grant TimeReg.FeeEarner on TimeReg.WeekTotal (create, delete, read *, write *);
+/
+grant TimeReg.Partner on TimeReg.WeekTotal (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.WeekTotal (create, delete, read *, write *);
+/
+grant TimeReg.Partner on TimeReg.RateRow (create, delete, read *, write *);
+/
+grant TimeReg.Administrator on TimeReg.RateRow (create, delete, read *, write *);
+/
+

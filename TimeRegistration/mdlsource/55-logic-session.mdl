@@ -1,0 +1,73 @@
+/**
+ * The fee earner signed in to this session.
+ *
+ * Resolved through Employee_Account, so every "my" screen follows the account
+ * rather than a hard-wired name.
+ *
+ * @returns the Employee linked to the session's account, or empty for an
+ *          account with no fee-earner record (practice management)
+ */
+create or modify microflow "TimeReg"."DS_CurrentEmployee" ()
+returns "TimeReg"."Employee" as $employee
+folder 'Datasources'
+begin
+  retrieve $employee from "TimeReg"."Employee"
+    where ["TimeReg"."Employee_Account" = '[%CurrentUser%]']
+    limit 1;
+  return $employee;
+end;
+/
+
+/**
+ * The signed-in fee earner's own week 30 timesheet.
+ *
+ * @returns their timesheet, or empty when the account has no fee-earner record
+ */
+create or modify microflow "TimeReg"."DS_CurrentTimesheet" ()
+returns "TimeReg"."Timesheet" as $timesheet
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+
+  -- No branch for the empty case on purpose: an account with no fee-earner
+  -- record matches no timesheet, so the screen is simply empty. Falling back to
+  -- a colleague's week would defeat the access rules.
+  retrieve $timesheet from "TimeReg"."Timesheet"
+    where ["TimeReg"."Timesheet_Employee" = $employee and "WeekNumber" = 30]
+    limit 1;
+  return $timesheet;
+end;
+/
+
+/**
+ * The week 30 timesheets this partner is responsible for.
+ *
+ * Scoped in the microflow, not just by the page: MDL cannot set a microflow's
+ * "apply entity access" flag, so a datasource microflow would otherwise hand
+ * back every row regardless of the access rules. The partner sees the people
+ * who report to them plus their own week; practice management, which has no
+ * fee-earner record, sees the firm.
+ *
+ * @returns the weeks under this approver's review
+ */
+create or modify microflow "TimeReg"."DS_TeamWeek" ()
+returns list of "TimeReg"."Timesheet" as $rows
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+
+  if $employee = empty then
+    retrieve $allRows from "TimeReg"."Timesheet"
+      where ["WeekNumber" = 30]
+      sort by TimeReg.Timesheet.RecordedHours desc;
+    return $allRows;
+  end if;
+
+  retrieve $rows from "TimeReg"."Timesheet"
+    where ["WeekNumber" = 30
+       and ("TimeReg"."Timesheet_Employee"/"TimeReg"."Employee"/"TimeReg"."Employee_Manager" = $employee
+            or "TimeReg"."Timesheet_Employee" = $employee)]
+    sort by TimeReg.Timesheet.RecordedHours desc;
+  return $rows;
+end;
+/
