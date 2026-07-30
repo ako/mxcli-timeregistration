@@ -75,12 +75,28 @@ export async function run() {
     check('a queued week opens its task', opened);
 
     if (opened) {
+      // The button has always said "Return with note". It now means it.
+      await page.getByRole('button', { name: 'Return with note', exact: true }).click();
+      await sleep(2500);
+      check('returning without a note is refused',
+        (await bodyText(page)).includes('Say what needs correcting'));
+      checkEqual('and nothing moves', sqlValue(
+        `select count(*) from "timereg$timesheet" where statuslabel = 'returned'`), '0');
+
+      const note = page.locator('.mx-name-wtNote textarea');
+      await note.click();
+      await note.fill('Thursday looks like a double booking — please check M-2301.');
+      await note.press('Tab');
+      await sleep(600);
       await page.getByRole('button', { name: 'Return with note', exact: true }).click();
       await sleep(4000);
       checkEqual('returning moves the week back',
         sqlValue(`select count(*) from "timereg$timesheet" where statuslabel = 'returned'`), '1');
       check('through the Return branch',
         sql(`select description from "timereg$auditentry" where description like 'Week returned%'`).length > 0);
+      check('and the note reaches the fee earner, quoted in the audit trail',
+        sql(`select description from "timereg$auditentry"
+             where description like '%double booking%'`).length > 0);
       checkEqual('and that workflow completes too',
         sqlValue(`select count(*) from "system$workflow" where state = 'Completed'`), '2');
     }

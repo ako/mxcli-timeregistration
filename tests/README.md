@@ -13,7 +13,7 @@ earlier session's word for it.
 
 ```bash
 bash tests/reset.sh     # empty database, restart, wait for the seed
-node tests/run.mjs      # the whole suite, ~7 minutes
+node tests/run.mjs      # the whole suite, ~9 minutes
 node tests/run.mjs week period    # only specs whose filename matches
 ```
 
@@ -44,7 +44,8 @@ really leftovers from the previous pass.
 | `03-workflow` | submitting starts a real `System.Workflow`, the user task lands in the supervising partner's inbox with its description and due date, and approve / return drive the workflow to its outcome |
 | `04-period` | one period selection shared by all four report screens, July's seeded snapshot left alone, a newly opened month created and summarised from the entry table |
 | `05-ratecard` | the card is effective-dated: July quotes Rijnmond after the indexation, June before it, April predates the Kessler agreement entirely, and the change log truncates to the date being viewed |
-| `06-screens` | every one of the ten screens renders its own content with no client-side error, the entry form arrives filled in, and the month close — which nothing else exercises — locks the period for practice management but is absent for a partner |
+| `06-editing` | an entry can be corrected and removed from the week screen, and the guards hold: a submitted week and a closed month both refuse a save, an edit and a delete, and submitting twice starts one workflow rather than two |
+| `07-screens` | every one of the eleven screens renders its own content with no client-side error, the entry form arrives filled in, and the month close — which nothing else exercises — locks the period for practice management but is absent for a partner |
 
 ## Notes on the harness
 

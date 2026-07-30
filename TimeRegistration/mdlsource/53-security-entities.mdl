@@ -35,7 +35,7 @@ grant TimeReg.FeeEarner on TimeReg.MatterMonthSummary (read *) where '[TimeReg.M
 -- ---------------------------------------------------------------------------
 -- The partner's team: read their weeks, and move the approval status
 -- ---------------------------------------------------------------------------
-grant TimeReg.Partner on TimeReg.Timesheet (read *, write ("Status", StatusLabel, SubmittedOn, Flags)) where '[TimeReg.Timesheet_Employee/TimeReg.Employee/TimeReg.Employee_Manager/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+grant TimeReg.Partner on TimeReg.Timesheet (read *, write ("Status", StatusLabel, SubmittedOn, Flags, ReturnNote)) where '[TimeReg.Timesheet_Employee/TimeReg.Employee/TimeReg.Employee_Manager/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
 /
 grant TimeReg.Partner on TimeReg.TimeEntry (read *) where '[TimeReg.TimeEntry_Employee/TimeReg.Employee/TimeReg.Employee_Manager/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
 /
@@ -154,7 +154,10 @@ grant TimeReg.Administrator on TimeReg.TimelinessBand (read *);
 /
 grant TimeReg.Administrator on TimeReg.TimeEntry (read *);
 /
-grant TimeReg.Administrator on TimeReg.Timesheet (read *);
+-- Practice management can take an approval decision too (the workflow's task
+-- microflows are granted to both roles), so it needs the same member-level
+-- write the partner has — without it the note field renders read-only.
+grant TimeReg.Administrator on TimeReg.Timesheet (read *, write ("Status", StatusLabel, SubmittedOn, Flags, ReturnNote));
 /
 grant TimeReg.Administrator on TimeReg.AuditEntry (read *);
 /

@@ -41,9 +41,17 @@ Everything under the grid is derived from the entries: the composition bar from
 each matter's practice area, the value lines from the rate that was actually
 applied, the audit trail from what happened.
 
+Beneath the grid, **Entries this week** lists what was actually recorded, with an
+*Edit* on each row — the grid is a summary, so a cell can stand for more than one
+entry and there is nothing there to correct. Saving re-resolves the rate as at
+the entry's date, and removing an entry leaves a line in the audit trail. Both
+are refused once the week has been submitted or the month closed.
+
 | My matters | Time entry |
 |---|---|
 | ![My matters](docs/screenshots/03-my-matters.png) | ![Time entry](docs/screenshots/04-time-entry.png) |
+
+![Edit entry](docs/screenshots/13-edit-entry.png)
 
 ## Approval is a real workflow
 
@@ -56,9 +64,11 @@ a due date the engine tracks, and records who decided what.
 | ![My tasks](docs/screenshots/05-my-tasks.png) | ![Approval task](docs/screenshots/06-approval-task.png) |
 
 The buttons on the task only claim it and set its outcome; the workflow's own
-outcome branch does the work. The team approvals queue is still there, but its
-row button opens the task rather than approving in place, so a week cannot be
-approved behind the workflow's back.
+outcome branch does the work. **Return with note** means it: the return is
+refused without one, and the note is quoted in the audit line the fee earner
+reads. The team approvals queue is still there, but its row button opens the task
+rather than approving in place, so a week cannot be approved behind the
+workflow's back.
 
 ![Team approvals](docs/screenshots/07-approvals.png)
 
@@ -114,7 +124,7 @@ screen, because a page that reads the wrong thing still looks right.
 
 ```bash
 bash tests/reset.sh     # empty database, restart, wait for the seed
-node tests/run.mjs      # 110 assertions, ~7 minutes
+node tests/run.mjs      # 135 assertions, ~9 minutes
 ```
 
 Nothing to install: it uses the Chromium and Playwright that
@@ -146,6 +156,7 @@ TimeRegistration/
     70–75   multi-week support
     76–80   period-aware reporting
     81–83   effective-dated rates
+    84–88   correcting recorded time, and the guards on it
   theme/web/_vdh.scss           the design language
 tests/                          the regression suite (reset.sh, run.mjs, specs/)
 docs/screenshots/               the images above

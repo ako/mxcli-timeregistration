@@ -26,7 +26,7 @@ are a browser suite that drives the app and then checks the database behind it:
 
 ```bash
 bash tests/reset.sh     # empty database, restart, wait for the seed
-node tests/run.mjs      # 110 assertions across the seven specs, ~7 minutes
+node tests/run.mjs      # 135 assertions across the eight specs, ~9 minutes
 ```
 
 See [tests/README.md](tests/README.md) for what each spec covers.
@@ -38,6 +38,7 @@ See [tests/README.md](tests/README.md) for what each spec covers.
 | My matters | `/p/my-matters` | The fee earner's book of work, budget consumption, notices, WTD check |
 | Week timesheet | `/p/week` | The week grid — matter × task rows, seven day columns, composition, value, audit trail; ‹ › move between weeks |
 | Time entry | `/p/new-entry` | Records an entry; rate resolved from the client agreement on save |
+| Edit entry | `/p/edit-entry/{Entry}` | Corrects or removes an entry already recorded, guarded by the week's status and the month's |
 | My tasks | `/p/my-tasks` | The approver's inbox — whatever the workflow engine has assigned them |
 | Team approvals | `/p/approvals` | The partner's queue for a week, with the flagged entries to review |
 | Monthly rollup | `/p/rollup` | Firm KPIs, hours by week/matter/role, the close checklist, WTD exceptions |
@@ -140,6 +141,57 @@ their own timesheet.
 | **›** | week 31 still holds its 6 copied rows |
 | Log 2.50 h | week 31 totals 2.50 h; the composition bar shows one IP slice, the value panel one Kessler Pharma line at the rate that was applied |
 | **‹** six times from week 30 | 29, 28, 27, 26, 25, 24 — with the dates to match |
+
+## Correcting recorded time
+
+For most of this build an entry could be created and never touched again. The
+entry form only ever opened blank, nothing anywhere opened one that existed, and
+a typo in Monday's hours was permanent — which also made returning a week close
+to pointless, since the fee earner could not act on the note.
+
+**The grid stays a summary.** It is one row per matter/task pair with seven day
+columns, so a cell can stand for more than one entry and there is nothing there
+to click on and correct. Beneath it, **Entries this week** lists what was
+actually recorded — date, matter, task, narrative, hours — with an *Edit* on
+each row. `EditEntry` is the same seven fields as the new-entry form, bound to an
+entry that already exists, plus a right rail showing what it was recorded at:
+the rate that applied, the value, when it was entered and how late.
+
+Saving re-runs `ACT_SaveTimeEntry`, so the rate is resolved again from the client
+agreement **as at the entry's date** — correcting a date can therefore change the
+value, and the form says so. Removing an entry writes a line in the audit trail,
+because a deleted entry is otherwise invisible: the grid simply has less in it
+than it did.
+
+**One guard, three callers.** Saving, editing and deleting all ask
+`VAL_EntryEditable` the same question, because an entry that can be edited is one
+that can be edited *around* a restriction:
+
+| State | What happens | Why |
+|---|---|---|
+| Week `Submitted` | refused — *"This week is with your supervising partner for approval"* | changing it behind the approver makes the figures they approved untrue |
+| Week `Approved` | refused | as above, permanently |
+| Month `Locked` | refused — *"Jul 2026 is closed. Time can no longer be recorded against it."* | the firm has reported on those figures |
+| Month never opened | allowed | time can be recorded forward; `ACT_EnsurePeriod` summarises that month when someone first reports on it |
+
+The month guard is what makes the close mean something. `ACT_LockPeriod` used to
+flip a status and nothing on the recording path ever read it — its own
+documentation claimed otherwise — so time booked into a closed month was accepted
+and silently changed figures that had already gone out.
+
+A refused save leaves the form where it is. That matters: the correction would
+otherwise be discarded along with the warning explaining why it was refused.
+
+### Verified end to end
+
+| Step | Result |
+|---|---|
+| Open the week | 20 entries listed beneath the grid, one **Edit** each |
+| **Edit** the first, 2,50 → 9,75 h | back on the week; total 36,50 → 43,75 h, recomputed from the entry table |
+| **Remove entry** | 23 entries → 22, audit trail: *"Entry removed — 2,50 h on Mon 20 Jul, …"* |
+| **Submit week**, then again | one workflow started, not two; *"This week is already with your supervising partner"*, and no task left unreachable |
+| **Edit** an entry on the submitted week | refused, form stays put, nothing written |
+| Lock July, then record / edit / delete | all three refused, each naming the period |
 
 ## Periods
 
@@ -280,7 +332,23 @@ now uses the shape it always wanted.
 
 **Mendix does not link a workflow to its context object**, so `Timesheet_Workflow`
 does, set when the workflow starts. That association is how the task page finds
-the week it is about.
+the week it is about — and why `ACT_SubmitWeek` refuses a week that already has
+one running. It used to start a workflow every time it was pressed and overwrite
+the association with the new instance; the displaced one kept running, its task
+sat in the partner's inbox, and nothing could reach it, because both the queue
+and the task page follow the association that had just been replaced.
+
+**"Return with note" now means it.** The task page has a note field, the return
+is refused without one, and `ACT_ReturnWeek` quotes it in the audit line the fee
+earner reads:
+
+> Week returned by the supervising partner — "Thursday looks like a double
+> booking — please check M-2301."
+
+The note and the buttons sit in a DataView over the *timesheet* rather than the
+task, because Mendix hands a button the object of the DataView it is in: with the
+buttons on the task, nothing typed would have reached the microflow. The task is
+looked up from the week instead, by `DS_OpenTaskFor`.
 
 ### Verified end to end
 
@@ -394,8 +462,16 @@ This is a prototype dataset, not a credential store.
   nothing. Hiding it needs a conditional-visibility expression across the
   association, which MDL-WIDGET13 does not allow — a precomputed `HasOpenTask`
   boolean on `Timesheet` would fix it.
+- **No maintenance screens.** Clients, matters, employees, task codes and rate
+  agreements exist only because the seed created them. There is no way to add a
+  matter, take on a client or negotiate a rate from inside the app — the rate
+  card renders an effective-dated history it has no way to add to.
+- **No reopening a closed month.** `ACT_LockPeriod` is one-way. Practice
+  management can close July and nobody, including them, can put it back.
 - **Static controls.** The filter chips, `Export XLSX` and the report-set buttons
-  are still presentational. (‹ ›, `Copy last week` and `Add row` now work.)
+  are still presentational, and the segment counts beside them (`Approved 6`,
+  `Rejected 1`, `Client agreements 12`) are string literals rather than counts.
+  (‹ ›, `Copy last week`, `Add row` and `Edit` all work.)
 - **No week or period picker.** You reach a week or a month by stepping to it.
   A date picker, or a "this week" button, would need a date-to-Monday
   conversion, and Mendix's `daysBetween` is unsigned (finding 50), so it is more

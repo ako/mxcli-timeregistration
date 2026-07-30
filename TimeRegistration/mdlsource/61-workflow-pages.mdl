@@ -127,22 +127,38 @@ create or replace page "TimeReg"."WF_ApproveTask" (
                     Class: 'vdh-caption vdh-mt-l'
                   )
 
+                  -- The note and the buttons sit in a DataView over the week
+                  -- rather than the task, because Mendix hands a button the
+                  -- object of the DataView it is in: with the buttons on the
+                  -- task, nothing the partner typed would reach the microflow.
+                  -- The task is looked up from the week instead.
+                  --
                   -- The buttons claim the task and set its outcome; the
                   -- workflow's matching branch does the domain work. They go
                   -- through a microflow rather than `complete_task` because a
                   -- task must be assigned before it can be completed
                   -- (finding 44).
-                  container wtButtons (Class: 'vdh-row vdh-mt-l') {
-                    actionbutton wtApprove (
-                      Caption: 'Approve week',
-                      Action: microflow "TimeReg"."ACT_ApproveFromTask"("Task": $currentObject),
-                      Class: 'vdh-btn vdh-btn--teal'
+                  dataview wtDecision (
+                    DataSource: microflow "TimeReg"."DS_TaskTimesheet"("Task": $currentObject),
+                    Class: 'vdh-form vdh-mt-l',
+                    FormOrientation: Vertical
+                  ) {
+                    textarea wtNote (
+                      Label: 'Note to the fee earner · required to return',
+                      Attribute: ReturnNote
                     )
-                    actionbutton wtReturn (
-                      Caption: 'Return with note',
-                      Action: microflow "TimeReg"."ACT_ReturnFromTask"("Task": $currentObject),
-                      Class: 'vdh-btn'
-                    )
+                    container wtButtons (Class: 'vdh-row vdh-mt-l') {
+                      actionbutton wtApprove (
+                        Caption: 'Approve week',
+                        Action: microflow "TimeReg"."ACT_ApproveFromTask"("Timesheet": $currentObject),
+                        Class: 'vdh-btn vdh-btn--teal'
+                      )
+                      actionbutton wtReturn (
+                        Caption: 'Return with note',
+                        Action: microflow "TimeReg"."ACT_ReturnFromTask"("Timesheet": $currentObject),
+                        Class: 'vdh-btn'
+                      )
+                    }
                   }
                 }
               }

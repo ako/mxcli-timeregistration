@@ -465,6 +465,15 @@ html, body, .mx-page {
 }
 .vdh-btn--teal.btn:hover { background: #245740; color: #fff; }
 
+// Destructive, and quiet about it: an outline rather than a slab of red, so
+// "Remove entry" does not out-shout "Save changes" beside it.
+.vdh-btn--danger.btn, .btn.vdh-btn--danger {
+  background: transparent; border-color: var(--vdh-danger-fg); color: var(--vdh-danger-fg);
+}
+.vdh-btn--danger.btn:hover {
+  background: var(--vdh-danger-fg); border-color: var(--vdh-danger-fg); color: #fff;
+}
+
 .vdh-btn--sm.btn { padding: 3px 9px; font-size: 11px; }
 
 .vdh-link.btn, .btn.vdh-link {

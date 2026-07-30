@@ -98,6 +98,34 @@ end;
 /
 
 /**
+ * The open user task of a week's approval workflow.
+ *
+ * The same hop the approval queue makes: Mendix generates no association from a
+ * workflow back to its context entity, so the timesheet records the instance and
+ * the task is found from there.
+ *
+ * @param $Timesheet the week under review
+ * @returns its open task, or empty when there is none
+ */
+create or modify microflow "TimeReg"."DS_OpenTaskFor" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns System.WorkflowUserTask as $task
+folder 'Workflow'
+begin
+  retrieve $workflow from $Timesheet/"TimeReg"."Timesheet_Workflow";
+  if $workflow = empty then
+    return empty;
+  end if;
+
+  retrieve $task from System.WorkflowUserTask
+    where [System.WorkflowUserTask_Workflow = $workflow and EndTime = empty]
+    limit 1;
+  return $task;
+end;
+/
+
+/**
  * Claims the task and completes it with the Approve outcome.
  *
  * It does no domain work: the workflow's 'Approve' branch calls ACT_ApproveWeek.
@@ -105,15 +133,26 @@ end;
  * the runtime could not load (finding 39) — fixed upstream, so the decision is
  * back where it belongs.
  *
- * @param $Task the task the partner is looking at
+ * Takes the week rather than the task. The partner's note is typed into a
+ * DataView over the timesheet, and Mendix hands a button the object of the
+ * DataView it sits in — so to see the note at all, the button has to sit with
+ * it. The task is then looked up rather than passed.
+ *
+ * @param $Timesheet the week under review
  */
 create or modify microflow "TimeReg"."ACT_ApproveFromTask" (
-  $Task: System.WorkflowUserTask
+  $Timesheet: "TimeReg"."Timesheet"
 )
 folder 'Workflow'
 begin
-  $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $Task);
-  set task outcome $Task 'Approve';
+  $task = call microflow "TimeReg"."DS_OpenTaskFor" ("Timesheet" = $Timesheet);
+  if $task = empty then
+    show message 'This week no longer has an open approval task.' type Warning;
+    return;
+  end if;
+
+  $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $task);
+  set task outcome $task 'Approve';
   show page "TimeReg"."MyTasks";
 end;
 /
@@ -121,17 +160,36 @@ end;
 /**
  * Claims the task and completes it with the Return outcome.
  *
- * As above: the workflow's 'Return' branch calls ACT_ReturnWeek.
+ * As above: the workflow's 'Return' branch calls ACT_ReturnWeek, which quotes
+ * the note in the audit trail. The note is committed here, before the outcome is
+ * set, because the branch reads it off the timesheet rather than being handed it.
  *
- * @param $Task the task the partner is looking at
+ * The button has said "Return with note" since the first version of this screen
+ * and there was nothing to type one into; a return without one is refused rather
+ * than the caption being made honest by weakening it.
+ *
+ * @param $Timesheet the week under review
  */
 create or modify microflow "TimeReg"."ACT_ReturnFromTask" (
-  $Task: System.WorkflowUserTask
+  $Timesheet: "TimeReg"."Timesheet"
 )
 folder 'Workflow'
 begin
-  $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $Task);
-  set task outcome $Task 'Return';
+  if trim($Timesheet/ReturnNote) = '' then
+    validation feedback $Timesheet/ReturnNote message 'Say what needs correcting before returning the week.';
+    return;
+  end if;
+
+  commit $Timesheet;
+
+  $task = call microflow "TimeReg"."DS_OpenTaskFor" ("Timesheet" = $Timesheet);
+  if $task = empty then
+    show message 'This week no longer has an open approval task.' type Warning;
+    return;
+  end if;
+
+  $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $task);
+  set task outcome $task 'Return';
   show page "TimeReg"."MyTasks";
 end;
 /

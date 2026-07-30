@@ -8,7 +8,7 @@ the output as printed.
 
 | | |
 |---|---|
-| mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39) |
+| mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39). Finding 55 was found later, on `0580ead` |
 | (built during the findings) | `ead8926` then `0ed0359` — everything below was found on those |
 | Mendix | 11.12.1 (MxBuild + runtime) |
 | Engine | `modelsdk` (default) |
@@ -932,6 +932,52 @@ statements still has it.
 Worth knowing because `describe → drop → exec` is the documented way to
 regenerate a document, and here it would silently drop the one statement that
 completes the task.
+
+### 55. `alter page … insert` drops the attribute binding too, and it is still there on `0580ead` **[bug]**
+
+Finding 49 recorded this for `REPLACE`. Adding an entry list to the week screen
+needed `INSERT`, which looked like the safe operation — the existing widgets are
+not touched at all, only a sibling added. It behaves the same way:
+
+```mdl
+alter page "TimeReg"."WeekTimesheet" {
+  insert after wrTotal {
+    dynamictext probe49 (Attribute: RowTotal, Class: 'vdh-probe')
+  }
+}
+```
+```
+$ ./mxcli exec -p TimeRegistration.mpr /tmp/probe49.mdl
+Altered page TimeReg.WeekTimesheet
+
+$ ./mxcli -p TimeRegistration.mpr -c 'describe page "TimeReg"."WeekTimesheet"' | grep probe49
+dynamictext probe49 (Content: '{1}', ContentParams: [{1} = <unbound>], Class: 'vdh-probe')
+```
+
+So it is the binding on any widget MDL *writes* into an existing page, not the
+`REPLACE` operation specifically. `ALTER PAGE` remains usable for captions,
+classes, visibility and buttons, and unusable for anything that displays data.
+
+**One thing worth recording alongside it.** Re-running a full `create or replace
+page` against a page that already exists **preserves the unit** — the same
+`mprcontents/**.mxunit` file is rewritten rather than a new one created:
+
+```
+$ grep -rl WeekTimesheet mprcontents | head -1
+mprcontents/af/c9/afc94389-9369-4cb4-bfcf-23f989893671.mxunit
+$ ./mxcli exec -p TimeRegistration.mpr mdlsource/30-page-week.mdl
+Created page TimeReg.WeekTimesheet
+$ grep -rl WeekTimesheet mprcontents | head -1
+mprcontents/af/c9/afc94389-9369-4cb4-bfcf-23f989893671.mxunit
+```
+
+That is what makes finding 49's workaround safe: navigation items and every
+`show page` in a microflow keep pointing at the page. The
+`resolve-forward-references` skill warns that `OR REPLACE` "deletes the
+placeholder and creates a new document with a different ID", which is true of
+the *placeholder* pattern it describes but not of re-issuing a page definition —
+worth stating, because the warning reads as a reason not to do the thing finding
+49 tells you to do.
 
 ---
 
