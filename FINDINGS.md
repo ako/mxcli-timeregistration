@@ -8,7 +8,7 @@ the output as printed.
 
 | | |
 |---|---|
-| mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39). Finding 55 was found later, on `0580ead`; PR 55 (`25b02ac`) was retested on top of that |
+| mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39). Finding 55 was found later, on `0580ead`; PR 55 was retested on top of that, at `25b02ac` and again at `a91e732` |
 | (built during the findings) | `ead8926` then `0ed0359` — everything below was found on those |
 | Mendix | 11.12.1 (MxBuild + runtime) |
 | Engine | `modelsdk` (default) |
@@ -25,9 +25,9 @@ mistake, recorded so the next person doesn't repeat it.
 
 ## Retest against ako/mxcli PR 55
 
-PR 55 (`25b02ac`, on top of `main` at `0580ead`) takes the five findings left
-open by the editing work. Built from source and re-run against the reproductions
-below, on this project.
+PR 55 takes the five findings left open by the editing work. Built from source
+and re-run against the reproductions below, on this project — first at `25b02ac`,
+then again after the PR picked up `a91e732`.
 
 | # | Status | Notes |
 |---|---|---|
@@ -35,7 +35,7 @@ below, on this project.
 | 52's MDL045 (`div` by an association path) | **fixed** | `round($hours div $Matter/BudgetHours * 100)` passes |
 | 53 MDL048 (`[id = '[%CurrentUser%]']`) | **fixed** | and a literal stored id is still rejected, which is the half worth keeping |
 | 54 `describe` drops `set task outcome` | **fixed** | the round-trip is safe again |
-| 55 `alter page` drops attribute bindings | *half* | fixed for association and database sources; **a microflow datasource still binds nothing**, for `insert` and `replace` alike |
+| 55 `alter page` drops attribute bindings | **fixed** | association and database sources at `25b02ac`, microflow sources at `a91e732`; `ALTER PAGE` is usable for data-bound widgets again |
 
 ### The four that are done
 
@@ -75,44 +75,97 @@ PR 55: Error: association 'TimeReg.Employee_Role' already exists — use
        'drop association TimeReg.Employee_Role' first
 ```
 
-### 55 is half fixed, and the remaining half has a clean shape
+### 55 took two rounds, and the second one finished it
 
-The PR's diagnosis is that `extractEntityFromDataSource` only read
-`DataSource.EntityRef.Entity`, which a direct entity ref populates and an
-association source does not. That is right, and the association case now works.
-But a **microflow** datasource does not populate it either, and that case is
-untouched — which is the one finding 55 was actually written from, a ListView on
-`DS_WeekRows`.
+The first commit fixed the association source. Five probes — one per kind of
+enclosing datasource, each an `insert after` a sibling in the same context —
+showed what was left:
 
-Five probes, one per kind of enclosing datasource, all `insert after` a sibling
-in the same context, all on this project under PR 55:
+| Enclosing widget | DataSource | at `25b02ac` | at `a91e732` |
+|---|---|---|---|
+| `listview weekGrid` | microflow `DS_WeekRows` | `<unbound>` | `RowTotal` ✓ |
+| `dataview weekTotals` | microflow `DS_WeekTotals` | `<unbound>` | `GrandTotal` ✓ |
+| `listview compoList` | association `WeekComposition_Timesheet` | `HoursLabel` ✓ | ✓ |
+| `listview eeRules` | `database from EntryRule` | `Description` ✓ | ✓ |
+| `dataview eeForm` | page parameter `$Entry` | `HoursLabel` ✓ | ✓ |
 
-| Enclosing widget | DataSource | Result |
-|---|---|---|
-| `listview weekGrid` | microflow `DS_WeekRows` | `{1} = <unbound>` |
-| `dataview weekTotals` | microflow `DS_WeekTotals` | `{1} = <unbound>` |
-| `listview compoList` | association `WeekComposition_Timesheet` | `{1} = HoursLabel` ✓ |
-| `listview eeRules` | `database from EntryRule` | `{1} = Description` ✓ |
-| `dataview eeForm` | page parameter `$Entry` | `{1} = HoursLabel` ✓ |
+At `25b02ac` that was two `mx check` errors — `[CE0402] "No value specified." at
+Text 'pMfList'` and the same for `pMfView`. At `a91e732`, 0 errors. The split was
+never ListView-versus-DataView or `insert`-versus-`replace`: `replace weekStatus`
+in the root DataView on `DS_CurrentTimesheet` failed the same way and now works,
+which is finding 49's original reproduction, closed at last.
+
+**Nesting resolves to the nearest source, and says so when it is wrong.**
+`compoList` is an association-sourced list inside a microflow-sourced DataView.
+Inserting `RecordedLabel` — a `Timesheet` attribute, from the *outer* source —
+resolves against the inner entity and MxBuild names it:
 
 ```
+[error] [CE1613] "The selected attribute 'TimeReg.WeekComposition.RecordedLabel'
+        no longer exists." at Text 'pShadow'
+```
+
+That is the correct rejection, and the qualified name in it is what makes it
+diagnosable.
+
+**The end-to-end test: rebuilding the change finding 55 was written from.** The
+"Entries this week" panel had to go into the page's own source file and be
+re-issued as a whole `create or replace page`. Dropped and re-added through
+`ALTER PAGE INSERT` — a ListView on a microflow datasource, with an
+`EntryDateLabel` binding, association-path `ContentParams`
+(`TimeEntry_Matter/Name`, `TimeEntry_TaskCode/Code`) and a parameterised
+`show_page`:
+
+```
+$ /tmp/mxcli-pr55b exec -p TimeRegistration.mpr /tmp/pr55/real.mdl
+Altered page TimeReg.WeekTimesheet
+Altered page TimeReg.WeekTimesheet
+
 $ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
-[error] [CE0402] "No value specified." at Text 'pMfList'
-[error] [CE0402] "No value specified." at Text 'pMfView'
-The app contains: 2 errors.
+The app contains: 0 errors.
+
+$ diff <(describe page … before) <(describe page … after)
+(no output)
 ```
 
-So it is not ListView-versus-DataView, and not `insert` versus `replace` — the
-same split shows up for `replace`, where the association-sourced `compoHours`
-comes back bound and `weekStatus`, which sits in the page's root DataView on
-`DS_CurrentTimesheet`, does not. It is the microflow datasource, whose entity
-lives on the microflow's return type rather than on the widget.
+The page built by `ALTER PAGE` is indistinguishable from the one built by
+`create or replace page`. The workaround in finding 49 is no longer needed.
 
-Worth fixing because it is the common case in this app: 14 of the report lists
-and every panel on the week screen are fed by microflows, precisely because a
-microflow datasource is how you scope a list to a period or a week. Until then
-the workaround from finding 49 still stands — edit the page in its own source
-file and re-run the whole `create or replace page`.
+### 56. `describe page` omits a page action's arguments **[bug]**
+
+Found while checking that the rebuilt panel above was really equivalent. The
+week screen's Edit button opens a parameterised page, and describe prints the
+target without the argument:
+
+```
+$ ./mxcli -p TimeRegistration.mpr -c 'describe page "TimeReg"."WeekTimesheet"' | grep -A1 weEdit
+              actionbutton weEdit (
+                Action: show_page TimeReg.EditEntry,
+```
+
+The source says `show_page "TimeReg"."EditEntry"($Entry = $currentObject)`. Same
+shape as finding 54 and finding 42 — the write path takes it, the read path drops
+it — and the same hazard, since `describe → exec` is the documented way to
+regenerate a document.
+
+**In practice it survives, because the argument is inferred.** Re-executing the
+describe output produces a page that passes `mx check` with 0 errors, and a
+deliberate negative confirms MxBuild would have caught a genuinely missing one:
+
+```
+-- weekAddRow sits in the header, where the context is Timesheet: nothing to infer
+[error] [CE1571] "No argument has been selected for parameter 'Entry' and no
+        default is available." at Action button 'weekAddRow'
+
+-- the same bare form inside the entries ListView, where $currentObject is a
+-- TimeEntry, checks clean
+The app contains: 0 errors.
+```
+
+So a bare `show_page` binds `$currentObject` when the context entity matches the
+page parameter. That is convenient, and it is why the round-trip is safe here —
+but it is inference, not preservation, and it would not save an argument that
+was anything other than the enclosing object.
 
 ---
 
@@ -851,6 +904,10 @@ both fine. It is specifically the attribute binding on a replacement widget.
 definition rather than a definition plus a patch — but it does mean `ALTER PAGE`
 is not usable for the one job it looks made for.
 
+**Fixed by PR 55** along with finding 55, which is the same defect reached
+through `INSERT`. This exact `replace weekStatus` reproduction now keeps its
+binding. The workaround is still the tidier habit; it is no longer forced.
+
 ### 50. `daysBetween` returns a magnitude, not a signed difference **[platform]**
 
 Nothing to do with mxcli, and the most expensive hour of the multi-week work.
@@ -1051,9 +1108,9 @@ So it is the binding on any widget MDL *writes* into an existing page, not the
 `REPLACE` operation specifically. `ALTER PAGE` remains usable for captions,
 classes, visibility and buttons, and unusable for anything that displays data.
 
-**Partly fixed by PR 55** — association and database sources now bind correctly;
-a microflow datasource still does not. See the retest at the top for the five
-probes that pin down which is which.
+**Fixed by PR 55**, in two rounds — association and database sources first, then
+microflow sources. Finding 49's original `REPLACE` reproduction is closed with
+it, and the workaround below is no longer needed. See the retest at the top.
 
 **One thing worth recording alongside it.** Re-running a full `create or replace
 page` against a page that already exists **preserves the unit** — the same
