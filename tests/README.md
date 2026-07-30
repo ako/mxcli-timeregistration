@@ -45,7 +45,7 @@ really leftovers from the previous pass.
 | `04-period` | one period selection shared by all four report screens, July's seeded snapshot left alone, a newly opened month created and summarised from the entry table |
 | `05-ratecard` | the card is effective-dated: July quotes Rijnmond after the indexation, June before it, April predates the Kessler agreement entirely, and the change log truncates to the date being viewed |
 | `06-editing` | an entry can be corrected and removed from the week screen, and the guards hold: a submitted week and a closed month both refuse a save, an edit and a delete, and submitting twice starts one workflow rather than two |
-| `07-screens` | every one of the eleven screens renders its own content with no client-side error, the entry form arrives filled in, and the month close — which nothing else exercises — locks the period for practice management but is absent for a partner |
+| `07-screens` | every one of the ten menu screens renders its own content with no client-side error, the entry form arrives filled in, and the month close — which nothing else exercises — locks the period for practice management but is absent for a partner (the edit form is covered by `06-editing`) |
 
 ## Notes on the harness
 
