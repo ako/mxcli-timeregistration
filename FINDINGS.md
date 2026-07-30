@@ -8,7 +8,7 @@ the output as printed.
 
 | | |
 |---|---|
-| mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39). Finding 55 was found later, on `0580ead` |
+| mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39). Finding 55 was found later, on `0580ead`; PR 55 (`25b02ac`) was retested on top of that |
 | (built during the findings) | `ead8926` then `0ed0359` — everything below was found on those |
 | Mendix | 11.12.1 (MxBuild + runtime) |
 | Engine | `modelsdk` (default) |
@@ -20,6 +20,99 @@ the finished project unless marked *(captured during the build)*.
 Legend: **[bug]** mxcli defect · **[gap]** `mxcli check` passes what MxBuild
 rejects · **[platform]** a Mendix rule mxcli reports correctly · **[mine]** my own
 mistake, recorded so the next person doesn't repeat it.
+
+---
+
+## Retest against ako/mxcli PR 55
+
+PR 55 (`25b02ac`, on top of `main` at `0580ead`) takes the five findings left
+open by the editing work. Built from source and re-run against the reproductions
+below, on this project.
+
+| # | Status | Notes |
+|---|---|---|
+| 51 `create association` on re-run | *message only* | still an error, which the PR argues is correct SQL-shaped semantics; it now names the way out |
+| 52's MDL045 (`div` by an association path) | **fixed** | `round($hours div $Matter/BudgetHours * 100)` passes |
+| 53 MDL048 (`[id = '[%CurrentUser%]']`) | **fixed** | and a literal stored id is still rejected, which is the half worth keeping |
+| 54 `describe` drops `set task outcome` | **fixed** | the round-trip is safe again |
+| 55 `alter page` drops attribute bindings | *half* | fixed for association and database sources; **a microflow datasource still binds nothing**, for `insert` and `replace` alike |
+
+### The four that are done
+
+MDL045 and MDL048 were the two rules that cried wolf, and both now pass the lines
+they used to reject:
+
+```
+$ ./mxcli check mdlsource/60-workflow-support.mdl -p TimeRegistration.mpr      # main
+  ✗ retrieve '$me' constrains the object id against a value (`[id = '[%CurrentUser%]']`) … [MDL048]
+  1 issues: 1 errors, 0 warnings, 0 info
+
+$ /tmp/mxcli-pr55 check mdlsource/60-workflow-support.mdl -p TimeRegistration.mpr
+  ✓ Syntax OK (6 statements)
+  Check passed!
+```
+
+MDL048 keeps the case that is genuinely wrong — `where [id = '7881299347898368']`
+is still an error — so the rule was narrowed rather than removed.
+
+Finding 54's round-trip is whole again. `ACT_ApproveFromTask` is four statements
+and describe showed three:
+
+```
+$ /tmp/mxcli-pr55 -p TimeRegistration.mpr -c 'describe microflow "TimeReg"."ACT_ApproveFromTask"'
+  $claimed = call microflow TimeReg.ACT_ClaimTask(Task = $task) on error rollback;
+  set task outcome $task 'Approve';          <- was `-- Empty action`
+  show page TimeReg.MyTasks;
+```
+
+Finding 51 is a message, not a behaviour change, and the message is the right
+fix — the idempotent form existed all along and nothing pointed at it:
+
+```
+main:  Error: association already exists: TimeReg.Employee_Role
+PR 55: Error: association 'TimeReg.Employee_Role' already exists — use
+       'create or modify association ...' to update it in place, or
+       'drop association TimeReg.Employee_Role' first
+```
+
+### 55 is half fixed, and the remaining half has a clean shape
+
+The PR's diagnosis is that `extractEntityFromDataSource` only read
+`DataSource.EntityRef.Entity`, which a direct entity ref populates and an
+association source does not. That is right, and the association case now works.
+But a **microflow** datasource does not populate it either, and that case is
+untouched — which is the one finding 55 was actually written from, a ListView on
+`DS_WeekRows`.
+
+Five probes, one per kind of enclosing datasource, all `insert after` a sibling
+in the same context, all on this project under PR 55:
+
+| Enclosing widget | DataSource | Result |
+|---|---|---|
+| `listview weekGrid` | microflow `DS_WeekRows` | `{1} = <unbound>` |
+| `dataview weekTotals` | microflow `DS_WeekTotals` | `{1} = <unbound>` |
+| `listview compoList` | association `WeekComposition_Timesheet` | `{1} = HoursLabel` ✓ |
+| `listview eeRules` | `database from EntryRule` | `{1} = Description` ✓ |
+| `dataview eeForm` | page parameter `$Entry` | `{1} = HoursLabel` ✓ |
+
+```
+$ ~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr
+[error] [CE0402] "No value specified." at Text 'pMfList'
+[error] [CE0402] "No value specified." at Text 'pMfView'
+The app contains: 2 errors.
+```
+
+So it is not ListView-versus-DataView, and not `insert` versus `replace` — the
+same split shows up for `replace`, where the association-sourced `compoHours`
+comes back bound and `weekStatus`, which sits in the page's root DataView on
+`DS_CurrentTimesheet`, does not. It is the microflow datasource, whose entity
+lives on the microflow's return type rather than on the widget.
+
+Worth fixing because it is the common case in this app: 14 of the report lists
+and every panel on the week screen are fed by microflows, precisely because a
+microflow datasource is how you scope a list to a period or a week. Until then
+the workaround from finding 49 still stands — edit the page in its own source
+file and re-run the whole `create or replace page`.
 
 ---
 
@@ -957,6 +1050,10 @@ dynamictext probe49 (Content: '{1}', ContentParams: [{1} = <unbound>], Class: 'v
 So it is the binding on any widget MDL *writes* into an existing page, not the
 `REPLACE` operation specifically. `ALTER PAGE` remains usable for captions,
 classes, visibility and buttons, and unusable for anything that displays data.
+
+**Partly fixed by PR 55** — association and database sources now bind correctly;
+a microflow datasource still does not. See the retest at the top for the five
+probes that pin down which is which.
 
 **One thing worth recording alongside it.** Re-running a full `create or replace
 page` against a page that already exists **preserves the unit** — the same
