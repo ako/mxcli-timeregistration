@@ -1,0 +1,31 @@
+/**
+ * TimeRegistration — multi-week support, part 6: access
+ *
+ * A week selection is a private preference: you may read and change your own,
+ * and nobody else's. The XPath is the same shape as every other "my" rule in
+ * the app — through Employee_Account to the signed-in user.
+ */
+grant "TimeReg"."FeeEarner" on "TimeReg"."WeekSelection" (create, read *, write *)
+  where '[TimeReg.WeekSelection_Employee/TimeReg.Employee/TimeReg.Employee_Account = ''[%CurrentUser%]'']';
+/
+grant "TimeReg"."Administrator" on "TimeReg"."WeekSelection" (create, read *, write *);
+/
+
+-- Deleting an entry is how a copied row that turned out not to be needed goes
+-- away; a fee earner already has delete on their own entries.
+grant execute on microflow "TimeReg"."ACT_WeekPrev"       to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_WeekNext"       to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_CopyLastWeek"   to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_EnsureTimesheet" to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_SetSelectedWeek" to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_SelectedWeekStart" to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_EntryDefaultDate"  to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_WeekLabels" to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/

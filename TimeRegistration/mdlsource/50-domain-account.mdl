@@ -1,0 +1,12 @@
+/**
+ * TimeRegistration — account link
+ *
+ * Ties a fee earner to the account they sign in with. Everything the app scopes
+ * per person — which timesheet is "mine", which team a partner approves, which
+ * rows an access rule lets through — resolves through this association.
+ */
+
+create association "TimeReg"."Employee_Account"
+from "TimeReg"."Employee" to Administration.Account
+type reference;
+/

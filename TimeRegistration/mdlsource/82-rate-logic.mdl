@@ -1,0 +1,197 @@
+/**
+ * TimeRegistration — a rate card that follows the period, part 2: the logic
+ *
+ * DS_ResolveRate is redefined here rather than edited in 20-logic.mdl, as the
+ * week and period scripts did: the numbered files run in order, so the later
+ * definition survives a full rebuild.
+ */
+
+/**
+ * The negotiated rate for a client and role on a given date.
+ *
+ * The one place that reads ClientRate's validity window, so the rate card and
+ * the rate applied to an entry can never disagree about what was agreed when.
+ * An open-ended agreement has no ValidTo.
+ *
+ * @param $Client the client
+ * @param $Role the fee earner's role
+ * @param $AsAt the date to price at
+ * @returns the agreed rate, or 0 when there is no agreement on that date
+ */
+create or modify microflow "TimeReg"."DS_ClientRateAt" (
+  $Client: "TimeReg"."Client",
+  $Role: "TimeReg"."Role",
+  $AsAt: datetime
+)
+returns decimal as $rate
+folder 'Logic'
+begin
+  declare $rate decimal = 0;
+
+  if $Client = empty or $Role = empty then
+    return $rate;
+  end if;
+
+  retrieve $agreement from "TimeReg"."ClientRate"
+    where ["TimeReg"."ClientRate_Client" = $Client
+       and "TimeReg"."ClientRate_Role" = $Role
+       and "ValidFrom" <= $AsAt
+       and ("ValidTo" = empty or "ValidTo" >= $AsAt)]
+    sort by TimeReg.ClientRate.ValidFrom desc
+    limit 1;
+
+  if $agreement != empty then
+    set $rate = $agreement/Rate;
+  end if;
+
+  return $rate;
+end;
+/
+
+/**
+ * Whether that agreement sits below the cost + 40% floor.
+ *
+ * Separate from the rate itself so the card can flag a cell without a second
+ * copy of the window logic.
+ *
+ * @param $Client the client
+ * @param $Role the fee earner's role
+ * @param $AsAt the date to price at
+ * @returns true when the agreement in force is flagged
+ */
+create or modify microflow "TimeReg"."DS_ClientRateBelowFloorAt" (
+  $Client: "TimeReg"."Client",
+  $Role: "TimeReg"."Role",
+  $AsAt: datetime
+)
+returns boolean as $below
+folder 'Logic'
+begin
+  declare $below boolean = false;
+
+  if $Client = empty or $Role = empty then
+    return $below;
+  end if;
+
+  retrieve $agreement from "TimeReg"."ClientRate"
+    where ["TimeReg"."ClientRate_Client" = $Client
+       and "TimeReg"."ClientRate_Role" = $Role
+       and "ValidFrom" <= $AsAt
+       and ("ValidTo" = empty or "ValidTo" >= $AsAt)]
+    sort by TimeReg.ClientRate.ValidFrom desc
+    limit 1;
+
+  if $agreement != empty then
+    set $below = $agreement/IsBelowFloor;
+  end if;
+
+  return $below;
+end;
+/
+
+/**
+ * Resolves the hourly rate that applies to an employee on a matter, on a date.
+ *
+ * A negotiated client rate for the employee's role wins; otherwise the role's
+ * standard charge-out rate applies. Internal matters have no rate.
+ *
+ * The date parameter is new: the agreement in force is now a question of when.
+ * ACT_SaveTimeEntry passes the entry's own date, so a rate agreed in July never
+ * reprices June's time and the entry keeps the rate it was recorded at.
+ *
+ * @param $Matter the matter being booked to
+ * @param $Employee the fee earner recording the time
+ * @param $AsAt the date the work was done
+ * @returns the applicable hourly rate, or empty for internal work
+ */
+create or modify microflow "TimeReg"."DS_ResolveRate" (
+  $Matter: "TimeReg"."Matter",
+  $Employee: "TimeReg"."Employee",
+  $AsAt: datetime
+)
+returns decimal as $rate
+folder 'Logic'
+begin
+  declare $rate decimal = 0;
+
+  if $Matter/IsInternal then
+    return $rate;
+  end if;
+
+  retrieve $role from $Employee/"TimeReg"."Employee_Role";
+  retrieve $client from $Matter/"TimeReg"."Matter_Client";
+
+  $negotiated = call microflow "TimeReg"."DS_ClientRateAt" (
+    "Client" = $client, "Role" = $role, "AsAt" = $AsAt);
+
+  if $negotiated > 0 then
+    set $rate = $negotiated;
+  else
+    set $rate = $role/StandardRate;
+  end if;
+
+  return $rate;
+end;
+/
+
+/**
+ * Saves a time entry: applies the rate, values it and refreshes the week.
+ *
+ * Unchanged except that the rate is now resolved as at the entry's own date
+ * rather than as at "now".
+ *
+ * @param $TimeEntry the entry being saved
+ * @returns true when the entry was committed
+ */
+create or modify microflow "TimeReg"."ACT_SaveTimeEntry" (
+  $TimeEntry: "TimeReg"."TimeEntry"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  declare $amount decimal = 0;
+  declare $late integer = 0;
+
+  retrieve $matter from $TimeEntry/"TimeReg"."TimeEntry_Matter";
+  retrieve $employee from $TimeEntry/"TimeReg"."TimeEntry_Employee";
+
+  if $matter = empty or $employee = empty then
+    return false;
+  end if;
+
+  $rate = call microflow "TimeReg"."DS_ResolveRate" (
+    "Matter" = $matter, "Employee" = $employee, "AsAt" = $TimeEntry/EntryDate);
+
+  -- Internal matters are always non-billable, whatever the form said.
+  if $matter/IsInternal then
+    change $TimeEntry (Billability = "TimeReg"."ENUM_Billability"."NonBillable");
+  end if;
+
+  if $TimeEntry/Billability = "TimeReg"."ENUM_Billability"."Billable" then
+    set $amount = $TimeEntry/Hours * $rate;
+  end if;
+
+  set $late = round(daysBetween($TimeEntry/EntryDate, [%CurrentDateTime%]));
+  if $late < 0 then
+    set $late = 0;
+  end if;
+
+  declare $hoursLabel string = '';
+  set $hoursLabel = formatDecimal($TimeEntry/Hours, '###0.00');
+
+  change $TimeEntry (
+    Rate = $rate,
+    AmountValue = $amount,
+    HoursLabel = $hoursLabel,
+    RecordedOn = [%CurrentDateTime%],
+    DaysLate = $late);
+  commit $TimeEntry;
+
+  retrieve $timesheet from $TimeEntry/"TimeReg"."TimeEntry_Timesheet";
+  if $timesheet != empty then
+    $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $timesheet);
+  end if;
+
+  return true;
+end;
+/

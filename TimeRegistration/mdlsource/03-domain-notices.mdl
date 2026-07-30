@@ -1,0 +1,22 @@
+/**
+ * TimeRegistration — attention notices
+ *
+ * Items the fee earner has to act on, shown in the "Needs attention" panel of
+ * My matters. Raised by the weekly submission check and the rate-change job.
+ */
+
+/** Something the fee earner must act on before the week can be signed off. */
+@Position(400, 1400)
+create persistent entity "TimeReg"."Notice" (
+  "Title": string(120) not null,
+  "Detail": string(200),
+  /** ss-notice--ox / --amber / --teal — sets the left accent bar. */
+  "AccentClass": string(30),
+  "SortOrder": integer
+);
+/
+
+create association "TimeReg"."Notice_Employee"
+from "TimeReg"."Notice" to "TimeReg"."Employee"
+type reference;
+/

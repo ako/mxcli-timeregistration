@@ -1,0 +1,17 @@
+/**
+ * Presentation columns on the per-matter summary.
+ *
+ * A Mendix expression cannot follow an association, so anything the My-matters
+ * row needs from its Matter is copied onto the summary when the snapshot is
+ * written: the budget meter's class, its percentage, and the rate that applied
+ * to this fee earner on this matter.
+ */
+ALTER ENTITY "TimeReg"."MatterMonthSummary"
+  ADD ATTRIBUTE IF NOT EXISTS "MeterClass": string(60);
+/
+ALTER ENTITY "TimeReg"."MatterMonthSummary"
+  ADD ATTRIBUTE IF NOT EXISTS "BudgetPct": integer;
+/
+ALTER ENTITY "TimeReg"."MatterMonthSummary"
+  ADD ATTRIBUTE IF NOT EXISTS "RateLabel": string(12);
+/

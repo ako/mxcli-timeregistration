@@ -1,0 +1,266 @@
+/**
+ * Recalculates a timesheet's totals from its entries.
+ *
+ * Recorded, billable and value are derived rather than typed, so the week
+ * screen, the approval list and the value panel can never disagree. RatioBucket
+ * is the ratio quantised to 0-20 — a widget cannot take a computed bar width,
+ * so the bucket picks a generated SCSS class instead.
+ *
+ * @param $Timesheet the week to recalculate
+ * @returns true when the totals were written
+ */
+create or modify microflow "TimeReg"."ACT_RecalculateTimesheet" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  declare $ratio integer = 0;
+
+  -- Aggregates declare their own output variable — never `declare` them first.
+  retrieve $entries from "TimeReg"."TimeEntry"
+    where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet];
+  $recorded = sum($entries.Hours);
+  $amount = sum($entries.AmountValue);
+
+  retrieve $billableEntries from "TimeReg"."TimeEntry"
+    where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
+       and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+  $billable = sum($billableEntries.Hours);
+
+  if $recorded > 0 then
+    set $ratio = round($billable div $recorded * 100);
+  end if;
+
+  -- Formatted forms for the dense columns. formatDecimal uses the runtime's
+  -- en_US locale, so the thousands separator is swapped for the Dutch one.
+  declare $recordedLabel string = '';
+  declare $billableLabel string = '';
+  declare $amountLabel string = '';
+  set $recordedLabel = formatDecimal($recorded, '###0.00');
+  set $billableLabel = formatDecimal($billable, '###0.00');
+  set $amountLabel = '€ ' + replaceAll(formatDecimal($amount, '#,##0'), ',', '.');
+
+  change $Timesheet (
+    RecordedHours = $recorded,
+    BillableHours = $billable,
+    AmountValue = $amount,
+    RecordedLabel = $recordedLabel,
+    BillableLabel = $billableLabel,
+    AmountLabel = $amountLabel,
+    RatioPct = $ratio,
+    RatioBucket = round($ratio div 5));
+  commit $Timesheet;
+
+  return true;
+end;
+/
+
+/**
+ * Resolves the hourly rate that applies to an employee on a matter.
+ *
+ * A negotiated client rate for the employee's role wins; otherwise the role's
+ * standard charge-out rate applies. Internal matters have no rate.
+ *
+ * @param $Matter the matter being booked to
+ * @param $Employee the fee earner recording the time
+ * @returns the applicable hourly rate, or empty for internal work
+ */
+create or modify microflow "TimeReg"."DS_ResolveRate" (
+  $Matter: "TimeReg"."Matter",
+  $Employee: "TimeReg"."Employee"
+)
+returns decimal as $rate
+folder 'Logic'
+begin
+  declare $rate decimal = 0;
+
+  if $Matter/IsInternal then
+    return $rate;
+  end if;
+
+  retrieve $role from $Employee/"TimeReg"."Employee_Role";
+  retrieve $client from $Matter/"TimeReg"."Matter_Client";
+
+  retrieve $negotiated from "TimeReg"."ClientRate"
+    where ["TimeReg"."ClientRate_Client" = $client
+       and "TimeReg"."ClientRate_Role" = $role]
+    limit 1;
+
+  if $negotiated != empty then
+    set $rate = $negotiated/Rate;
+  else
+    set $rate = $role/StandardRate;
+  end if;
+
+  return $rate;
+end;
+/
+
+/**
+ * Saves a time entry: applies the rate, values it and refreshes the week.
+ *
+ * Called from the Save buttons on the time-entry form. The rate is resolved at
+ * the moment of recording so a later rate change never rewrites history.
+ *
+ * @param $TimeEntry the entry being saved
+ * @returns true when the entry was committed
+ */
+create or modify microflow "TimeReg"."ACT_SaveTimeEntry" (
+  $TimeEntry: "TimeReg"."TimeEntry"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  declare $amount decimal = 0;
+  declare $late integer = 0;
+
+  retrieve $matter from $TimeEntry/"TimeReg"."TimeEntry_Matter";
+  retrieve $employee from $TimeEntry/"TimeReg"."TimeEntry_Employee";
+
+  if $matter = empty or $employee = empty then
+    return false;
+  end if;
+
+  $rate = call microflow "TimeReg"."DS_ResolveRate" ("Matter" = $matter, "Employee" = $employee);
+
+  -- Internal matters are always non-billable, whatever the form said.
+  if $matter/IsInternal then
+    change $TimeEntry (Billability = "TimeReg"."ENUM_Billability"."NonBillable");
+  end if;
+
+  if $TimeEntry/Billability = "TimeReg"."ENUM_Billability"."Billable" then
+    set $amount = $TimeEntry/Hours * $rate;
+  end if;
+
+  set $late = round(daysBetween($TimeEntry/EntryDate, [%CurrentDateTime%]));
+  if $late < 0 then
+    set $late = 0;
+  end if;
+
+  declare $hoursLabel string = '';
+  set $hoursLabel = formatDecimal($TimeEntry/Hours, '###0.00');
+
+  change $TimeEntry (
+    Rate = $rate,
+    AmountValue = $amount,
+    HoursLabel = $hoursLabel,
+    RecordedOn = [%CurrentDateTime%],
+    DaysLate = $late);
+  commit $TimeEntry;
+
+  retrieve $timesheet from $TimeEntry/"TimeReg"."TimeEntry_Timesheet";
+  if $timesheet != empty then
+    $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $timesheet);
+  end if;
+
+  return true;
+end;
+/
+
+/**
+ * Submits a week to the supervising partner.
+ *
+ * @param $Timesheet the week being submitted
+ * @returns true when the week moved to Submitted
+ */
+create or modify microflow "TimeReg"."ACT_SubmitWeek" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $Timesheet);
+
+  change $Timesheet (
+    Status = "TimeReg"."ENUM_TimesheetStatus"."Submitted",
+    StatusLabel = 'submitted',
+    SubmittedOn = [%CurrentDateTime%]);
+  commit $Timesheet refresh;
+
+  $audit = create "TimeReg"."AuditEntry" (
+    EventTime = [%CurrentDateTime%],
+    EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+    Description = 'Week submitted for approval',
+    SortOrder = 0,
+    "TimeReg"."AuditEntry_Timesheet" = $Timesheet);
+  commit $audit;
+
+  return true;
+end;
+/
+
+/**
+ * Approves a submitted week.
+ *
+ * @param $Timesheet the week being approved
+ * @returns true when the week moved to Approved
+ */
+create or modify microflow "TimeReg"."ACT_ApproveWeek" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  change $Timesheet (Status = "TimeReg"."ENUM_TimesheetStatus"."Approved", StatusLabel = 'approved');
+  commit $Timesheet refresh;
+
+  $audit = create "TimeReg"."AuditEntry" (
+    EventTime = [%CurrentDateTime%],
+    EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+    Description = 'Week approved by the supervising partner',
+    SortOrder = 0,
+    "TimeReg"."AuditEntry_Timesheet" = $Timesheet);
+  commit $audit;
+
+  return true;
+end;
+/
+
+/**
+ * Returns the week to the fee earner with a note.
+ *
+ * @param $Timesheet the week being returned
+ * @returns true when the week moved to Rejected
+ */
+create or modify microflow "TimeReg"."ACT_ReturnWeek" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  change $Timesheet (Status = "TimeReg"."ENUM_TimesheetStatus"."Rejected", StatusLabel = 'returned');
+  commit $Timesheet refresh;
+
+  $audit = create "TimeReg"."AuditEntry" (
+    EventTime = [%CurrentDateTime%],
+    EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+    Description = 'Week returned with a note by the supervising partner',
+    SortOrder = 0,
+    "TimeReg"."AuditEntry_Timesheet" = $Timesheet);
+  commit $audit;
+
+  return true;
+end;
+/
+
+/**
+ * Locks the period so no further time can be recorded against it.
+ *
+ * The last step of the month close, once every timesheet is submitted and
+ * approved. Locking is what releases the client reports.
+ *
+ * @param $Period the period being closed
+ * @returns true when the period was locked
+ */
+create or modify microflow "TimeReg"."ACT_LockPeriod" (
+  $Period: "TimeReg"."Period"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  change $Period (Status = "TimeReg"."ENUM_PeriodStatus"."Locked");
+  commit $Period refresh;
+  return true;
+end;
+/

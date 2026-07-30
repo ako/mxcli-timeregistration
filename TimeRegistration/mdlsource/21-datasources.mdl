@@ -1,0 +1,431 @@
+/**
+ * Returns the week grid: one row per matter + task code, seven day columns.
+ *
+ * Walks every matter/task pair that carries time in the week and pivots its
+ * entries onto the days of that week. Empty cells render as a middle dot.
+ *
+ * @param $Timesheet the week being displayed
+ * @returns the pivoted grid rows, in matter code order
+ */
+create or modify microflow "TimeReg"."DS_WeekRows" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns list of "TimeReg"."WeekRow" as $rows
+folder 'Datasources'
+begin
+  declare $seq integer = 0;
+
+  $rows = create list of "TimeReg"."WeekRow";
+
+  if $Timesheet = empty then
+    return $rows;
+  end if;
+
+  declare $d1 datetime = [%CurrentDateTime%];
+  set $d1 = $Timesheet/WeekStart;
+
+  retrieve $matters from "TimeReg"."Matter" sort by TimeReg.Matter.Code asc;
+  retrieve $tasks from "TimeReg"."TaskCode" sort by TimeReg.TaskCode.SortOrder asc;
+
+  loop $matter in $matters
+  begin
+    loop $task in $tasks
+    begin
+      retrieve $cells from "TimeReg"."TimeEntry"
+        where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
+           and "TimeReg"."TimeEntry_Matter" = $matter
+           and "TimeReg"."TimeEntry_TaskCode" = $task];
+
+      $cellCount = count($cells);
+      if $cellCount > 0 then
+        declare $h1 decimal = 0;
+        declare $h2 decimal = 0;
+        declare $h3 decimal = 0;
+        declare $h4 decimal = 0;
+        declare $h5 decimal = 0;
+        declare $h6 decimal = 0;
+        declare $h7 decimal = 0;
+
+        loop $cell in $cells
+        begin
+          if $cell/EntryDate = $d1 then
+            set $h1 = $h1 + $cell/Hours;
+          end if;
+          if $cell/EntryDate = addDays($d1, 1) then
+            set $h2 = $h2 + $cell/Hours;
+          end if;
+          if $cell/EntryDate = addDays($d1, 2) then
+            set $h3 = $h3 + $cell/Hours;
+          end if;
+          if $cell/EntryDate = addDays($d1, 3) then
+            set $h4 = $h4 + $cell/Hours;
+          end if;
+          if $cell/EntryDate = addDays($d1, 4) then
+            set $h5 = $h5 + $cell/Hours;
+          end if;
+          if $cell/EntryDate = addDays($d1, 5) then
+            set $h6 = $h6 + $cell/Hours;
+          end if;
+          if $cell/EntryDate = addDays($d1, 6) then
+            set $h7 = $h7 + $cell/Hours;
+          end if;
+        end loop;
+
+        -- Every entry in a matter/task group shares one billability, so the
+        -- chip can be derived while walking the cells.
+        declare $billLabel string = 'NB';
+        declare $billClass string = 'vdh-chip vdh-chip--neutral';
+
+        loop $billCell in $cells
+        begin
+          if $billCell/Billability = "TimeReg"."ENUM_Billability"."Billable" then
+            set $billLabel = 'BIL';
+            set $billClass = 'vdh-chip vdh-chip--ok';
+          end if;
+          if $billCell/Billability = "TimeReg"."ENUM_Billability"."NoCharge" then
+            set $billLabel = 'N/C';
+            set $billClass = 'vdh-chip vdh-chip--danger';
+          end if;
+        end loop;
+
+        retrieve $client from $matter/"TimeReg"."Matter_Client";
+        declare $sub string = '';
+        set $sub = $matter/Code;
+        if $client != empty and $matter/IsInternal = false then
+          set $sub = $sub + ' · ' + $client/ShortName;
+        end if;
+        set $sub = $sub + ' · ' + $task/Code + ' ' + $task/Name;
+
+
+        -- Empty cells render as a middle dot, not a zero.
+        declare $c1 string = '·';
+        if $h1 > 0 then
+          set $c1 = formatDecimal($h1, '###0.00');
+        end if;
+        declare $c2 string = '·';
+        if $h2 > 0 then
+          set $c2 = formatDecimal($h2, '###0.00');
+        end if;
+        declare $c3 string = '·';
+        if $h3 > 0 then
+          set $c3 = formatDecimal($h3, '###0.00');
+        end if;
+        declare $c4 string = '·';
+        if $h4 > 0 then
+          set $c4 = formatDecimal($h4, '###0.00');
+        end if;
+        declare $c5 string = '·';
+        if $h5 > 0 then
+          set $c5 = formatDecimal($h5, '###0.00');
+        end if;
+        declare $c6 string = '·';
+        if $h6 > 0 then
+          set $c6 = formatDecimal($h6, '###0.00');
+        end if;
+        declare $c7 string = '·';
+        if $h7 > 0 then
+          set $c7 = formatDecimal($h7, '###0.00');
+        end if;
+
+        declare $rowTotal decimal = 0;
+        set $rowTotal = $h1 + $h2 + $h3 + $h4 + $h5 + $h6 + $h7;
+        declare $rowTotalText string = '';
+        set $rowTotalText = formatDecimal($rowTotal, '###0.00');
+
+        set $seq = $seq + 1;
+        $row = create "TimeReg"."WeekRow" (
+          MatterName = $matter/Name,
+          MatterSub = $sub,
+          BillLabel = $billLabel,
+          BillClass = $billClass,
+          D1 = $c1,
+          D2 = $c2,
+          D3 = $c3,
+          D4 = $c4,
+          D5 = $c5,
+          D6 = $c6,
+          D7 = $c7,
+          RowTotal = $rowTotalText,
+          SortOrder = $seq);
+        add $row to $rows;
+      end if;
+    end loop;
+  end loop;
+
+  return $rows;
+end;
+/
+
+/**
+ * Returns the day-total band under the week grid.
+ *
+ * A working day short of 7.5 h is coloured amber, matching the design; the
+ * weekend columns stay muted.
+ *
+ * @param $Timesheet the week being displayed
+ * @returns a single row of seven day totals plus the week total
+ */
+create or modify microflow "TimeReg"."DS_WeekTotals" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns "TimeReg"."WeekTotal" as $total
+folder 'Datasources'
+begin
+  declare $d1 datetime = [%CurrentDateTime%];
+  set $d1 = $Timesheet/WeekStart;
+
+  retrieve $entries from "TimeReg"."TimeEntry"
+    where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet];
+
+  declare $h1 decimal = 0;
+  declare $h2 decimal = 0;
+  declare $h3 decimal = 0;
+  declare $h4 decimal = 0;
+  declare $h5 decimal = 0;
+  declare $h6 decimal = 0;
+  declare $h7 decimal = 0;
+
+  loop $entry in $entries
+  begin
+    if $entry/EntryDate = $d1 then
+      set $h1 = $h1 + $entry/Hours;
+    end if;
+    if $entry/EntryDate = addDays($d1, 1) then
+      set $h2 = $h2 + $entry/Hours;
+    end if;
+    if $entry/EntryDate = addDays($d1, 2) then
+      set $h3 = $h3 + $entry/Hours;
+    end if;
+    if $entry/EntryDate = addDays($d1, 3) then
+      set $h4 = $h4 + $entry/Hours;
+    end if;
+    if $entry/EntryDate = addDays($d1, 4) then
+      set $h5 = $h5 + $entry/Hours;
+    end if;
+    if $entry/EntryDate = addDays($d1, 5) then
+      set $h6 = $h6 + $entry/Hours;
+    end if;
+    if $entry/EntryDate = addDays($d1, 6) then
+      set $h7 = $h7 + $entry/Hours;
+    end if;
+  end loop;
+
+
+  -- A working day short of 7.5 h is flagged amber; an empty day is muted.
+  declare $t1 string = '—';
+  declare $k1 string = 'vdh-fg-faint';
+  if $h1 > 0 then
+    set $t1 = formatDecimal($h1, '###0.00');
+    set $k1 = 'vdh-fg-amber';
+  end if;
+  if $h1 >= 7.5 then
+    set $k1 = '';
+  end if;
+  declare $t2 string = '—';
+  declare $k2 string = 'vdh-fg-faint';
+  if $h2 > 0 then
+    set $t2 = formatDecimal($h2, '###0.00');
+    set $k2 = 'vdh-fg-amber';
+  end if;
+  if $h2 >= 7.5 then
+    set $k2 = '';
+  end if;
+  declare $t3 string = '—';
+  declare $k3 string = 'vdh-fg-faint';
+  if $h3 > 0 then
+    set $t3 = formatDecimal($h3, '###0.00');
+    set $k3 = 'vdh-fg-amber';
+  end if;
+  if $h3 >= 7.5 then
+    set $k3 = '';
+  end if;
+  declare $t4 string = '—';
+  declare $k4 string = 'vdh-fg-faint';
+  if $h4 > 0 then
+    set $t4 = formatDecimal($h4, '###0.00');
+    set $k4 = 'vdh-fg-amber';
+  end if;
+  if $h4 >= 7.5 then
+    set $k4 = '';
+  end if;
+  declare $t5 string = '—';
+  declare $k5 string = 'vdh-fg-faint';
+  if $h5 > 0 then
+    set $t5 = formatDecimal($h5, '###0.00');
+    set $k5 = 'vdh-fg-amber';
+  end if;
+  if $h5 >= 7.5 then
+    set $k5 = '';
+  end if;
+  declare $t6 string = '—';
+  declare $k6 string = 'vdh-fg-faint';
+  if $h6 > 0 then
+    set $t6 = formatDecimal($h6, '###0.00');
+    set $k6 = 'vdh-fg-amber';
+  end if;
+  if $h6 >= 7.5 then
+    set $k6 = '';
+  end if;
+  declare $t7 string = '—';
+  declare $k7 string = 'vdh-fg-faint';
+  if $h7 > 0 then
+    set $t7 = formatDecimal($h7, '###0.00');
+    set $k7 = 'vdh-fg-amber';
+  end if;
+  if $h7 >= 7.5 then
+    set $k7 = '';
+  end if;
+
+  declare $grand decimal = 0;
+  set $grand = $h1 + $h2 + $h3 + $h4 + $h5 + $h6 + $h7;
+  declare $grandText string = '';
+  set $grandText = formatDecimal($grand, '###0.0');
+
+  $total = create "TimeReg"."WeekTotal" (
+    T1 = $t1,
+    T2 = $t2,
+    T3 = $t3,
+    T4 = $t4,
+    T5 = $t5,
+    T6 = $t6,
+    T7 = $t7,
+    C1 = $k1,
+    C2 = $k2,
+    C3 = $k3,
+    C4 = $k4,
+    C5 = $k5,
+    C6 = $k6,
+    C7 = $k7,
+    GrandTotal = $grandText);
+
+  return $total;
+end;
+/
+
+/**
+ * The week currently open for the signed-in fee earner.
+ *
+ * Security is off in this prototype, so the acting fee earner is Maartje de
+ * Vries — the persona the design was drawn for. With security on this would
+ * resolve the Employee linked to the session's account instead.
+ *
+ * @returns Maartje's week 30 timesheet
+ */
+create or modify microflow "TimeReg"."DS_CurrentTimesheet" ()
+returns "TimeReg"."Timesheet" as $timesheet
+folder 'Datasources'
+begin
+  retrieve $employee from "TimeReg"."Employee" where FullName = 'Maartje de Vries' limit 1;
+  retrieve $timesheet from "TimeReg"."Timesheet"
+    where ["TimeReg"."Timesheet_Employee" = $employee and "WeekNumber" = 30]
+    limit 1;
+  return $timesheet;
+end;
+/
+
+/**
+ * The signed-in fee earner. See DS_CurrentTimesheet for the persona note.
+ *
+ * @returns Maartje de Vries
+ */
+create or modify microflow "TimeReg"."DS_CurrentEmployee" ()
+returns "TimeReg"."Employee" as $employee
+folder 'Datasources'
+begin
+  retrieve $employee from "TimeReg"."Employee" where FullName = 'Maartje de Vries' limit 1;
+  return $employee;
+end;
+/
+
+/**
+ * The period time is currently recorded into.
+ *
+ * @returns the open period
+ */
+create or modify microflow "TimeReg"."DS_CurrentPeriod" ()
+returns "TimeReg"."Period" as $period
+folder 'Datasources'
+begin
+  retrieve $period from "TimeReg"."Period"
+    where ["Status" = "TimeReg"."ENUM_PeriodStatus"."Open"]
+    limit 1;
+  return $period;
+end;
+/
+
+/**
+ * The firm-wide KPI snapshot for the open period.
+ *
+ * @returns the period statistics
+ */
+create or modify microflow "TimeReg"."DS_CurrentPeriodStat" ()
+returns "TimeReg"."PeriodStat" as $stat
+folder 'Datasources'
+begin
+  $period = call microflow "TimeReg"."DS_CurrentPeriod" ();
+  retrieve $stat from "TimeReg"."PeriodStat"
+    where ["TimeReg"."PeriodStat_Period" = $period]
+    limit 1;
+  return $stat;
+end;
+/
+
+/**
+ * Project Aurora — the matter the per-matter report drills into.
+ *
+ * @returns matter M-2214
+ */
+create or modify microflow "TimeReg"."DS_FocusMatter" ()
+returns "TimeReg"."Matter" as $matter
+folder 'Datasources'
+begin
+  retrieve $matter from "TimeReg"."Matter" where Code = 'M-2214' limit 1;
+  return $matter;
+end;
+/
+
+/**
+ * Starts a new time entry for the signed-in fee earner on the open week.
+ *
+ * @returns the uncommitted entry the form binds to
+ */
+create or modify microflow "TimeReg"."DS_NewTimeEntry" ()
+returns "TimeReg"."TimeEntry" as $entry
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  $timesheet = call microflow "TimeReg"."DS_CurrentTimesheet" ();
+
+  retrieve $matter from "TimeReg"."Matter" where Code = 'M-2301' limit 1;
+  retrieve $task from "TimeReg"."TaskCode" where Code = 'A101' limit 1;
+
+  $entry = create "TimeReg"."TimeEntry" (
+    EntryDate = dateTime(2026, 7, 22),
+    Hours = 0,
+    Billability = "TimeReg"."ENUM_Billability"."Billable",
+    "TimeReg"."TimeEntry_Employee" = $employee,
+    "TimeReg"."TimeEntry_Timesheet" = $timesheet,
+    "TimeReg"."TimeEntry_Matter" = $matter,
+    "TimeReg"."TimeEntry_TaskCode" = $task);
+
+  return $entry;
+end;
+/
+
+/**
+ * The entries the fee earner recorded on the day the entry form is showing.
+ *
+ * @returns Wednesday 22 July's entries, newest first
+ */
+create or modify microflow "TimeReg"."DS_EntriesToday" ()
+returns list of "TimeReg"."TimeEntry" as $entries
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  retrieve $entries from "TimeReg"."TimeEntry"
+    where ["TimeReg"."TimeEntry_Employee" = $employee
+       and "EntryDate" = '2026-07-22']
+    sort by TimeReg.TimeEntry.RecordedOn asc;
+  return $entries;
+end;
+/

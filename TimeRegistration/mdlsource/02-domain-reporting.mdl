@@ -1,0 +1,348 @@
+/**
+ * TimeRegistration — reporting model
+ *
+ * The report screens read month-end snapshots rather than re-aggregating the
+ * whole entry table on every page load. A snapshot row is written per period
+ * when the period is closed ("Lock period & release reports" on the rollup
+ * screen), which is also why a locked period's reports never move.
+ *
+ * Percentages are stored twice: once as the real value (shown as text) and once
+ * quantised to a 0-20 bucket, because a Mendix widget cannot take a computed
+ * inline width — the bucket selects a generated SCSS class instead.
+ */
+
+-- ---------------------------------------------------------------------------
+-- Firm-wide period snapshot (Monthly rollup KPIs)
+-- ---------------------------------------------------------------------------
+
+/** Firm-wide totals for one period — the five KPI tiles on the rollup screen. */
+@Position(1000, 100)
+create persistent entity "TimeReg"."PeriodStat" (
+  "RecordedHours": decimal,
+  "BillableHours": decimal,
+  /** Billable as a percentage of recorded. */
+  "BillablePct": decimal,
+  /** Value at standard rates, before write-offs. */
+  "StandardValue": decimal,
+  "RealisationPct": decimal,
+  /** Change in realisation versus the previous period, in points. */
+  "RealisationDelta": decimal,
+  "FeeEarnerCount": integer,
+  /** Timesheets still not submitted — blocks the period close. */
+  "NotSubmittedCount": integer
+);
+/
+
+/** One line of the month-close checklist. */
+@Position(1000, 320)
+create persistent entity "TimeReg"."CloseCheck" (
+  "Label": string(100) not null,
+  /** "45 / 48", "passed", "12 clients" — the right-hand value. */
+  "Detail": string(50),
+  "IsDone": boolean default false,
+  "SortOrder": integer
+);
+/
+
+/** A working-time (WTD) exception raised for the period. */
+@Position(1000, 520)
+create persistent entity "TimeReg"."WorkingTimeException" (
+  "PersonLabel": string(60) not null,
+  "Detail": string(150),
+  /** "52,0", "49,1", "11 d" — the right-hand figure as displayed. */
+  "ValueLabel": string(20),
+  "SortOrder": integer
+);
+/
+
+/** One column of the 12-month realisation trend chart. */
+@Position(1000, 720)
+create persistent entity "TimeReg"."TrendPoint" (
+  "Label": string(20),
+  "Pct": decimal,
+  "Bucket": integer,
+  "IsCurrent": boolean default false,
+  "SortOrder": integer
+);
+/
+
+/** Billable / non-billable hours for one week of the period. */
+@Position(1000, 900)
+create persistent entity "TimeReg"."WeekSummary" (
+  "Label": string(10) not null,
+  "TotalHours": decimal,
+  "BillableHours": decimal,
+  "NonBillableHours": decimal,
+  /** Billable share quantised to 0-20 for the stacked bar. */
+  "BillableBucket": integer,
+  /** Column height relative to the tallest week, 0-20. */
+  "HeightBucket": integer,
+  "SortOrder": integer
+);
+/
+
+-- ---------------------------------------------------------------------------
+-- Per-dimension snapshots
+-- ---------------------------------------------------------------------------
+
+/** Client totals for one period — the per-customer report. */
+@Position(1300, 100)
+create persistent entity "TimeReg"."ClientMonthSummary" (
+  "MatterCount": integer,
+  "Hours": decimal,
+  "StandardValue": decimal,
+  "BilledValue": decimal,
+  "RealisationPct": decimal,
+  "AvgRate": decimal,
+  /** Role mix across the client's matters, as percentages of the bar. */
+  "MixPartnerPct": integer,
+  "MixSeniorPct": integer,
+  "MixAssociatePct": integer,
+  "MixSupportPct": integer,
+  /** Share of firm-wide billed value, for the concentration chart. */
+  "ConcentrationPct": integer,
+  "ConcentrationBucket": integer,
+  "SortOrder": integer
+);
+/
+
+/** Employee totals for one period — the per-manager & employee report. */
+@Position(1300, 400)
+create persistent entity "TimeReg"."EmployeeMonthSummary" (
+  "RecordedHours": decimal,
+  "BillableHours": decimal,
+  "UtilisationPct": decimal,
+  "UtilisationBucket": integer,
+  "AmountValue": decimal,
+  "CostValue": decimal,
+  "MarginPct": decimal,
+  "SortOrder": integer
+);
+/
+
+/**
+ * Matter totals for one period.
+ *
+ * With an Employee attached the row is that person's slice of the matter (the
+ * "team on this matter" panel and the My-matters list); with no Employee it is
+ * the firm-wide total (the "top matters" panel).
+ */
+@Position(1300, 700)
+create persistent entity "TimeReg"."MatterMonthSummary" (
+  "Hours": decimal,
+  "AmountValue": decimal,
+  /** Hours relative to the largest matter in the list, 0-20. */
+  "HoursBucket": integer,
+  "SortOrder": integer
+);
+/
+
+/** Role totals for one period — the "hours by role" bars. */
+@Position(1300, 950)
+create persistent entity "TimeReg"."RoleMonthSummary" (
+  "Hours": decimal,
+  "HoursBucket": integer,
+  "SortOrder": integer
+);
+/
+
+/** Hours and value per task code on one matter — the per-matter report grid. */
+@Position(1600, 100)
+create persistent entity "TimeReg"."MatterTaskSummary" (
+  "PartnerHours": decimal,
+  "SeniorHours": decimal,
+  "AssociateHours": decimal,
+  "SupportHours": decimal,
+  "Hours": decimal,
+  "AmountValue": decimal,
+  "SortOrder": integer
+);
+/
+
+/** One month of the burn-vs-budget chart on the per-matter report. */
+@Position(1600, 380)
+create persistent entity "TimeReg"."MatterBurn" (
+  "Label": string(10) not null,
+  "Hours": decimal,
+  "HeightBucket": integer,
+  /** Months running ahead of budget are drawn in the warning colours. */
+  "IsWarning": boolean default false,
+  "IsOver": boolean default false,
+  "SortOrder": integer
+);
+/
+
+-- ---------------------------------------------------------------------------
+-- Small fixed lists backing panels
+-- ---------------------------------------------------------------------------
+
+/** A bar of the utilisation-distribution histogram. */
+@Position(1600, 620)
+create persistent entity "TimeReg"."UtilisationBar" (
+  "Label": string(20),
+  "HeightBucket": integer,
+  /** The bucket containing the firm target, drawn in ink. */
+  "IsTarget": boolean default false,
+  "SortOrder": integer
+);
+/
+
+/** A band of the "timeliness of recording" panel. */
+@Position(1600, 820)
+create persistent entity "TimeReg"."TimelinessBand" (
+  "Label": string(20) not null,
+  "Pct": integer,
+  "Bucket": integer,
+  /** Late bands are drawn amber / ox-blood. */
+  "SeverityClass": string(20),
+  "SortOrder": integer
+);
+/
+
+/** A recording rule shown on the time-entry form. */
+@Position(1600, 1020)
+create persistent entity "TimeReg"."EntryRule" (
+  "Description": string(200) not null,
+  "SortOrder": integer
+);
+/
+
+/** An entry the approver needs to look at before signing off the week. */
+@Position(400, 800)
+create persistent entity "TimeReg"."ReviewFlag" (
+  "PersonLabel": string(60) not null,
+  "Description": string(250) not null,
+  "HoursLabel": string(10),
+  "FlagLabel": string(30),
+  "SortOrder": integer
+);
+/
+
+/** A slice of the week-composition bar on the week timesheet. */
+@Position(100, 1160)
+create persistent entity "TimeReg"."WeekComposition" (
+  "Label": string(50) not null,
+  "Hours": decimal,
+  /** Share of the week, 0-20, for the stacked bar segment. */
+  "Bucket": integer,
+  /** ss-swatch--ink / --teal / --ox / --grey */
+  "ColorClass": string(30),
+  "SortOrder": integer
+);
+/
+
+/** A rate band line under "value recorded" on the week timesheet. */
+@Position(400, 1160)
+create persistent entity "TimeReg"."WeekValueLine" (
+  "Label": string(60) not null,
+  "HoursLabel": string(10),
+  "IsMuted": boolean default false,
+  "SortOrder": integer
+);
+/
+
+-- ---------------------------------------------------------------------------
+-- Associations
+-- ---------------------------------------------------------------------------
+
+create association "TimeReg"."PeriodStat_Period"
+from "TimeReg"."PeriodStat" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."CloseCheck_Period"
+from "TimeReg"."CloseCheck" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."WorkingTimeException_Period"
+from "TimeReg"."WorkingTimeException" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."TrendPoint_Period"
+from "TimeReg"."TrendPoint" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."WeekSummary_Period"
+from "TimeReg"."WeekSummary" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."ClientMonthSummary_Client"
+from "TimeReg"."ClientMonthSummary" to "TimeReg"."Client"
+type reference;
+/
+
+create association "TimeReg"."ClientMonthSummary_Period"
+from "TimeReg"."ClientMonthSummary" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."EmployeeMonthSummary_Employee"
+from "TimeReg"."EmployeeMonthSummary" to "TimeReg"."Employee"
+type reference;
+/
+
+create association "TimeReg"."EmployeeMonthSummary_Period"
+from "TimeReg"."EmployeeMonthSummary" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."MatterMonthSummary_Matter"
+from "TimeReg"."MatterMonthSummary" to "TimeReg"."Matter"
+type reference;
+/
+
+create association "TimeReg"."MatterMonthSummary_Employee"
+from "TimeReg"."MatterMonthSummary" to "TimeReg"."Employee"
+type reference;
+/
+
+create association "TimeReg"."MatterMonthSummary_Period"
+from "TimeReg"."MatterMonthSummary" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."RoleMonthSummary_Role"
+from "TimeReg"."RoleMonthSummary" to "TimeReg"."Role"
+type reference;
+/
+
+create association "TimeReg"."RoleMonthSummary_Period"
+from "TimeReg"."RoleMonthSummary" to "TimeReg"."Period"
+type reference;
+/
+
+create association "TimeReg"."MatterTaskSummary_Matter"
+from "TimeReg"."MatterTaskSummary" to "TimeReg"."Matter"
+type reference;
+/
+
+create association "TimeReg"."MatterTaskSummary_TaskCode"
+from "TimeReg"."MatterTaskSummary" to "TimeReg"."TaskCode"
+type reference;
+/
+
+create association "TimeReg"."MatterBurn_Matter"
+from "TimeReg"."MatterBurn" to "TimeReg"."Matter"
+type reference;
+/
+
+create association "TimeReg"."ReviewFlag_Timesheet"
+from "TimeReg"."ReviewFlag" to "TimeReg"."Timesheet"
+type reference;
+/
+
+create association "TimeReg"."WeekComposition_Timesheet"
+from "TimeReg"."WeekComposition" to "TimeReg"."Timesheet"
+type reference
+delete_behavior DELETE_AND_REFERENCES;
+/
+
+create association "TimeReg"."WeekValueLine_Timesheet"
+from "TimeReg"."WeekValueLine" to "TimeReg"."Timesheet"
+type reference
+delete_behavior DELETE_AND_REFERENCES;
+/

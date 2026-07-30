@@ -1,0 +1,129 @@
+/**
+ * Edit entry — the form that corrects or removes a recorded entry.
+ *
+ * Deliberately the same shape as NewEntry rather than a different-looking
+ * screen: it is the same seven fields, bound to an entry that already exists
+ * instead of one the datasource just created. What differs is the right rail —
+ * a new entry has nothing to say about itself, an existing one carries the rate
+ * it was recorded at, when it was recorded and how late.
+ *
+ * Save and Remove both go through wrappers rather than navigating themselves,
+ * because either can be refused: submitting the week or closing the month in
+ * another tab has to leave the form where it is, with the warning that explains
+ * why.
+ */
+create or replace page "TimeReg"."EditEntry" (
+  Title: 'Edit time entry',
+  Layout: Atlas_Core.Atlas_Default,
+  -- A parameterised page needs a segment for its parameter (CE5601).
+  URL: 'edit-entry/{Entry}',
+  Folder: 'Time',
+  Params: { $Entry: "TimeReg"."TimeEntry" }
+)
+{
+  container eePage (Class: 'vdh-page') {
+
+    container eeTop (Class: 'vdh-topbar') {
+      dynamictext eeTitle (Content: 'Edit time entry', Class: 'vdh-topbar-title')
+      dynamictext eeSub (Content: 'Correcting time already recorded', Class: 'vdh-topbar-sub')
+      container eeSpacer (Class: 'vdh-topbar-spacer') { dynamictext eeSpacerText (Content: ' ') }
+      actionbutton eeBack (Caption: 'Week timesheet', Action: show_page "TimeReg"."WeekTimesheet", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container eeBody (Class: 'vdh-body') {
+      layoutgrid eeCols (Class: 'vdh-cols') {
+        row eeRow {
+
+          column eeColForm (DesktopWidth: 7) {
+            container eeFormPanel (Class: 'vdh-panel') {
+              container eeFormHead (Class: 'vdh-row') {
+                dynamictext eeFormTitle (Content: 'Entry', Class: 'vdh-panel-title vdh-w-fill')
+              }
+
+              dataview eeForm (
+                DataSource: $Entry,
+                Class: 'vdh-form vdh-body',
+                FormOrientation: Vertical
+              ) {
+                combobox eeMatter (
+                  Label: 'Matter',
+                  Attribute: TimeEntry_Matter,
+                  DataSource: database "TimeReg"."Matter",
+                  CaptionAttribute: Name
+                )
+                combobox eeTask (
+                  Label: 'Task code',
+                  Attribute: TimeEntry_TaskCode,
+                  DataSource: database "TimeReg"."TaskCode",
+                  CaptionAttribute: Name
+                )
+                datepicker eeDate (Label: 'Date', Attribute: EntryDate)
+                textbox eeHours (Label: 'Hours (decimal)', Attribute: Hours, Class: 'vdh-hours-input')
+                textarea eeNarrative (Label: 'Narrative · appears on client invoice', Attribute: Narrative)
+                combobox eeBillability (Label: 'Billability', Attribute: Billability)
+                checkbox eeOutOfHours (Label: 'Out-of-hours', Attribute: IsOutOfHours)
+
+                footer eeFooter {
+                  actionbutton eeSave (
+                    Caption: 'Save changes',
+                    Action: microflow "TimeReg"."ACT_SaveEntryEdit"("TimeEntry": $currentObject),
+                    Class: 'vdh-btn vdh-btn--ox'
+                  )
+                  actionbutton eeCancel (Caption: 'Cancel', Action: cancel_changes, Class: 'vdh-btn')
+                  actionbutton eeDelete (
+                    Caption: 'Remove entry',
+                    Action: microflow "TimeReg"."ACT_DeleteEntryEdit"("TimeEntry": $currentObject),
+                    Class: 'vdh-btn vdh-btn--danger'
+                  )
+                }
+              }
+            }
+          }
+
+          column eeColSide (DesktopWidth: 5) {
+
+            container eeAsRecordedPanel (Class: 'vdh-panel') {
+              dynamictext eeAsRecordedTitle (Content: 'As recorded', Class: 'vdh-panel-title')
+              dataview eeAsRecorded (DataSource: $Entry, Class: 'vdh-body') {
+                container eeArRow1 (Class: 'vdh-row') {
+                  dynamictext eeArRateL (Content: 'Rate applied', Class: 'vdh-w-fill vdh-note')
+                  dynamictext eeArRate (Attribute: RateLabel, Class: 'vdh-num vdh-strong')
+                }
+                container eeArRow2 (Class: 'vdh-row') {
+                  dynamictext eeArValueL (Content: 'Value', Class: 'vdh-w-fill vdh-note')
+                  dynamictext eeArValue (Attribute: ValueLabel, Class: 'vdh-num vdh-strong')
+                }
+                container eeArRow3 (Class: 'vdh-row') {
+                  dynamictext eeArWhenL (Content: 'Recorded', Class: 'vdh-w-fill vdh-note')
+                  dynamictext eeArWhen (Attribute: RecordedLabel, Class: 'vdh-caption')
+                }
+                container eeArRow4 (Class: 'vdh-row') {
+                  dynamictext eeArLateL (Content: 'Days late', Class: 'vdh-w-fill vdh-note')
+                  dynamictext eeArLate (Attribute: DaysLate, Class: 'vdh-num')
+                }
+                dynamictext eeArNote (
+                  Content: 'Saving re-resolves the rate from the client agreement as it stood on the entry date, so correcting a date can change the value.',
+                  Class: 'vdh-caption vdh-mt-l'
+                )
+              }
+            }
+
+            container eeRulesPanel (Class: 'vdh-panel vdh-panel--sunk vdh-mt-l') {
+              dynamictext eeRulesTitle (Content: 'Rules applied', Class: 'vdh-panel-title')
+              listview eeRules (
+                DataSource: database from "TimeReg"."EntryRule" sort by SortOrder asc,
+                Class: 'vdh-lv vdh-body'
+              ) {
+                container eeRuleRow (Class: 'vdh-row') {
+                  dynamictext eeRuleDot (Content: '·', Class: 'vdh-w-28 vdh-fg-faint')
+                  dynamictext eeRuleText (Attribute: Description, Class: 'vdh-w-fill vdh-note')
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+/

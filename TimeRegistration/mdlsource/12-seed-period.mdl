@@ -1,0 +1,431 @@
+/**
+ * Seed — July 2026 period snapshots
+ *
+ * The figures a month-end close would have written: firm-wide KPIs, the close
+ * checklist, and the per-client / per-employee / per-matter / per-role
+ * summaries the four report screens read.
+ */
+create or modify microflow "TimeReg"."SED_Period" ()
+returns boolean as $ok
+folder 'Seed'
+begin
+  $lPeriod = create list of "TimeReg"."Period";
+  $lPeriodStat = create list of "TimeReg"."PeriodStat";
+  $lCloseCheck = create list of "TimeReg"."CloseCheck";
+  $lWorkingTimeException = create list of "TimeReg"."WorkingTimeException";
+  $lTrendPoint = create list of "TimeReg"."TrendPoint";
+  $lWeekSummary = create list of "TimeReg"."WeekSummary";
+  $lClientMonthSummary = create list of "TimeReg"."ClientMonthSummary";
+  $lClientReport = create list of "TimeReg"."ClientReport";
+  $lEmployeeMonthSummary = create list of "TimeReg"."EmployeeMonthSummary";
+  $lRoleMonthSummary = create list of "TimeReg"."RoleMonthSummary";
+  $lMatterMonthSummary = create list of "TimeReg"."MatterMonthSummary";
+  $lMatterTaskSummary = create list of "TimeReg"."MatterTaskSummary";
+  $lMatterTeamMember = create list of "TimeReg"."MatterTeamMember";
+  $lMatterBurn = create list of "TimeReg"."MatterBurn";
+  $lUtilisationBar = create list of "TimeReg"."UtilisationBar";
+  $lTimelinessBand = create list of "TimeReg"."TimelinessBand";
+  $lEntryRule = create list of "TimeReg"."EntryRule";
+  $lNotice = create list of "TimeReg"."Notice";
+
+  $pJun = create "TimeReg"."Period" (Name = 'Jun 2026', Year = 2026, MonthNumber = 6,
+    Status = "TimeReg"."ENUM_PeriodStatus"."Locked");
+  add $pJun to $lPeriod;
+  $pJul = create "TimeReg"."Period" (Name = 'Jul 2026', Year = 2026, MonthNumber = 7,
+    Status = "TimeReg"."ENUM_PeriodStatus"."Open");
+  add $pJul to $lPeriod;
+
+  -- --- Firm-wide KPIs ----------------------------------------------------
+  $stat = create "TimeReg"."PeriodStat" (
+    RecordedHours = 4182, BillableHours = 3614, BillablePct = 86.4,
+    StandardValue = 1150000, RealisationPct = 92.1, RealisationDelta = 1.4,
+    FeeEarnerCount = 48, NotSubmittedCount = 3,
+    "TimeReg"."PeriodStat_Period" = $pJul,
+    RecordedLabel = '4.182', BillableLabel = '3.614', StandardLabel = '€ 1,15M',
+    RealisationLabel = '92,1%', DeltaLabel = '+1,4 pt', BillablePctLabel = '86,4%');
+  add $stat to $lPeriodStat;
+
+  -- --- Month-close checklist --------------------------------------------
+  $cc1 = create "TimeReg"."CloseCheck" (Label = 'All timesheets submitted',  Detail = '45 / 48',    IsDone = false, SortOrder = 1, "TimeReg"."CloseCheck_Period" = $pJul);
+  add $cc1 to $lCloseCheck;
+  $cc2 = create "TimeReg"."CloseCheck" (Label = 'Partner approvals complete', Detail = '39 / 48',    IsDone = false, SortOrder = 2, "TimeReg"."CloseCheck_Period" = $pJul);
+  add $cc2 to $lCloseCheck;
+  $cc3 = create "TimeReg"."CloseCheck" (Label = 'Narratives validated',       Detail = 'passed',     IsDone = true,  SortOrder = 3, "TimeReg"."CloseCheck_Period" = $pJul);
+  add $cc3 to $lCloseCheck;
+  $cc4 = create "TimeReg"."CloseCheck" (Label = 'Rate agreements applied',    Detail = '12 clients', IsDone = true,  SortOrder = 4, "TimeReg"."CloseCheck_Period" = $pJul);
+  add $cc4 to $lCloseCheck;
+
+  -- --- Working-time exceptions ------------------------------------------
+  $w1 = create "TimeReg"."WorkingTimeException" (PersonLabel = 'J. Haverkamp',    Detail = 'Week 29 · 52,0 h recorded',            ValueLabel = '52,0', SortOrder = 1, "TimeReg"."WorkingTimeException_Period" = $pJul);
+  add $w1 to $lWorkingTimeException;
+  $w2 = create "TimeReg"."WorkingTimeException" (PersonLabel = 'P. Ravensbergen', Detail = 'Rolling 16-week average 49,1 h',       ValueLabel = '49,1', SortOrder = 2, "TimeReg"."WorkingTimeException_Period" = $pJul);
+  add $w2 to $lWorkingTimeException;
+  $w3 = create "TimeReg"."WorkingTimeException" (PersonLabel = 'S. Bakhuis',      Detail = '11 consecutive working days',          ValueLabel = '11 d', SortOrder = 3, "TimeReg"."WorkingTimeException_Period" = $pJul);
+  add $w3 to $lWorkingTimeException;
+
+  -- --- 12-month realisation trend ---------------------------------------
+  $t01 = create "TimeReg"."TrendPoint" (Label = 'Aug 25', Pct = 62, Bucket = 12, SortOrder = 1,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t01 to $lTrendPoint;
+  $t02 = create "TimeReg"."TrendPoint" (Label = 'Sep 25', Pct = 58, Bucket = 12, SortOrder = 2,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t02 to $lTrendPoint;
+  $t03 = create "TimeReg"."TrendPoint" (Label = 'Oct 25', Pct = 66, Bucket = 13, SortOrder = 3,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t03 to $lTrendPoint;
+  $t04 = create "TimeReg"."TrendPoint" (Label = 'Nov 25', Pct = 70, Bucket = 14, SortOrder = 4,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t04 to $lTrendPoint;
+  $t05 = create "TimeReg"."TrendPoint" (Label = 'Dec 25', Pct = 64, Bucket = 13, SortOrder = 5,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t05 to $lTrendPoint;
+  $t06 = create "TimeReg"."TrendPoint" (Label = 'Jan 26', Pct = 72, Bucket = 14, SortOrder = 6,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t06 to $lTrendPoint;
+  $t07 = create "TimeReg"."TrendPoint" (Label = 'Feb 26', Pct = 76, Bucket = 15, SortOrder = 7,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t07 to $lTrendPoint;
+  $t08 = create "TimeReg"."TrendPoint" (Label = 'Mar 26', Pct = 74, Bucket = 15, SortOrder = 8,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t08 to $lTrendPoint;
+  $t09 = create "TimeReg"."TrendPoint" (Label = 'Apr 26', Pct = 80, Bucket = 16, SortOrder = 9,  "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t09 to $lTrendPoint;
+  $t10 = create "TimeReg"."TrendPoint" (Label = 'May 26', Pct = 78, Bucket = 16, SortOrder = 10, "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t10 to $lTrendPoint;
+  $t11 = create "TimeReg"."TrendPoint" (Label = 'Jun 26', Pct = 84, Bucket = 17, SortOrder = 11, "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t11 to $lTrendPoint;
+  $t12 = create "TimeReg"."TrendPoint" (Label = 'Jul 26', Pct = 88, Bucket = 18, IsCurrent = true, SortOrder = 12, "TimeReg"."TrendPoint_Period" = $pJul);
+  add $t12 to $lTrendPoint;
+
+  -- --- Hours by week, billable vs non-billable ---------------------------
+  $s27 = create "TimeReg"."WeekSummary" (Label = 'w27', TotalHours = 988,  BillableHours = 890, NonBillableHours = 98,  BillableBucket = 16, HeightBucket = 18, SortOrder = 1, "TimeReg"."WeekSummary_Period" = $pJul,
+    TotalLabel = '988');
+  add $s27 to $lWeekSummary;
+  $s28 = create "TimeReg"."WeekSummary" (Label = 'w28', TotalHours = 1042, BillableHours = 953, NonBillableHours = 89,  BillableBucket = 17, HeightBucket = 19, SortOrder = 2, "TimeReg"."WeekSummary_Period" = $pJul,
+    TotalLabel = '1.042');
+  add $s28 to $lWeekSummary;
+  $s29 = create "TimeReg"."WeekSummary" (Label = 'w29', TotalHours = 1076, BillableHours = 997, NonBillableHours = 79,  BillableBucket = 18, HeightBucket = 19, SortOrder = 3, "TimeReg"."WeekSummary_Period" = $pJul,
+    TotalLabel = '1.076');
+  add $s29 to $lWeekSummary;
+  $s30 = create "TimeReg"."WeekSummary" (Label = 'w30', TotalHours = 1076, BillableHours = 962, NonBillableHours = 114, BillableBucket = 17, HeightBucket = 19, SortOrder = 4, "TimeReg"."WeekSummary_Period" = $pJul,
+    TotalLabel = '1.076');
+  add $s30 to $lWeekSummary;
+
+  -- --- Per-customer report ----------------------------------------------
+  retrieve $cAbn   from "TimeReg"."Client" where ShortName = 'ABN Delta' limit 1;
+  retrieve $cRijn  from "TimeReg"."Client" where ShortName = 'Rijnmond Port' limit 1;
+  retrieve $cKess  from "TimeReg"."Client" where ShortName = 'Kessler Pharma' limit 1;
+  retrieve $cDelta from "TimeReg"."Client" where ShortName = 'Delta Infra' limit 1;
+  retrieve $cNieuw from "TimeReg"."Client" where ShortName = 'Stichting N.A.' limit 1;
+  retrieve $cVast  from "TimeReg"."Client" where ShortName = 'Vastgoed Kroon' limit 1;
+  retrieve $cBerg  from "TimeReg"."Client" where ShortName = 'Bergland' limit 1;
+
+  $q1 = create "TimeReg"."ClientMonthSummary" (MatterCount = 6, Hours = 842,   StandardValue = 268410, BilledValue = 251180, RealisationPct = 96.2, AvgRate = 298,
+    MixPartnerPct = 46, MixSeniorPct = 26, MixAssociatePct = 18, MixSupportPct = 10, ConcentrationPct = 24, ConcentrationBucket = 20, SortOrder = 1,
+    "TimeReg"."ClientMonthSummary_Client" = $cAbn,   "TimeReg"."ClientMonthSummary_Period" = $pJul,
+    HoursLabel = '842,0', StandardLabel = '€ 268.410', BilledLabel = '€ 251.180', RealisationLabel = '96,2%', AvgRateLabel = '€ 298');
+  add $q1 to $lClientMonthSummary;
+  $q2 = create "TimeReg"."ClientMonthSummary" (MatterCount = 4, Hours = 664.5, StandardValue = 196030, BilledValue = 178290, RealisationPct = 90.9, AvgRate = 268,
+    MixPartnerPct = 28, MixSeniorPct = 34, MixAssociatePct = 26, MixSupportPct = 12, ConcentrationPct = 17, ConcentrationBucket = 14, SortOrder = 2,
+    "TimeReg"."ClientMonthSummary_Client" = $cRijn,  "TimeReg"."ClientMonthSummary_Period" = $pJul,
+    HoursLabel = '664,5', StandardLabel = '€ 196.030', BilledLabel = '€ 178.290', RealisationLabel = '90,9%', AvgRateLabel = '€ 268');
+  add $q2 to $lClientMonthSummary;
+  $q3 = create "TimeReg"."ClientMonthSummary" (MatterCount = 7, Hours = 598,   StandardValue = 178910, BilledValue = 164450, RealisationPct = 91.9, AvgRate = 275,
+    MixPartnerPct = 22, MixSeniorPct = 30, MixAssociatePct = 34, MixSupportPct = 14, ConcentrationPct = 16, ConcentrationBucket = 13, SortOrder = 3,
+    "TimeReg"."ClientMonthSummary_Client" = $cKess,  "TimeReg"."ClientMonthSummary_Period" = $pJul,
+    HoursLabel = '598,0', StandardLabel = '€ 178.910', BilledLabel = '€ 164.450', RealisationLabel = '91,9%', AvgRateLabel = '€ 275');
+  add $q3 to $lClientMonthSummary;
+  $q4 = create "TimeReg"."ClientMonthSummary" (MatterCount = 5, Hours = 412.5, StandardValue = 132400, BilledValue = 128630, RealisationPct = 97.2, AvgRate = 312,
+    MixPartnerPct = 52, MixSeniorPct = 24, MixAssociatePct = 16, MixSupportPct = 8,  ConcentrationPct = 12, ConcentrationBucket = 10, SortOrder = 4,
+    "TimeReg"."ClientMonthSummary_Client" = $cDelta, "TimeReg"."ClientMonthSummary_Period" = $pJul,
+    HoursLabel = '412,5', StandardLabel = '€ 132.400', BilledLabel = '€ 128.630', RealisationLabel = '97,2%', AvgRateLabel = '€ 312');
+  add $q4 to $lClientMonthSummary;
+  $q5 = create "TimeReg"."ClientMonthSummary" (MatterCount = 3, Hours = 338,   StandardValue = 84500,  BilledValue = 71980,  RealisationPct = 85.2, AvgRate = 213,
+    MixPartnerPct = 18, MixSeniorPct = 28, MixAssociatePct = 32, MixSupportPct = 22, ConcentrationPct = 7,  ConcentrationBucket = 6,  SortOrder = 5,
+    "TimeReg"."ClientMonthSummary_Client" = $cNieuw, "TimeReg"."ClientMonthSummary_Period" = $pJul,
+    HoursLabel = '338,0', StandardLabel = '€ 84.500', BilledLabel = '€ 71.980', RealisationLabel = '85,2%', AvgRateLabel = '€ 213');
+  add $q5 to $lClientMonthSummary;
+  $q6 = create "TimeReg"."ClientMonthSummary" (MatterCount = 6, Hours = 482,   StandardValue = 148250, BilledValue = 136410, RealisationPct = 92,   AvgRate = 283,
+    MixPartnerPct = 30, MixSeniorPct = 32, MixAssociatePct = 26, MixSupportPct = 12, ConcentrationPct = 13, ConcentrationBucket = 11, SortOrder = 6,
+    "TimeReg"."ClientMonthSummary_Client" = $cVast,  "TimeReg"."ClientMonthSummary_Period" = $pJul,
+    HoursLabel = '482,0', StandardLabel = '€ 148.250', BilledLabel = '€ 136.410', RealisationLabel = '92,0%', AvgRateLabel = '€ 283');
+  add $q6 to $lClientMonthSummary;
+  $q7 = create "TimeReg"."ClientMonthSummary" (MatterCount = 3, Hours = 277,   StandardValue = 140400, BilledValue = 127300, RealisationPct = 90.7, AvgRate = 260,
+    MixPartnerPct = 24, MixSeniorPct = 38, MixAssociatePct = 28, MixSupportPct = 10, ConcentrationPct = 12, ConcentrationBucket = 10, SortOrder = 7,
+    "TimeReg"."ClientMonthSummary_Client" = $cBerg,  "TimeReg"."ClientMonthSummary_Period" = $pJul,
+    HoursLabel = '277,0', StandardLabel = '€ 140.400', BilledLabel = '€ 127.300', RealisationLabel = '90,7%', AvgRateLabel = '€ 260');
+  add $q7 to $lClientMonthSummary;
+
+  -- --- Monthly client statements ----------------------------------------
+  $d1 = create "TimeReg"."ClientReport" (Title = 'ABN Delta Holding — July statement', Detail = 'to f.strijker@abndelta.nl · with time detail',
+    Status = "TimeReg"."ENUM_ReportStatus"."Sent", StatusLabel = 'sent 1 Aug', SortOrder = 1, "TimeReg"."ClientReport_Client" = $cAbn,  "TimeReg"."ClientReport_Period" = $pJul);
+  add $d1 to $lClientReport;
+  $d2 = create "TimeReg"."ClientReport" (Title = 'Rijnmond Port — July statement', Detail = 'awaiting partner sign-off (A. Bergsma)',
+    Status = "TimeReg"."ENUM_ReportStatus"."Held", StatusLabel = 'held', SortOrder = 2, "TimeReg"."ClientReport_Client" = $cRijn, "TimeReg"."ClientReport_Period" = $pJul);
+  add $d2 to $lClientReport;
+  $d3 = create "TimeReg"."ClientReport" (Title = 'Kessler Pharma — July statement', Detail = 'blocked: 2 entries without narrative',
+    Status = "TimeReg"."ENUM_ReportStatus"."Blocked", StatusLabel = 'blocked', SortOrder = 3, "TimeReg"."ClientReport_Client" = $cKess, "TimeReg"."ClientReport_Period" = $pJul);
+  add $d3 to $lClientReport;
+  $d4 = create "TimeReg"."ClientReport" (Title = 'Stichting Nieuw Amsterdam — July', Detail = 'scheduled 2 Aug 06:00 · PDF + XLSX',
+    Status = "TimeReg"."ENUM_ReportStatus"."Scheduled", StatusLabel = 'scheduled', SortOrder = 4, "TimeReg"."ClientReport_Client" = $cNieuw,"TimeReg"."ClientReport_Period" = $pJul);
+  add $d4 to $lClientReport;
+
+  -- --- Per-employee report ----------------------------------------------
+  retrieve $eJoost  from "TimeReg"."Employee" where FullName = 'Joost Haverkamp' limit 1;
+  retrieve $eCoen   from "TimeReg"."Employee" where FullName = 'Coen Okonkwo' limit 1;
+  retrieve $eMaartje from "TimeReg"."Employee" where FullName = 'Maartje de Vries' limit 1;
+  retrieve $eLieke  from "TimeReg"."Employee" where FullName = 'Lieke de Groot' limit 1;
+  retrieve $ePieter from "TimeReg"."Employee" where FullName = 'Pieter Ravensbergen' limit 1;
+  retrieve $eFatima from "TimeReg"."Employee" where FullName = 'Fatima El Amrani' limit 1;
+  retrieve $eRuben  from "TimeReg"."Employee" where FullName = 'Ruben Vliet' limit 1;
+  retrieve $eSanne  from "TimeReg"."Employee" where FullName = 'Sanne Bakhuis' limit 1;
+  retrieve $eMarja  from "TimeReg"."Employee" where FullName = 'Marja Stok' limit 1;
+
+  $p1 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 195', RecordedHours = 168.5, BillableHours = 112,   UtilisationPct = 66, UtilisationBucket = 13, AmountValue = 53760, CostValue = 32858, MarginPct = 61.1, SortOrder = 1, "TimeReg"."EmployeeMonthSummary_Employee" = $eJoost,   "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '168,5', BillableLabel = '112,0', ValueLabel = '€ 53.760', CostLabel = '€ 32.858', MarginLabel = '61,1%');
+  add $p1 to $lEmployeeMonthSummary;
+  $p2 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 150', RecordedHours = 156,   BillableHours = 118.5, UtilisationPct = 76, UtilisationBucket = 15, AmountValue = 46215, CostValue = 23400, MarginPct = 49.4, SortOrder = 2, "TimeReg"."EmployeeMonthSummary_Employee" = $eCoen,    "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '156,0', BillableLabel = '118,5', ValueLabel = '€ 46.215', CostLabel = '€ 23.400', MarginLabel = '49,4%');
+  add $p2 to $lEmployeeMonthSummary;
+  $p3 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 105', RecordedHours = 162.5, BillableHours = 142,   UtilisationPct = 87, UtilisationBucket = 17, AmountValue = 44020, CostValue = 17063, MarginPct = 61.2, SortOrder = 3, "TimeReg"."EmployeeMonthSummary_Employee" = $eMaartje, "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '162,5', BillableLabel = '142,0', ValueLabel = '€ 44.020', CostLabel = '€ 17.063', MarginLabel = '61,2%');
+  add $p3 to $lEmployeeMonthSummary;
+  $p4 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 105', RecordedHours = 158,   BillableHours = 139.5, UtilisationPct = 88, UtilisationBucket = 18, AmountValue = 43245, CostValue = 16590, MarginPct = 61.6, SortOrder = 4, "TimeReg"."EmployeeMonthSummary_Employee" = $eLieke,   "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '158,0', BillableLabel = '139,5', ValueLabel = '€ 43.245', CostLabel = '€ 16.590', MarginLabel = '61,6%');
+  add $p4 to $lEmployeeMonthSummary;
+  $p5 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 82', RecordedHours = 171,   BillableHours = 141,   UtilisationPct = 82, UtilisationBucket = 16, AmountValue = 33135, CostValue = 14022, MarginPct = 57.7, SortOrder = 5, "TimeReg"."EmployeeMonthSummary_Employee" = $ePieter,  "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '171,0', BillableLabel = '141,0', ValueLabel = '€ 33.135', CostLabel = '€ 14.022', MarginLabel = '57,7%');
+  add $p5 to $lEmployeeMonthSummary;
+  $p6 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 82', RecordedHours = 164.5, BillableHours = 146,   UtilisationPct = 89, UtilisationBucket = 18, AmountValue = 34310, CostValue = 13489, MarginPct = 60.7, SortOrder = 6, "TimeReg"."EmployeeMonthSummary_Employee" = $eFatima,  "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '164,5', BillableLabel = '146,0', ValueLabel = '€ 34.310', CostLabel = '€ 13.489', MarginLabel = '60,7%');
+  add $p6 to $lEmployeeMonthSummary;
+  $p7 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 82', RecordedHours = 82,    BillableHours = 66.5,  UtilisationPct = 81, UtilisationBucket = 16, AmountValue = 15628, CostValue = 6724,  MarginPct = 57,   SortOrder = 7, "TimeReg"."EmployeeMonthSummary_Employee" = $eRuben,   "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '82,0', BillableLabel = '66,5', ValueLabel = '€ 15.628', CostLabel = '€ 6.724', MarginLabel = '57,0%');
+  add $p7 to $lEmployeeMonthSummary;
+  $p8 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 58', RecordedHours = 172,   BillableHours = 118,   UtilisationPct = 69, UtilisationBucket = 14, AmountValue = 19470, CostValue = 9976,  MarginPct = 48.8, SortOrder = 8, "TimeReg"."EmployeeMonthSummary_Employee" = $eSanne,   "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '172,0', BillableLabel = '118,0', ValueLabel = '€ 19.470', CostLabel = '€ 9.976', MarginLabel = '48,8%');
+  add $p8 to $lEmployeeMonthSummary;
+  $p9 = create "TimeReg"."EmployeeMonthSummary" (CostRateLabel = '€ 48', RecordedHours = 167.5, BillableHours = 119,   UtilisationPct = 71, UtilisationBucket = 14, AmountValue = 16660, CostValue = 8040,  MarginPct = 51.7, SortOrder = 9, "TimeReg"."EmployeeMonthSummary_Employee" = $eMarja,   "TimeReg"."EmployeeMonthSummary_Period" = $pJul,
+    RecordedLabel = '167,5', BillableLabel = '119,0', ValueLabel = '€ 16.660', CostLabel = '€ 8.040', MarginLabel = '51,7%');
+  add $p9 to $lEmployeeMonthSummary;
+
+  -- --- Per-role hours ---------------------------------------------------
+  retrieve $rPartner from "TimeReg"."Role" where Name = 'Partner' limit 1;
+  retrieve $rCounsel from "TimeReg"."Role" where Name = 'Counsel' limit 1;
+  retrieve $rSenior  from "TimeReg"."Role" where Name = 'Senior Associate' limit 1;
+  retrieve $rAssoc   from "TimeReg"."Role" where Name = 'Associate' limit 1;
+  retrieve $rTrainee from "TimeReg"."Role" where Name = 'Trainee' limit 1;
+  retrieve $rPara    from "TimeReg"."Role" where Name = 'Paralegal' limit 1;
+
+  $y1 = create "TimeReg"."RoleMonthSummary" (Hours = 612,  HoursBucket = 11, SortOrder = 1, "TimeReg"."RoleMonthSummary_Role" = $rPartner, "TimeReg"."RoleMonthSummary_Period" = $pJul,
+    HoursLabel = '612');
+  add $y1 to $lRoleMonthSummary;
+  $y2 = create "TimeReg"."RoleMonthSummary" (Hours = 448,  HoursBucket = 8,  SortOrder = 2, "TimeReg"."RoleMonthSummary_Role" = $rCounsel, "TimeReg"."RoleMonthSummary_Period" = $pJul,
+    HoursLabel = '448');
+  add $y2 to $lRoleMonthSummary;
+  $y3 = create "TimeReg"."RoleMonthSummary" (Hours = 1074, HoursBucket = 20, SortOrder = 3, "TimeReg"."RoleMonthSummary_Role" = $rSenior,  "TimeReg"."RoleMonthSummary_Period" = $pJul,
+    HoursLabel = '1.074');
+  add $y3 to $lRoleMonthSummary;
+  $y4 = create "TimeReg"."RoleMonthSummary" (Hours = 982,  HoursBucket = 18, SortOrder = 4, "TimeReg"."RoleMonthSummary_Role" = $rAssoc,   "TimeReg"."RoleMonthSummary_Period" = $pJul,
+    HoursLabel = '982');
+  add $y4 to $lRoleMonthSummary;
+  $y5 = create "TimeReg"."RoleMonthSummary" (Hours = 628,  HoursBucket = 12, SortOrder = 5, "TimeReg"."RoleMonthSummary_Role" = $rTrainee, "TimeReg"."RoleMonthSummary_Period" = $pJul,
+    HoursLabel = '628');
+  add $y5 to $lRoleMonthSummary;
+  $y6 = create "TimeReg"."RoleMonthSummary" (Hours = 438,  HoursBucket = 8,  SortOrder = 6, "TimeReg"."RoleMonthSummary_Role" = $rPara,    "TimeReg"."RoleMonthSummary_Period" = $pJul,
+    HoursLabel = '438');
+  add $y6 to $lRoleMonthSummary;
+
+  -- --- Top matters this month (firm-wide, no employee attached) ----------
+  retrieve $mAurora     from "TimeReg"."Matter" where Code = 'M-2214' limit 1;
+  retrieve $mConcession from "TimeReg"."Matter" where Code = 'M-1980' limit 1;
+  retrieve $mPatent     from "TimeReg"."Matter" where Code = 'M-2301' limit 1;
+  retrieve $mGovernance from "TimeReg"."Matter" where Code = 'M-2288' limit 1;
+  retrieve $mFramework  from "TimeReg"."Matter" where Code = 'M-2119' limit 1;
+  retrieve $mRefi       from "TimeReg"."Matter" where Code = 'M-2260' limit 1;
+  retrieve $mMerger     from "TimeReg"."Matter" where Code = 'M-2305' limit 1;
+  retrieve $mLease      from "TimeReg"."Matter" where Code = 'M-2277' limit 1;
+  retrieve $mBd         from "TimeReg"."Matter" where Code = 'NB-BD'  limit 1;
+
+  $g1 = create "TimeReg"."MatterMonthSummary" (IsFirmWide = true, Hours = 318.5, AmountValue = 96140, HoursBucket = 20, SortOrder = 1, "TimeReg"."MatterMonthSummary_Matter" = $mAurora,     "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '318,5', ValueLabel = '€ 96.140');
+  add $g1 to $lMatterMonthSummary;
+  $g2 = create "TimeReg"."MatterMonthSummary" (IsFirmWide = true, Hours = 264,   AmountValue = 74360, HoursBucket = 17, SortOrder = 2, "TimeReg"."MatterMonthSummary_Matter" = $mConcession, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '264,0', ValueLabel = '€ 74.360');
+  add $g2 to $lMatterMonthSummary;
+  $g3 = create "TimeReg"."MatterMonthSummary" (IsFirmWide = true, Hours = 198.5, AmountValue = 58290, HoursBucket = 12, SortOrder = 3, "TimeReg"."MatterMonthSummary_Matter" = $mPatent,     "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '198,5', ValueLabel = '€ 58.290');
+  add $g3 to $lMatterMonthSummary;
+  $g4 = create "TimeReg"."MatterMonthSummary" (IsFirmWide = true, Hours = 141,   AmountValue = 43710, HoursBucket = 9,  SortOrder = 4, "TimeReg"."MatterMonthSummary_Matter" = $mRefi,       "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '141,0', ValueLabel = '€ 43.710');
+  add $g4 to $lMatterMonthSummary;
+  $g5 = create "TimeReg"."MatterMonthSummary" (IsFirmWide = true, Hours = 96.5,  AmountValue = 25545, HoursBucket = 6,  SortOrder = 5, "TimeReg"."MatterMonthSummary_Matter" = $mGovernance, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '96,5', ValueLabel = '€ 25.545');
+  add $g5 to $lMatterMonthSummary;
+
+  -- --- Maartje's own hours per matter this month (My matters) ------------
+  $h1 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 89, MeterClass = 'vdh-w-b18 vdh-meter-fill--ox', RateLabel = '€ 287', Hours = 42.5, SortOrder = 1, "TimeReg"."MatterMonthSummary_Matter" = $mAurora,     "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '42,5');
+  add $h1 to $lMatterMonthSummary;
+  $h2 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 61, MeterClass = 'vdh-w-b12', RateLabel = '€ 295', Hours = 28,   SortOrder = 2, "TimeReg"."MatterMonthSummary_Matter" = $mConcession, "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '28,0');
+  add $h2 to $lMatterMonthSummary;
+  $h3 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 70, MeterClass = 'vdh-w-b14 vdh-meter-fill--amber', RateLabel = '€ 275', Hours = 22.5, SortOrder = 3, "TimeReg"."MatterMonthSummary_Matter" = $mPatent,     "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '22,5');
+  add $h3 to $lMatterMonthSummary;
+  $h4 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 34, MeterClass = 'vdh-w-b7', RateLabel = '€ 248', Hours = 6,    SortOrder = 4, "TimeReg"."MatterMonthSummary_Matter" = $mGovernance, "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '6,0');
+  add $h4 to $lMatterMonthSummary;
+  $h5 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 48, MeterClass = 'vdh-w-b10', RateLabel = '€ 275', Hours = 4.5,  SortOrder = 5, "TimeReg"."MatterMonthSummary_Matter" = $mFramework,  "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '4,5');
+  add $h5 to $lMatterMonthSummary;
+  $h6 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 22, MeterClass = 'vdh-w-b4', RateLabel = '€ 310', Hours = 3,    SortOrder = 6, "TimeReg"."MatterMonthSummary_Matter" = $mRefi,       "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '3,0');
+  add $h6 to $lMatterMonthSummary;
+  $h7 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 12, MeterClass = 'vdh-w-b2', RateLabel = '€ 287', Hours = 2.5,  SortOrder = 7, "TimeReg"."MatterMonthSummary_Matter" = $mMerger,     "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '2,5');
+  add $h7 to $lMatterMonthSummary;
+  $h8 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 95, MeterClass = 'vdh-w-b19 vdh-meter-fill--ox', RateLabel = '€ 310', Hours = 1.5,  SortOrder = 8, "TimeReg"."MatterMonthSummary_Matter" = $mLease,      "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '1,5');
+  add $h8 to $lMatterMonthSummary;
+  $h9 = create "TimeReg"."MatterMonthSummary" (BudgetPct = 0, MeterClass = 'vdh-w-b0', RateLabel = '—', Hours = 2,    SortOrder = 9, "TimeReg"."MatterMonthSummary_Matter" = $mBd,         "TimeReg"."MatterMonthSummary_Employee" = $eMaartje, "TimeReg"."MatterMonthSummary_Period" = $pJul,
+    HoursLabel = '2,0');
+  add $h9 to $lMatterMonthSummary;
+
+  -- --- Project Aurora detail: hours and value per task code --------------
+  retrieve $tA101 from "TimeReg"."TaskCode" where Code = 'A101' limit 1;
+  retrieve $tA103 from "TimeReg"."TaskCode" where Code = 'A103' limit 1;
+  retrieve $tA104 from "TimeReg"."TaskCode" where Code = 'A104' limit 1;
+  retrieve $tA105 from "TimeReg"."TaskCode" where Code = 'A105' limit 1;
+  retrieve $tA106 from "TimeReg"."TaskCode" where Code = 'A106' limit 1;
+  retrieve $tA107 from "TimeReg"."TaskCode" where Code = 'A107' limit 1;
+  retrieve $tL120 from "TimeReg"."TaskCode" where Code = 'L120' limit 1;
+  retrieve $tNB   from "TimeReg"."TaskCode" where Code = 'NB'   limit 1;
+
+  $k01 = create "TimeReg"."MatterTaskSummary" (PartnerHours = 12,   SeniorHours = 28.5, AssociateHours = 34,   SupportHours = 4,   Hours = 78.5,  AmountValue = 23640, SortOrder = 1, "TimeReg"."MatterTaskSummary_Matter" = $mAurora, "TimeReg"."MatterTaskSummary_TaskCode" = $tA101,
+    PartnerLabel = '12,0', SeniorLabel = '28,5', AssociateLabel = '34,0', SupportLabel = '4,0', HoursLabel = '78,5', ValueLabel = '€ 23.640');
+  add $k01 to $lMatterTaskSummary;
+  $k02 = create "TimeReg"."MatterTaskSummary" (PartnerHours = 18.5, SeniorHours = 62,   AssociateHours = 48.5, SupportHours = 12,  Hours = 141,   AmountValue = 42315, SortOrder = 2, "TimeReg"."MatterTaskSummary_Matter" = $mAurora, "TimeReg"."MatterTaskSummary_TaskCode" = $tA103,
+    PartnerLabel = '18,5', SeniorLabel = '62,0', AssociateLabel = '48,5', SupportLabel = '12,0', HoursLabel = '141,0', ValueLabel = '€ 42.315');
+  add $k02 to $lMatterTaskSummary;
+  $k03 = create "TimeReg"."MatterTaskSummary" (PartnerHours = 14,   SeniorHours = 22,   AssociateHours = 18,   SupportHours = 6.5, Hours = 60.5,  AmountValue = 18760, SortOrder = 3, "TimeReg"."MatterTaskSummary_Matter" = $mAurora, "TimeReg"."MatterTaskSummary_TaskCode" = $tA104,
+    PartnerLabel = '14,0', SeniorLabel = '22,0', AssociateLabel = '18,0', SupportLabel = '6,5', HoursLabel = '60,5', ValueLabel = '€ 18.760');
+  add $k03 to $lMatterTaskSummary;
+  $k04 = create "TimeReg"."MatterTaskSummary" (PartnerHours = 8.5,  SeniorHours = 9,    AssociateHours = 6,    SupportHours = 1,   Hours = 24.5,  AmountValue = 8190,  SortOrder = 4, "TimeReg"."MatterTaskSummary_Matter" = $mAurora, "TimeReg"."MatterTaskSummary_TaskCode" = $tA105,
+    PartnerLabel = '8,5', SeniorLabel = '9,0', AssociateLabel = '6,0', SupportLabel = '1,0', HoursLabel = '24,5', ValueLabel = '€ 8.190');
+  add $k04 to $lMatterTaskSummary;
+  $k05 = create "TimeReg"."MatterTaskSummary" (PartnerHours = 16,   SeniorHours = 7.5,  AssociateHours = 2,    SupportHours = 0,   Hours = 25.5,  AmountValue = 10290, SortOrder = 5, "TimeReg"."MatterTaskSummary_Matter" = $mAurora, "TimeReg"."MatterTaskSummary_TaskCode" = $tA106,
+    PartnerLabel = '16,0', SeniorLabel = '7,5', AssociateLabel = '2,0', SupportLabel = '0,0', HoursLabel = '25,5', ValueLabel = '€ 10.290');
+  add $k05 to $lMatterTaskSummary;
+  $k06 = create "TimeReg"."MatterTaskSummary" (PartnerHours = 9.5,  SeniorHours = 4,    AssociateHours = 1.5,  SupportHours = 0,   Hours = 15,    AmountValue = 6480,  SortOrder = 6, "TimeReg"."MatterTaskSummary_Matter" = $mAurora, "TimeReg"."MatterTaskSummary_TaskCode" = $tA107,
+    PartnerLabel = '9,5', SeniorLabel = '4,0', AssociateLabel = '1,5', SupportLabel = '0,0', HoursLabel = '15,0', ValueLabel = '€ 6.480');
+  add $k06 to $lMatterTaskSummary;
+  $k07 = create "TimeReg"."MatterTaskSummary" (PartnerHours = 2,    SeniorHours = 6,    AssociateHours = 22,   SupportHours = 9.5, Hours = 39.5,  AmountValue = 10155, SortOrder = 7, "TimeReg"."MatterTaskSummary_Matter" = $mAurora, "TimeReg"."MatterTaskSummary_TaskCode" = $tL120,
+    PartnerLabel = '2,0', SeniorLabel = '6,0', AssociateLabel = '22,0', SupportLabel = '9,5', HoursLabel = '39,5', ValueLabel = '€ 10.155');
+  add $k07 to $lMatterTaskSummary;
+  $k08 = create "TimeReg"."MatterTaskSummary" (PartnerHours = 1.5,  SeniorHours = 2,    AssociateHours = 3,    SupportHours = 1.5, Hours = 8,     AmountValue = 0,     SortOrder = 8, "TimeReg"."MatterTaskSummary_Matter" = $mAurora, "TimeReg"."MatterTaskSummary_TaskCode" = $tNB,
+    PartnerLabel = '1,5', SeniorLabel = '2,0', AssociateLabel = '3,0', SupportLabel = '1,5', HoursLabel = '8,0', ValueLabel = '€ 0');
+  add $k08 to $lMatterTaskSummary;
+
+  -- --- Project Aurora team ----------------------------------------------
+  $tm1 = create "TimeReg"."MatterTeamMember" (Hours = 82,   AmountValue = 39360, SortOrder = 1, "TimeReg"."MatterTeamMember_Matter" = $mAurora, "TimeReg"."MatterTeamMember_Employee" = $eJoost,
+    HoursLabel = '82,0', ValueLabel = '€ 39.360');
+  add $tm1 to $lMatterTeamMember;
+  $tm2 = create "TimeReg"."MatterTeamMember" (Hours = 96.5, AmountValue = 29915, SortOrder = 2, "TimeReg"."MatterTeamMember_Matter" = $mAurora, "TimeReg"."MatterTeamMember_Employee" = $eMaartje,
+    HoursLabel = '96,5', ValueLabel = '€ 29.915');
+  add $tm2 to $lMatterTeamMember;
+  $tm3 = create "TimeReg"."MatterTeamMember" (Hours = 44,   AmountValue = 13640, SortOrder = 3, "TimeReg"."MatterTeamMember_Matter" = $mAurora, "TimeReg"."MatterTeamMember_Employee" = $eLieke,
+    HoursLabel = '44,0', ValueLabel = '€ 13.640');
+  add $tm3 to $lMatterTeamMember;
+  $tm4 = create "TimeReg"."MatterTeamMember" (Hours = 62,   AmountValue = 14570, SortOrder = 4, "TimeReg"."MatterTeamMember_Matter" = $mAurora, "TimeReg"."MatterTeamMember_Employee" = $ePieter,
+    HoursLabel = '62,0', ValueLabel = '€ 14.570');
+  add $tm4 to $lMatterTeamMember;
+  $tm5 = create "TimeReg"."MatterTeamMember" (Hours = 21,   AmountValue = 3465,  SortOrder = 5, "TimeReg"."MatterTeamMember_Matter" = $mAurora, "TimeReg"."MatterTeamMember_Employee" = $eSanne,
+    HoursLabel = '21,0', ValueLabel = '€ 3.465');
+  add $tm5 to $lMatterTeamMember;
+  $tm6 = create "TimeReg"."MatterTeamMember" (Hours = 13,   AmountValue = 1820,  SortOrder = 6, "TimeReg"."MatterTeamMember_Matter" = $mAurora, "TimeReg"."MatterTeamMember_Employee" = $eMarja,
+    HoursLabel = '13,0', ValueLabel = '€ 1.820');
+  add $tm6 to $lMatterTeamMember;
+
+  -- --- Project Aurora burn vs budget ------------------------------------
+  $b1 = create "TimeReg"."MatterBurn" (Label = 'Feb', Hours = 110, HeightBucket = 4,  SortOrder = 1, "TimeReg"."MatterBurn_Matter" = $mAurora);
+  add $b1 to $lMatterBurn;
+  $b2 = create "TimeReg"."MatterBurn" (Label = 'Mar', Hours = 205, HeightBucket = 8,  SortOrder = 2, "TimeReg"."MatterBurn_Matter" = $mAurora);
+  add $b2 to $lMatterBurn;
+  $b3 = create "TimeReg"."MatterBurn" (Label = 'Apr', Hours = 290, HeightBucket = 12, SortOrder = 3, "TimeReg"."MatterBurn_Matter" = $mAurora);
+  add $b3 to $lMatterBurn;
+  $b4 = create "TimeReg"."MatterBurn" (Label = 'May', Hours = 360, HeightBucket = 14, SortOrder = 4, "TimeReg"."MatterBurn_Matter" = $mAurora);
+  add $b4 to $lMatterBurn;
+  $b5 = create "TimeReg"."MatterBurn" (Label = 'Jun', Hours = 440, HeightBucket = 18, IsWarning = true, SortOrder = 5, "TimeReg"."MatterBurn_Matter" = $mAurora);
+  add $b5 to $lMatterBurn;
+  $b6 = create "TimeReg"."MatterBurn" (Label = 'Jul', Hours = 318.5, HeightBucket = 19, IsOver = true, SortOrder = 6, "TimeReg"."MatterBurn_Matter" = $mAurora);
+  add $b6 to $lMatterBurn;
+
+  -- --- Utilisation distribution and timeliness --------------------------
+  $u01 = create "TimeReg"."UtilisationBar" (Label = '50%',        HeightBucket = 4,  SortOrder = 1, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u01 to $lUtilisationBar;
+  $u02 = create "TimeReg"."UtilisationBar" (HeightBucket = 6,  SortOrder = 2, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u02 to $lUtilisationBar;
+  $u03 = create "TimeReg"."UtilisationBar" (HeightBucket = 9,  SortOrder = 3, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u03 to $lUtilisationBar;
+  $u04 = create "TimeReg"."UtilisationBar" (HeightBucket = 12, SortOrder = 4, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u04 to $lUtilisationBar;
+  $u05 = create "TimeReg"."UtilisationBar" (HeightBucket = 15, SortOrder = 5, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u05 to $lUtilisationBar;
+  $u06 = create "TimeReg"."UtilisationBar" (Label = 'target 78%', HeightBucket = 20, IsTarget = true, SortOrder = 6, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u06 to $lUtilisationBar;
+  $u07 = create "TimeReg"."UtilisationBar" (HeightBucket = 17, SortOrder = 7, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u07 to $lUtilisationBar;
+  $u08 = create "TimeReg"."UtilisationBar" (HeightBucket = 13, SortOrder = 8, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u08 to $lUtilisationBar;
+  $u09 = create "TimeReg"."UtilisationBar" (HeightBucket = 8,  SortOrder = 9, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u09 to $lUtilisationBar;
+  $u10 = create "TimeReg"."UtilisationBar" (Label = '100%',       HeightBucket = 4,  SortOrder = 10, "TimeReg"."UtilisationBar_Period" = $pJul);
+  add $u10 to $lUtilisationBar;
+
+  $z1 = create "TimeReg"."TimelinessBand" (Label = 'Same day', Pct = 61, Bucket = 12, SeverityClass = 'ss-band--ok',    SortOrder = 1, "TimeReg"."TimelinessBand_Period" = $pJul);
+  add $z1 to $lTimelinessBand;
+  $z2 = create "TimeReg"."TimelinessBand" (Label = '1–2 days', Pct = 24, Bucket = 5,  SeverityClass = 'ss-band--teal',  SortOrder = 2, "TimeReg"."TimelinessBand_Period" = $pJul);
+  add $z2 to $lTimelinessBand;
+  $z3 = create "TimeReg"."TimelinessBand" (Label = '3–5 days', Pct = 11, Bucket = 2,  SeverityClass = 'ss-band--warn',  SortOrder = 3, "TimeReg"."TimelinessBand_Period" = $pJul);
+  add $z3 to $lTimelinessBand;
+  $z4 = create "TimeReg"."TimelinessBand" (Label = '> 5 days', Pct = 4,  Bucket = 1,  SeverityClass = 'ss-band--over',  SortOrder = 4, "TimeReg"."TimelinessBand_Period" = $pJul);
+  add $z4 to $lTimelinessBand;
+
+  -- --- Recording rules shown on the entry form --------------------------
+  $r1 = create "TimeReg"."EntryRule" (Description = 'Rounding to 0.25 h per client agreement (Kessler)', SortOrder = 1);
+  add $r1 to $lEntryRule;
+  $r2 = create "TimeReg"."EntryRule" (Description = 'Narrative mandatory; min. 40 characters', SortOrder = 2);
+  add $r2 to $lEntryRule;
+  $r3 = create "TimeReg"."EntryRule" (Description = 'Entries older than 14 days need partner approval', SortOrder = 3);
+  add $r3 to $lEntryRule;
+  $r4 = create "TimeReg"."EntryRule" (Description = 'June 2026 locked — no back-dating', SortOrder = 4);
+  add $r4 to $lEntryRule;
+
+  -- --- Attention notices for Maartje ------------------------------------
+  $n1 = create "TimeReg"."Notice" (Title = 'Week 29 not submitted', Detail = 'Due Monday 09:00 to J. Haverkamp',
+    AccentClass = 'ss-notice--ox', SortOrder = 1, "TimeReg"."Notice_Employee" = $eMaartje);
+  add $n1 to $lNotice;
+  $n2 = create "TimeReg"."Notice" (Title = '2 entries missing narrative', Detail = 'Kessler M-2301 · client requires text',
+    AccentClass = 'ss-notice--warn', SortOrder = 2, "TimeReg"."Notice_Employee" = $eMaartje);
+  add $n2 to $lNotice;
+  $n3 = create "TimeReg"."Notice" (Title = 'Rate change from 1 Aug', Detail = 'Rijnmond framework: €295 → €310',
+    AccentClass = 'ss-notice--teal', SortOrder = 3, "TimeReg"."Notice_Employee" = $eMaartje);
+  add $n3 to $lNotice;
+
+  -- Commit in dependency order: a child is only committed once its
+  -- referenced parent is already in the database.
+  commit $lPeriod;
+  commit $lPeriodStat;
+  commit $lCloseCheck;
+  commit $lWorkingTimeException;
+  commit $lTrendPoint;
+  commit $lWeekSummary;
+  commit $lClientMonthSummary;
+  commit $lClientReport;
+  commit $lEmployeeMonthSummary;
+  commit $lRoleMonthSummary;
+  commit $lMatterMonthSummary;
+  commit $lMatterTaskSummary;
+  commit $lMatterTeamMember;
+  commit $lMatterBurn;
+  commit $lUtilisationBar;
+  commit $lTimelinessBand;
+  commit $lEntryRule;
+  commit $lNotice;
+  log info node 'TimeRegSeed' 'Seeded July 2026 period snapshots';
+  return true;
+end;
+/

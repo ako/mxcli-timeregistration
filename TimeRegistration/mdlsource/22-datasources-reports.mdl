@@ -1,0 +1,234 @@
+/**
+ * The matters the signed-in fee earner booked time to this month.
+ *
+ * @returns this employee's per-matter slice of the open period
+ */
+create or modify microflow "TimeReg"."DS_MyMatters" ()
+returns list of "TimeReg"."MatterMonthSummary" as $rows
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  retrieve $rows from "TimeReg"."MatterMonthSummary"
+    where ["TimeReg"."MatterMonthSummary_Employee" = $employee]
+    sort by TimeReg.MatterMonthSummary.SortOrder asc;
+  return $rows;
+end;
+/
+
+/**
+ * The firm's largest matters this month.
+ *
+ * Firm-wide rows are the ones with no employee attached — an employee-scoped
+ * row is that person's slice, not the matter total.
+ *
+ * @returns the top matters of the open period
+ */
+create or modify microflow "TimeReg"."DS_TopMatters" ()
+returns list of "TimeReg"."MatterMonthSummary" as $rows
+folder 'Datasources'
+begin
+  retrieve $rows from "TimeReg"."MatterMonthSummary"
+    where ["IsFirmWide" = true]
+    sort by TimeReg.MatterMonthSummary.SortOrder asc;
+  return $rows;
+end;
+/
+
+/**
+ * The rate card matrix: one row per role, one column per negotiated client.
+ *
+ * A client with no agreement for a role leaves the cell empty; a rate below
+ * the cost + 40% floor is flagged so a partner can see it needs approval.
+ *
+ * @returns the rate card rows in seniority order
+ */
+create or modify microflow "TimeReg"."DS_RateRows" ()
+returns list of "TimeReg"."RateRow" as $rows
+folder 'Datasources'
+begin
+  $rows = create list of "TimeReg"."RateRow";
+
+  retrieve $cAbn   from "TimeReg"."Client" where ShortName = 'ABN Delta' limit 1;
+  retrieve $cRijn  from "TimeReg"."Client" where ShortName = 'Rijnmond Port' limit 1;
+  retrieve $cKess  from "TimeReg"."Client" where ShortName = 'Kessler Pharma' limit 1;
+  retrieve $cNieuw from "TimeReg"."Client" where ShortName = 'Stichting N.A.' limit 1;
+  retrieve $cBerg  from "TimeReg"."Client" where ShortName = 'Bergland' limit 1;
+
+  retrieve $roles from "TimeReg"."Role" sort by TimeReg.Role.SortOrder asc;
+
+  loop $role in $roles
+  begin
+    declare $v1 string = '—';
+    declare $v2 string = '—';
+    declare $v3 string = '—';
+    declare $v4 string = '—';
+    declare $v5 string = '—';
+    declare $k1 string = 'vdh-rate--none';
+    declare $k2 string = 'vdh-rate--none';
+    declare $k3 string = 'vdh-rate--none';
+    declare $k4 string = 'vdh-rate--none';
+    declare $k5 string = 'vdh-rate--none';
+
+    retrieve $r1 from "TimeReg"."ClientRate"
+      where ["TimeReg"."ClientRate_Client" = $cAbn and "TimeReg"."ClientRate_Role" = $role] limit 1;
+    if $r1 != empty then
+      set $v1 = '€ ' + formatDecimal($r1/Rate, '###0');
+      set $k1 = 'vdh-rate--std';
+      if $r1/IsBelowFloor then
+        set $k1 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    retrieve $r2 from "TimeReg"."ClientRate"
+      where ["TimeReg"."ClientRate_Client" = $cRijn and "TimeReg"."ClientRate_Role" = $role] limit 1;
+    if $r2 != empty then
+      set $v2 = '€ ' + formatDecimal($r2/Rate, '###0');
+      set $k2 = 'vdh-rate--std';
+      if $r2/IsBelowFloor then
+        set $k2 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    retrieve $r3 from "TimeReg"."ClientRate"
+      where ["TimeReg"."ClientRate_Client" = $cKess and "TimeReg"."ClientRate_Role" = $role] limit 1;
+    if $r3 != empty then
+      set $v3 = '€ ' + formatDecimal($r3/Rate, '###0');
+      set $k3 = 'vdh-rate--std';
+      if $r3/IsBelowFloor then
+        set $k3 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    retrieve $r4 from "TimeReg"."ClientRate"
+      where ["TimeReg"."ClientRate_Client" = $cNieuw and "TimeReg"."ClientRate_Role" = $role] limit 1;
+    if $r4 != empty then
+      set $v4 = '€ ' + formatDecimal($r4/Rate, '###0');
+      set $k4 = 'vdh-rate--std';
+      if $r4/IsBelowFloor then
+        set $k4 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    retrieve $r5 from "TimeReg"."ClientRate"
+      where ["TimeReg"."ClientRate_Client" = $cBerg and "TimeReg"."ClientRate_Role" = $role] limit 1;
+    if $r5 != empty then
+      set $v5 = '€ ' + formatDecimal($r5/Rate, '###0');
+      set $k5 = 'vdh-rate--std';
+      if $r5/IsBelowFloor then
+        set $k5 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    declare $sub string = '';
+    set $sub = 'Band ' + toString($role/Band) + ' · ' + toString($role/HeadCount) + ' people';
+    declare $std string = '';
+    set $std = '€ ' + formatDecimal($role/StandardRate, '###0');
+    declare $cost string = '';
+    set $cost = '€ ' + formatDecimal($role/CostRate, '###0');
+
+    $row = create "TimeReg"."RateRow" (
+      RoleName = $role/Name,
+      RoleSub = $sub,
+      StandardRate = $std,
+      CostRate = $cost,
+      "V1" = $v1,
+      "V2" = $v2,
+      "V3" = $v3,
+      "V4" = $v4,
+      "V5" = $v5,
+      "K1" = $k1,
+      "K2" = $k2,
+      "K3" = $k3,
+      "K4" = $k4,
+      "K5" = $k5,
+      SortOrder = $role/SortOrder);
+    add $row to $rows;
+  end loop;
+
+  return $rows;
+end;
+/
+
+/**
+ * Project Aurora's task-code breakdown, for the per-matter report.
+ *
+ * @returns the task rows of the focus matter
+ */
+create or modify microflow "TimeReg"."DS_MatterTasks" ()
+returns list of "TimeReg"."MatterTaskSummary" as $rows
+folder 'Datasources'
+begin
+  $matter = call microflow "TimeReg"."DS_FocusMatter" ();
+  retrieve $rows from "TimeReg"."MatterTaskSummary"
+    where ["TimeReg"."MatterTaskSummary_Matter" = $matter]
+    sort by TimeReg.MatterTaskSummary.SortOrder asc;
+  return $rows;
+end;
+/
+
+/**
+ * The fee earners staffed on the focus matter.
+ *
+ * @returns the matter team, most senior first
+ */
+create or modify microflow "TimeReg"."DS_MatterTeam" ()
+returns list of "TimeReg"."MatterTeamMember" as $rows
+folder 'Datasources'
+begin
+  $matter = call microflow "TimeReg"."DS_FocusMatter" ();
+  retrieve $rows from "TimeReg"."MatterTeamMember"
+    where ["TimeReg"."MatterTeamMember_Matter" = $matter]
+    sort by TimeReg.MatterTeamMember.SortOrder asc;
+  return $rows;
+end;
+/
+
+/**
+ * The focus matter's burn against budget, month by month.
+ *
+ * @returns the burn columns
+ */
+create or modify microflow "TimeReg"."DS_MatterBurn" ()
+returns list of "TimeReg"."MatterBurn" as $rows
+folder 'Datasources'
+begin
+  $matter = call microflow "TimeReg"."DS_FocusMatter" ();
+  retrieve $rows from "TimeReg"."MatterBurn"
+    where ["TimeReg"."MatterBurn_Matter" = $matter]
+    sort by TimeReg.MatterBurn.SortOrder asc;
+  return $rows;
+end;
+/
+
+/**
+ * The team's week 30 timesheets, in the approval queue's order.
+ *
+ * @returns every timesheet for the week under review
+ */
+create or modify microflow "TimeReg"."DS_TeamWeek" ()
+returns list of "TimeReg"."Timesheet" as $rows
+folder 'Datasources'
+begin
+  retrieve $rows from "TimeReg"."Timesheet"
+    where ["WeekNumber" = 30]
+    sort by TimeReg.Timesheet.RecordedHours desc;
+  return $rows;
+end;
+/
+
+/**
+ * The attention notices raised for the signed-in fee earner.
+ *
+ * @returns the notices, most urgent first
+ */
+create or modify microflow "TimeReg"."DS_MyNotices" ()
+returns list of "TimeReg"."Notice" as $rows
+folder 'Datasources'
+begin
+  $employee = call microflow "TimeReg"."DS_CurrentEmployee" ();
+  retrieve $rows from "TimeReg"."Notice"
+    where ["TimeReg"."Notice_Employee" = $employee]
+    sort by TimeReg.Notice.SortOrder asc;
+  return $rows;
+end;
+/

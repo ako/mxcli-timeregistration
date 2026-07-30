@@ -1,0 +1,9 @@
+/**
+ * Distinguish a firm-wide matter total from an employee's slice of it.
+ *
+ * XPath cannot test an association for emptiness, so the distinction the
+ * reports need is carried explicitly.
+ */
+ALTER ENTITY "TimeReg"."MatterMonthSummary"
+  ADD ATTRIBUTE IF NOT EXISTS "IsFirmWide": boolean;
+/

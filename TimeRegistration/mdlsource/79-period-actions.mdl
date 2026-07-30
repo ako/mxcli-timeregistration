@@ -1,0 +1,163 @@
+/**
+ * TimeRegistration — period-aware reporting, part 4: the buttons
+ *
+ * The two shift microflows hold all the logic. The eight that follow are
+ * one-line wrappers whose only job is to name the page to return to: MDL's
+ * `show page` takes a literal, and a page button cannot tell a microflow which
+ * screen it was pressed on. Four report screens times two directions is the
+ * price of putting the control on every screen that reports on a period.
+ */
+
+/**
+ * Moves the selection back one month.
+ *
+ * @param $Period the period currently on screen
+ * @returns true when the selection moved
+ */
+create or modify microflow "TimeReg"."ACT_PeriodBack" (
+  $Period: "TimeReg"."Period"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  if $Period = empty then
+    return false;
+  end if;
+
+  declare $first datetime = [%CurrentDateTime%];
+  declare $target datetime = [%CurrentDateTime%];
+  set $first = parseDateTime('1-' + toString($Period/MonthNumber) + '-' + toString($Period/Year), 'd-M-yyyy');
+  set $target = addMonths($first, -1);
+
+  declare $year integer = 0;
+  declare $month integer = 0;
+  set $year = parseInteger(formatDateTime($target, 'yyyy'));
+  set $month = parseInteger(formatDateTime($target, 'M'));
+
+  $opened = call microflow "TimeReg"."ACT_EnsurePeriod" ("Year" = $year, "MonthNumber" = $month);
+  $moved = call microflow "TimeReg"."ACT_SetSelectedPeriod" ("Period" = $opened);
+  return true;
+end;
+/
+
+/**
+ * Moves the selection forward one month.
+ *
+ * @param $Period the period currently on screen
+ * @returns true when the selection moved
+ */
+create or modify microflow "TimeReg"."ACT_PeriodForward" (
+  $Period: "TimeReg"."Period"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  if $Period = empty then
+    return false;
+  end if;
+
+  declare $first datetime = [%CurrentDateTime%];
+  declare $target datetime = [%CurrentDateTime%];
+  set $first = parseDateTime('1-' + toString($Period/MonthNumber) + '-' + toString($Period/Year), 'd-M-yyyy');
+  set $target = addMonths($first, 1);
+
+  declare $year integer = 0;
+  declare $month integer = 0;
+  set $year = parseInteger(formatDateTime($target, 'yyyy'));
+  set $month = parseInteger(formatDateTime($target, 'M'));
+
+  $opened = call microflow "TimeReg"."ACT_EnsurePeriod" ("Year" = $year, "MonthNumber" = $month);
+  $moved = call microflow "TimeReg"."ACT_SetSelectedPeriod" ("Period" = $opened);
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_RollupPrev" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodBack" ("Period" = $Period);
+  show page "TimeReg"."MonthlyRollup";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_RollupNext" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodForward" ("Period" = $Period);
+  show page "TimeReg"."MonthlyRollup";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_ReportCustomerPrev" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodBack" ("Period" = $Period);
+  show page "TimeReg"."ReportCustomer";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_ReportCustomerNext" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodForward" ("Period" = $Period);
+  show page "TimeReg"."ReportCustomer";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_ReportMatterPrev" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodBack" ("Period" = $Period);
+  show page "TimeReg"."ReportMatter";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_ReportMatterNext" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodForward" ("Period" = $Period);
+  show page "TimeReg"."ReportMatter";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_ReportPeoplePrev" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodBack" ("Period" = $Period);
+  show page "TimeReg"."ReportPeople";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_ReportPeopleNext" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodForward" ("Period" = $Period);
+  show page "TimeReg"."ReportPeople";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_RateCardPrev" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodBack" ("Period" = $Period);
+  show page "TimeReg"."RateCard";
+  return true;
+end;
+/
+
+create or modify microflow "TimeReg"."ACT_RateCardNext" ($Period: "TimeReg"."Period")
+returns boolean as $ok folder 'Logic'
+begin
+  $moved = call microflow "TimeReg"."ACT_PeriodForward" ("Period" = $Period);
+  show page "TimeReg"."RateCard";
+  return true;
+end;
+/

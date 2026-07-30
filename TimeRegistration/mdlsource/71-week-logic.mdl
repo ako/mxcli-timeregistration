@@ -1,0 +1,426 @@
+/**
+ * TimeRegistration — multi-week support, part 2: the logic
+ *
+ * ACT_RecalculateTimesheet is redefined here rather than edited in 20-logic.mdl,
+ * following the pattern the workflow scripts set: the numbered files run in
+ * order, so the later definition is the one that survives a full rebuild.
+ */
+
+/**
+ * Writes a week's display labels.
+ *
+ * Separate from the recalculation because it touches nothing derived from
+ * entries. A seeded week whose entry detail is outside the demo dataset needs
+ * its day headers filled in the first time it is opened, and must not have its
+ * totals recomputed to zero on the way.
+ *
+ * @param $Timesheet the week to label
+ * @returns true when the labels were written
+ */
+create or modify microflow "TimeReg"."ACT_WeekLabels" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  if $Timesheet = empty then
+    return false;
+  end if;
+
+  declare $start datetime = [%CurrentDateTime%];
+  declare $finish datetime = [%CurrentDateTime%];
+  set $start = $Timesheet/WeekStart;
+  set $finish = addDays($start, 6);
+
+  -- "20–26 Jul 2026" inside one month, "29 Jul – 4 Aug 2026" across two.
+  declare $range string = '';
+  if formatDateTime($start, 'MMM yyyy') = formatDateTime($finish, 'MMM yyyy') then
+    set $range = formatDateTime($start, 'd') + '–' + formatDateTime($finish, 'd MMM yyyy');
+  else
+    set $range = formatDateTime($start, 'd MMM') + ' – ' + formatDateTime($finish, 'd MMM yyyy');
+  end if;
+
+  change $Timesheet (
+    WeekEnd = $finish,
+    WeekRangeLabel = $range,
+    DayLabel1 = formatDateTime($start, 'EEE d'),
+    DayLabel2 = formatDateTime(addDays($start, 1), 'EEE d'),
+    DayLabel3 = formatDateTime(addDays($start, 2), 'EEE d'),
+    DayLabel4 = formatDateTime(addDays($start, 3), 'EEE d'),
+    DayLabel5 = formatDateTime(addDays($start, 4), 'EEE d'),
+    DayLabel6 = formatDateTime(addDays($start, 5), 'EEE d'),
+    DayLabel7 = formatDateTime(addDays($start, 6), 'EEE d'));
+  commit $Timesheet;
+
+  return true;
+end;
+/
+
+/**
+ * Recalculates a timesheet from its entries.
+ *
+ * Beyond the totals it always derived, this now also rebuilds the two panels
+ * under the grid and the week's display labels. When there was only one week in
+ * the app the composition slices and rate-band lines could be seeded by hand and
+ * the day headers could be static text; neither survives a second week.
+ *
+ * The panels are deleted and rebuilt rather than updated in place — a practice
+ * area that lost its last entry has to disappear, and a diff would be more code
+ * than a rebuild.
+ *
+ * @param $Timesheet the week to recalculate
+ * @returns true when the totals, labels and panels were written
+ */
+create or modify microflow "TimeReg"."ACT_RecalculateTimesheet" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  declare $ratio integer = 0;
+
+  if $Timesheet = empty then
+    return false;
+  end if;
+
+  -- Totals ------------------------------------------------------------------
+  -- Aggregates declare their own output variable — never `declare` them first.
+  retrieve $entries from "TimeReg"."TimeEntry"
+    where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet];
+  $recorded = sum($entries.Hours);
+  $amount = sum($entries.AmountValue);
+
+  retrieve $billableEntries from "TimeReg"."TimeEntry"
+    where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
+       and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+  $billable = sum($billableEntries.Hours);
+
+  if $recorded > 0 then
+    set $ratio = round($billable div $recorded * 100);
+  end if;
+
+  -- Formatted forms for the dense columns. formatDecimal uses the runtime's
+  -- en_US locale, so the thousands separator is swapped for the Dutch one.
+  declare $recordedLabel string = '';
+  declare $billableLabel string = '';
+  declare $amountLabel string = '';
+  set $recordedLabel = formatDecimal($recorded, '###0.00');
+  set $billableLabel = formatDecimal($billable, '###0.00');
+  set $amountLabel = '€ ' + replaceAll(formatDecimal($amount, '#,##0'), ',', '.');
+
+  $labelled = call microflow "TimeReg"."ACT_WeekLabels" ("Timesheet" = $Timesheet);
+
+  change $Timesheet (
+    RecordedHours = $recorded,
+    BillableHours = $billable,
+    AmountValue = $amount,
+    RecordedLabel = $recordedLabel,
+    BillableLabel = $billableLabel,
+    AmountLabel = $amountLabel,
+    RatioPct = $ratio,
+    RatioBucket = round($ratio div 5));
+  commit $Timesheet;
+
+  -- Week composition ---------------------------------------------------------
+  -- Billable hours grouped by the matter's practice area, plus one slice for
+  -- everything that is not billable. The matters are read in practice order so
+  -- the grouping is a control break rather than a lookup table, which MDL has
+  -- no shape for.
+  retrieve $oldSlices from "TimeReg"."WeekComposition"
+    where ["TimeReg"."WeekComposition_Timesheet" = $Timesheet];
+  loop $oldSlice in $oldSlices
+  begin
+    delete $oldSlice;
+  end loop;
+
+  declare $slot integer = 0;
+  declare $accHours decimal = 0;
+  declare $accName string = '';
+  declare $seenAny boolean = false;
+
+  retrieve $matters from "TimeReg"."Matter" sort by TimeReg.Matter.Practice asc;
+
+  loop $matter in $matters
+  begin
+    retrieve $matterEntries from "TimeReg"."TimeEntry"
+      where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
+         and "TimeReg"."TimeEntry_Matter" = $matter
+         and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+    $matterHours = sum($matterEntries.Hours);
+
+    if $matter/Practice != $accName then
+      if $seenAny and $accHours > 0 then
+        set $slot = $slot + 1;
+        declare $color string = 'ss-swatch--grey';
+        if $slot = 1 then
+          set $color = 'ss-swatch--ink';
+        end if;
+        if $slot = 2 then
+          set $color = 'ss-swatch--teal';
+        end if;
+        if $slot = 3 then
+          set $color = 'ss-swatch--ox';
+        end if;
+
+        declare $bucket integer = 0;
+        if $recorded > 0 then
+          set $bucket = round($accHours div $recorded * 20);
+        end if;
+
+        $slice = create "TimeReg"."WeekComposition" (
+          Label = $accName,
+          Hours = $accHours,
+          HoursLabel = formatDecimal($accHours, '###0.0') + ' h',
+          Bucket = $bucket,
+          ColorClass = $color,
+          SortOrder = $slot,
+          "TimeReg"."WeekComposition_Timesheet" = $Timesheet);
+        commit $slice;
+      end if;
+
+      set $accName = $matter/Practice;
+      set $accHours = 0;
+      set $seenAny = true;
+    end if;
+
+    set $accHours = $accHours + $matterHours;
+  end loop;
+
+  -- The last practice area has no successor to trigger its flush.
+  if $seenAny and $accHours > 0 then
+    set $slot = $slot + 1;
+    declare $lastColor string = 'ss-swatch--grey';
+    if $slot = 1 then
+      set $lastColor = 'ss-swatch--ink';
+    end if;
+    if $slot = 2 then
+      set $lastColor = 'ss-swatch--teal';
+    end if;
+    if $slot = 3 then
+      set $lastColor = 'ss-swatch--ox';
+    end if;
+
+    declare $lastBucket integer = 0;
+    if $recorded > 0 then
+      set $lastBucket = round($accHours div $recorded * 20);
+    end if;
+
+    $lastSlice = create "TimeReg"."WeekComposition" (
+      Label = $accName,
+      Hours = $accHours,
+      HoursLabel = formatDecimal($accHours, '###0.0') + ' h',
+      Bucket = $lastBucket,
+      ColorClass = $lastColor,
+      SortOrder = $slot,
+      "TimeReg"."WeekComposition_Timesheet" = $Timesheet);
+    commit $lastSlice;
+  end if;
+
+  declare $nonBillable decimal = 0;
+  set $nonBillable = $recorded - $billable;
+  if $nonBillable > 0 then
+    set $slot = $slot + 1;
+    declare $nbBucket integer = 0;
+    if $recorded > 0 then
+      set $nbBucket = round($nonBillable div $recorded * 20);
+    end if;
+
+    $nbSlice = create "TimeReg"."WeekComposition" (
+      Label = 'Non-billable',
+      Hours = $nonBillable,
+      HoursLabel = formatDecimal($nonBillable, '###0.0') + ' h',
+      Bucket = $nbBucket,
+      ColorClass = 'ss-swatch--grey',
+      SortOrder = $slot,
+      "TimeReg"."WeekComposition_Timesheet" = $Timesheet);
+    commit $nbSlice;
+  end if;
+
+  -- Value recorded -----------------------------------------------------------
+  -- One line per client, carrying the rate that was actually applied. There are
+  -- a handful of clients, so a query each is cheaper to read than a control
+  -- break through every entry.
+  retrieve $oldLines from "TimeReg"."WeekValueLine"
+    where ["TimeReg"."WeekValueLine_Timesheet" = $Timesheet];
+  loop $oldLine in $oldLines
+  begin
+    delete $oldLine;
+  end loop;
+
+  declare $lineNo integer = 0;
+  retrieve $clients from "TimeReg"."Client" sort by TimeReg.Client.Name asc;
+
+  loop $client in $clients
+  begin
+    retrieve $clientEntries from "TimeReg"."TimeEntry"
+      where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
+         and Billability = "TimeReg"."ENUM_Billability"."Billable"
+         and "TimeReg"."TimeEntry_Matter"/"TimeReg"."Matter"/"TimeReg"."Matter_Client" = $client];
+    $clientHours = sum($clientEntries.Hours);
+
+    if $clientHours > 0 then
+      -- The rate has to come from an entry that carries one. A row copied from
+      -- last week is a zero-hour placeholder with no rate yet, and it would
+      -- otherwise be the one this picks up.
+      retrieve $ratedEntry from "TimeReg"."TimeEntry"
+        where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
+           and Billability = "TimeReg"."ENUM_Billability"."Billable"
+           and "Rate" > 0
+           and "TimeReg"."TimeEntry_Matter"/"TimeReg"."Matter"/"TimeReg"."Matter_Client" = $client]
+        limit 1;
+
+      declare $rateText string = '';
+      if $ratedEntry != empty then
+        set $rateText = ' — € ' + formatDecimal($ratedEntry/Rate, '###0');
+      end if;
+
+      set $lineNo = $lineNo + 1;
+      $line = create "TimeReg"."WeekValueLine" (
+        Label = $client/ShortName + $rateText,
+        HoursLabel = formatDecimal($clientHours, '###0.0') + ' h',
+        IsMuted = false,
+        SortOrder = $lineNo,
+        "TimeReg"."WeekValueLine_Timesheet" = $Timesheet);
+      commit $line;
+    end if;
+  end loop;
+
+  if $nonBillable > 0 then
+    set $lineNo = $lineNo + 1;
+    $nbLine = create "TimeReg"."WeekValueLine" (
+      Label = 'Non-billable / no charge',
+      HoursLabel = formatDecimal($nonBillable, '###0.0') + ' h',
+      IsMuted = true,
+      SortOrder = $lineNo,
+      "TimeReg"."WeekValueLine_Timesheet" = $Timesheet);
+    commit $nbLine;
+  end if;
+
+  return true;
+end;
+/
+
+/**
+ * Finds, or opens, one employee's timesheet for a given week.
+ *
+ * Opening a week is what brings it into existence — the same thing a paper
+ * timesheet book does when you turn the page. Week number and year are derived
+ * from the demo anchor (Monday 20 July 2026 is week 30) rather than from a
+ * locale's calendar rules, so the numbering is deterministic and matches the
+ * seeded data. It treats every year as 52 weeks, which is wrong for the handful
+ * of 53-week years and irrelevant at this scale.
+ *
+ * @param $Employee whose week it is
+ * @param $WeekStart the Monday of the week
+ * @returns the timesheet, or empty when there is no employee
+ */
+create or modify microflow "TimeReg"."ACT_EnsureTimesheet" (
+  $Employee: "TimeReg"."Employee",
+  $WeekStart: datetime
+)
+returns "TimeReg"."Timesheet" as $timesheet
+folder 'Logic'
+begin
+  -- Two names for the two paths: a `create` cannot reuse the variable a
+  -- `retrieve` already bound (CE0111), so the existing week returns early.
+  retrieve $existing from "TimeReg"."Timesheet"
+    where ["TimeReg"."Timesheet_Employee" = $Employee and "WeekStart" = $WeekStart]
+    limit 1;
+
+  if $existing != empty then
+    -- Labels only, and only when they are missing — once on each seeded week the
+    -- first time it is opened. A full recalculation here would rewrite the two
+    -- panels on every page load, and would zero the seeded weeks whose entry
+    -- detail is outside the demo dataset.
+    if $existing/WeekRangeLabel = empty then
+      $labelled = call microflow "TimeReg"."ACT_WeekLabels" ("Timesheet" = $existing);
+    end if;
+    return $existing;
+  end if;
+
+  if $Employee = empty then
+    return $existing;
+  end if;
+
+  declare $offset integer = 0;
+  declare $week integer = 30;
+  declare $year integer = 2026;
+  declare $days decimal = 0;
+
+  -- daysBetween returns a magnitude, not a signed difference (finding 50), so
+  -- the direction has to be put back by comparing the dates.
+  set $days = daysBetween(dateTime(2026, 7, 20), $WeekStart);
+  if $WeekStart < dateTime(2026, 7, 20) then
+    set $days = -$days;
+  end if;
+
+  set $offset = round($days div 7);
+  set $week = 30 + $offset;
+
+  while $week > 52
+  begin
+    set $week = $week - 52;
+    set $year = $year + 1;
+  end while;
+
+  while $week < 1
+  begin
+    set $week = $week + 52;
+    set $year = $year - 1;
+  end while;
+
+  $timesheet = create "TimeReg"."Timesheet" (
+    Year = $year,
+    WeekNumber = $week,
+    WeekStart = $WeekStart,
+    WeekEnd = addDays($WeekStart, 6),
+    Status = "TimeReg"."ENUM_TimesheetStatus"."Draft",
+    StatusLabel = 'pending',
+    RecordedHours = 0,
+    BillableHours = 0,
+    AmountValue = 0,
+    RatioPct = 0,
+    RatioBucket = 0,
+    "TimeReg"."Timesheet_Employee" = $Employee);
+  commit $timesheet;
+
+  $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $timesheet);
+  return $timesheet;
+end;
+/
+
+/**
+ * Records which week a person is looking at.
+ *
+ * @param $Employee whose selection it is
+ * @param $WeekStart the Monday to move to
+ * @returns true when the selection was stored
+ */
+create or modify microflow "TimeReg"."ACT_SetSelectedWeek" (
+  $Employee: "TimeReg"."Employee",
+  $WeekStart: datetime
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  if $Employee = empty then
+    return false;
+  end if;
+
+  retrieve $existing from "TimeReg"."WeekSelection"
+    where ["TimeReg"."WeekSelection_Employee" = $Employee]
+    limit 1;
+
+  if $existing != empty then
+    change $existing (WeekStart = $WeekStart);
+    commit $existing;
+    return true;
+  end if;
+
+  $selection = create "TimeReg"."WeekSelection" (
+    WeekStart = $WeekStart,
+    "TimeReg"."WeekSelection_Employee" = $Employee);
+  commit $selection;
+  return true;
+end;
+/

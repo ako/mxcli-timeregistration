@@ -1,0 +1,312 @@
+/**
+ * TimeRegistration — domain model
+ *
+ * Law-firm time & billing (van Duyn & Haverkamp mockup):
+ * fee earners record decimal hours against a client matter and a task code,
+ * weekly timesheets are submitted and approved by the supervising partner,
+ * and a monthly period is locked before client reporting.
+ */
+
+create module "TimeReg";
+/
+
+-- ---------------------------------------------------------------------------
+-- Enumerations
+-- ---------------------------------------------------------------------------
+
+/** Whether recorded time can be invoiced to the client. */
+create enumeration "TimeReg"."ENUM_Billability" (
+  "Billable" 'Billable',
+  "NoCharge" 'No charge',
+  "NonBillable" 'Non-billable'
+);
+/
+
+/** Weekly timesheet approval state. */
+create enumeration "TimeReg"."ENUM_TimesheetStatus" (
+  "NotSubmitted" 'Not submitted',
+  "Draft" 'Draft',
+  "Submitted" 'Submitted',
+  "Approved" 'Approved',
+  "Rejected" 'Rejected'
+);
+/
+
+/** Whether a monthly period still accepts time. */
+create enumeration "TimeReg"."ENUM_PeriodStatus" (
+  "Open" 'Open',
+  "Locked" 'Locked'
+);
+/
+
+/** Distribution state of a monthly client statement. */
+create enumeration "TimeReg"."ENUM_ReportStatus" (
+  "Sent" 'Sent',
+  "Held" 'Held',
+  "Blocked" 'Blocked',
+  "Scheduled" 'Scheduled'
+);
+/
+
+-- ---------------------------------------------------------------------------
+-- Reference data
+-- ---------------------------------------------------------------------------
+
+/** Fee-earner role with its standard charge-out rate and internal cost rate. */
+@Position(100, 100)
+create persistent entity "TimeReg"."Role" (
+  /** Partner, Counsel, Senior Associate, ... */
+  "Name": string(50) not null,
+  /** Salary band shown under the role name on the rate card. */
+  "Band": integer,
+  /** Standard charge-out rate per hour. */
+  "StandardRate": decimal,
+  /** Internal cost per hour, used for the margin report. */
+  "CostRate": decimal,
+  /** People currently in this role. */
+  "HeadCount": integer,
+  "SortOrder": integer
+);
+/
+
+/** A client of the firm. */
+@Position(100, 320)
+create persistent entity "TimeReg"."Client" (
+  "Name": string(150) not null,
+  /** Short label used in dense table columns. */
+  "ShortName": string(50),
+  /** Free-text summary of the negotiated rate agreement. */
+  "RateAgreement": string(100),
+  /** Recipient of the monthly statement. */
+  "ReportEmail": string(200)
+);
+/
+
+/** A billable (or internal) engagement for a client. */
+@Position(400, 320)
+create persistent entity "TimeReg"."Matter" (
+  /** M-2214, NB-ADM, ... */
+  "Code": string(20) not null,
+  "Name": string(200) not null,
+  "Practice": string(50),
+  "OpenedDate": date,
+  /** Agreed hour budget for the engagement. */
+  "BudgetHours": decimal,
+  /** Fixed fee cap, when the engagement has one. */
+  "FeeCap": decimal,
+  /** Hours booked to date, maintained by the recalculation microflow. */
+  "UsedHours": decimal,
+  /** Budget consumption 0-100, shown as a bar. */
+  "BudgetPct": integer,
+  /** BudgetPct quantised to 0-20 so SCSS can render the bar width. */
+  "BudgetBucket": integer,
+  /** Internal matters (business development, administration) are never billable. */
+  "IsInternal": boolean default false,
+  "IsActive": boolean default true
+)
+index idx_matter_code ("Code");
+/
+
+/** Standard task code that classifies the work performed. */
+@Position(700, 320)
+create persistent entity "TimeReg"."TaskCode" (
+  /** A101, A103, L120, NB, ... */
+  "Code": string(10) not null,
+  "Name": string(100) not null,
+  "SortOrder": integer
+);
+/
+
+/** A fee earner who records time. */
+@Position(400, 100)
+create persistent entity "TimeReg"."Employee" (
+  "FullName": string(100) not null,
+  /** "M. de Vries" — the form used in dense report columns. */
+  "ShortName": string(50),
+  /** Two-letter avatar label. */
+  "Initials": string(4),
+  "Email": string(200),
+  /** Utilisation target as a percentage. */
+  "TargetUtilisation": decimal,
+  /** 1.0 full time, 0.5 for a part-time contract. */
+  "FTE": decimal,
+  /** Contract hours per week, used for the working-time check. */
+  "ContractHours": decimal,
+  "IsPartner": boolean default false,
+  "SortOrder": integer
+);
+/
+
+/** Negotiated hourly rate for one client/role combination. */
+@Position(100, 560)
+create persistent entity "TimeReg"."ClientRate" (
+  /** Empty means the role is not staffed for this client. */
+  "Rate": decimal,
+  /** Rate agreed below the cost+40% floor — flagged on the rate card. */
+  "IsBelowFloor": boolean default false
+);
+/
+
+/** Dated entry in the rate-card change log. */
+@Position(100, 760)
+create persistent entity "TimeReg"."RateChange" (
+  "ChangeDate": date not null,
+  "Description": string(300) not null
+);
+/
+
+-- ---------------------------------------------------------------------------
+-- Time recording
+-- ---------------------------------------------------------------------------
+
+/** A calendar month that time is recorded into; locked before reporting. */
+@Position(700, 100)
+create persistent entity "TimeReg"."Period" (
+  /** "Jul 2026" */
+  "Name": string(20) not null,
+  "Year": integer,
+  "MonthNumber": integer,
+  "Status": "TimeReg"."ENUM_PeriodStatus" default "Open"
+);
+/
+
+/** One employee's weekly timesheet — the unit that is submitted and approved. */
+@Position(400, 560)
+create persistent entity "TimeReg"."Timesheet" (
+  "Year": integer,
+  "WeekNumber": integer,
+  "WeekStart": date,
+  "WeekEnd": date,
+  "Status": "TimeReg"."ENUM_TimesheetStatus" default "Draft",
+  "SubmittedOn": datetime,
+  /** Totals maintained by RecalculateTimesheet. */
+  "RecordedHours": decimal,
+  "BillableHours": decimal,
+  "AmountValue": decimal,
+  /** Billable / recorded as a percentage. */
+  "RatioPct": integer,
+  /** RatioPct quantised to 0-20 for the ratio bar. */
+  "RatioBucket": integer,
+  /** Short note shown in the FLAGS column of the approval list. */
+  "Flags": string(100)
+)
+index idx_timesheet_week ("Year", "WeekNumber");
+/
+
+/** A single recorded time entry — the core fact of the application. */
+@Position(700, 560)
+create persistent entity "TimeReg"."TimeEntry" (
+  "EntryDate": date not null,
+  /** Decimal hours, rounded to the client's agreed increment. */
+  "Hours": decimal not null,
+  /** Appears on the client invoice. */
+  "Narrative": string(500),
+  "Billability": "TimeReg"."ENUM_Billability" default "Billable",
+  "IsOutOfHours": boolean default false,
+  /** Rate applied at the moment of recording. */
+  "Rate": decimal,
+  /** Hours * Rate, zero when not billable. */
+  "AmountValue": decimal,
+  "RecordedOn": datetime,
+  /** Days between EntryDate and RecordedOn — drives the timeliness report. */
+  "DaysLate": integer
+)
+index idx_entry_date ("EntryDate");
+/
+
+/** Append-only trail of edits to a timesheet. */
+@Position(700, 800)
+create persistent entity "TimeReg"."AuditEntry" (
+  "EventTime": datetime not null,
+  /** "22 Jul 17:42" as displayed. */
+  "EventLabel": string(20),
+  "Description": string(300) not null,
+  "SortOrder": integer
+);
+/
+
+/** Monthly statement per client and its distribution state. */
+@Position(100, 960)
+create persistent entity "TimeReg"."ClientReport" (
+  "Title": string(150) not null,
+  "Detail": string(200),
+  "Status": "TimeReg"."ENUM_ReportStatus" default "Scheduled",
+  "StatusLabel": string(30),
+  "SortOrder": integer
+);
+/
+
+-- ---------------------------------------------------------------------------
+-- Associations
+-- ---------------------------------------------------------------------------
+
+/** Every employee holds one role. */
+create association "TimeReg"."Employee_Role"
+from "TimeReg"."Employee" to "TimeReg"."Role"
+type reference;
+/
+
+/** The partner who approves this employee's timesheets. */
+create association "TimeReg"."Employee_Manager"
+from "TimeReg"."Employee" to "TimeReg"."Employee"
+type reference;
+/
+
+create association "TimeReg"."Matter_Client"
+from "TimeReg"."Matter" to "TimeReg"."Client"
+type reference;
+/
+
+/** Partner responsible for the engagement. */
+create association "TimeReg"."Matter_ResponsiblePartner"
+from "TimeReg"."Matter" to "TimeReg"."Employee"
+type reference;
+/
+
+create association "TimeReg"."ClientRate_Client"
+from "TimeReg"."ClientRate" to "TimeReg"."Client"
+type reference
+delete_behavior DELETE_AND_REFERENCES;
+/
+
+create association "TimeReg"."ClientRate_Role"
+from "TimeReg"."ClientRate" to "TimeReg"."Role"
+type reference;
+/
+
+create association "TimeReg"."Timesheet_Employee"
+from "TimeReg"."Timesheet" to "TimeReg"."Employee"
+type reference;
+/
+
+create association "TimeReg"."TimeEntry_Timesheet"
+from "TimeReg"."TimeEntry" to "TimeReg"."Timesheet"
+type reference
+delete_behavior DELETE_AND_REFERENCES;
+/
+
+create association "TimeReg"."TimeEntry_Employee"
+from "TimeReg"."TimeEntry" to "TimeReg"."Employee"
+type reference;
+/
+
+create association "TimeReg"."TimeEntry_Matter"
+from "TimeReg"."TimeEntry" to "TimeReg"."Matter"
+type reference;
+/
+
+create association "TimeReg"."TimeEntry_TaskCode"
+from "TimeReg"."TimeEntry" to "TimeReg"."TaskCode"
+type reference;
+/
+
+create association "TimeReg"."AuditEntry_Timesheet"
+from "TimeReg"."AuditEntry" to "TimeReg"."Timesheet"
+type reference
+delete_behavior DELETE_AND_REFERENCES;
+/
+
+create association "TimeReg"."ClientReport_Client"
+from "TimeReg"."ClientReport" to "TimeReg"."Client"
+type reference;
+/

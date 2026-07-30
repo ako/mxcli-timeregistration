@@ -1,0 +1,9 @@
+/**
+ * Language settings.
+ *
+ * The firm is Dutch and the design formats every figure the Dutch way —
+ * "268.410" and "92,1%". Setting the default language makes Mendix render all
+ * decimals that way, rather than formatting each one by hand.
+ */
+alter settings LANGUAGE DefaultLanguageCode = 'en_US';
+/

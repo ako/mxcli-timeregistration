@@ -1,0 +1,631 @@
+/**
+ * Report · per customer — approved time for the period, by client.
+ */
+create or replace page "TimeReg"."ReportCustomer" (
+  Title: 'Report · per customer',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'report-customer',
+  Folder: 'Reports'
+)
+{
+  container rcPage (Class: 'vdh-page') {
+
+    container rcTop (Class: 'vdh-topbar') {
+      dynamictext rcTitle (Content: 'Report · per customer', Class: 'vdh-topbar-title')
+      dynamictext rcSub (Content: 'Approved time only', Class: 'vdh-topbar-sub')
+      container rcSpacer (Class: 'vdh-topbar-spacer') { dynamictext rcSpacerText (Content: ' ') }
+      -- Period selector. Every figure below reads the same selection.
+      dataview rcNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton rcPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_ReportCustomerPrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rcPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton rcNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_ReportCustomerNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rcPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
+      actionbutton rcLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container rcBody (Class: 'vdh-body') {
+
+      container rcBar (Class: 'vdh-row') {
+                dynamictext rcFilter2 (Content: 'Practice: all', Class: 'btn vdh-btn')
+        dynamictext rcFilter3 (Content: 'Status: approved only', Class: 'btn vdh-btn')
+        container rcBarSpacer (Class: 'vdh-spacer') { dynamictext rcBarSpacerText (Content: ' ') }
+        dynamictext rcExport (Content: 'Export XLSX', Class: 'btn vdh-btn')
+        dynamictext rcSend (Content: 'Send to billing', Class: 'btn vdh-btn vdh-btn--ink')
+      }
+
+      container rcHead (Class: 'vdh-thead vdh-mt-l') {
+        dynamictext rchClient (Content: 'Client', Class: 'vdh-w-200')
+        dynamictext rchMatters (Content: 'Matters', Class: 'vdh-w-96')
+        dynamictext rchAgreement (Content: 'Rate agreement', Class: 'vdh-w-fill')
+        dynamictext rchHours (Content: 'Hours', Class: 'vdh-w-80 vdh-right')
+        dynamictext rchMix (Content: 'Mix by role', Class: 'vdh-w-170')
+        dynamictext rchStd (Content: 'Standard value', Class: 'vdh-w-120 vdh-right')
+        dynamictext rchBilled (Content: 'Billed', Class: 'vdh-w-120 vdh-right')
+        dynamictext rchReal (Content: 'Realisation', Class: 'vdh-w-96 vdh-right')
+        dynamictext rchAvg (Content: 'Avg rate', Class: 'vdh-w-88 vdh-right')
+      }
+
+      listview rcList (
+        DataSource: microflow "TimeReg"."DS_PeriodClients",
+        Class: 'vdh-table'
+      ) {
+        container rcRow (Class: 'vdh-trow') {
+          dynamictext rcName (
+            Content: '{1}',
+            ContentParams: [{1} = ClientMonthSummary_Client/Name],
+            Class: 'vdh-w-200 vdh-cell-title'
+          )
+          dynamictext rcMatters (Content: '{1} matters', ContentParams: [{1} = MatterCount], Class: 'vdh-w-96 vdh-caption')
+          dynamictext rcAgreement (
+            Content: '{1}',
+            ContentParams: [{1} = ClientMonthSummary_Client/RateAgreement],
+            Class: 'vdh-w-fill vdh-fg-ox'
+          )
+          dynamictext rcHours (Attribute: HoursLabel, Class: 'vdh-w-80 vdh-right vdh-num')
+          container rcMixCell (Class: 'vdh-w-170') {
+            container rcMix (Class: 'vdh-mix') {
+              container rcMixA (Class: 'vdh-seg--ink', DynamicClasses: '''vdh-w-b'' + toString(round($currentObject/MixPartnerPct div 5))') { dynamictext rcMixAText (Content: ' ') }
+              container rcMixB (Class: 'vdh-seg--teal', DynamicClasses: '''vdh-w-b'' + toString(round($currentObject/MixSeniorPct div 5))') { dynamictext rcMixBText (Content: ' ') }
+              container rcMixC (Class: 'vdh-seg--ox', DynamicClasses: '''vdh-w-b'' + toString(round($currentObject/MixAssociatePct div 5))') { dynamictext rcMixCText (Content: ' ') }
+              container rcMixD (Class: 'vdh-seg--grey', DynamicClasses: '''vdh-w-b'' + toString(round($currentObject/MixSupportPct div 5))') { dynamictext rcMixDText (Content: ' ') }
+            }
+          }
+          dynamictext rcStd (Attribute: StandardLabel, Class: 'vdh-w-120 vdh-right vdh-num')
+          dynamictext rcBilled (Attribute: BilledLabel, Class: 'vdh-w-120 vdh-right vdh-num')
+          dynamictext rcReal (
+            Content: '{1}',
+            ContentParams: [{1} = RealisationLabel],
+            Class: 'vdh-w-96 vdh-right vdh-num',
+            DynamicClasses: 'if $currentObject/RealisationPct >= 92 then ''vdh-fg-green'' else if $currentObject/RealisationPct >= 88 then '''' else ''vdh-fg-ox'''
+          )
+          dynamictext rcAvg (Attribute: AvgRateLabel, Class: 'vdh-w-88 vdh-right vdh-num')
+        }
+      }
+
+      container rcFoot (Class: 'vdh-tfoot') {
+        dynamictext rcFootLabel (Content: '7 clients · 34 matters', Class: 'vdh-w-fill')
+        dynamictext rcFootTotals (Content: '3.614 billable h · standard € 1.148.900 · billed € 1.058.240 · realisation 92,1%', Class: 'vdh-num')
+      }
+
+      layoutgrid rcPanels (Class: 'vdh-cols vdh-mt-l') {
+        row rcPanelRow {
+          column rcColConc (DesktopWidth: 6) {
+            container rcConcPanel (Class: 'vdh-panel') {
+              dynamictext rcConcTitle (Content: 'Client concentration · billed value', Class: 'vdh-panel-title')
+              container rcConcBody (Class: 'vdh-body') {
+                listview rcConc (
+                  DataSource: microflow "TimeReg"."DS_PeriodClients",
+                  Class: 'vdh-chart'
+                ) {
+                  container rcConcCol (Class: 'vdh-chart-col') {
+                    dynamictext rcConcPct (Content: '{1}%', ContentParams: [{1} = ConcentrationPct], Class: 'vdh-chart-cap')
+                    container rcConcBar (
+                      Class: 'vdh-chart-bar',
+                      DynamicClasses: '''vdh-h-b'' + toString($currentObject/ConcentrationBucket) + (if $currentObject/ConcentrationPct >= 20 then '' vdh-chart-bar--ink'' else if $currentObject/ConcentrationPct >= 15 then '' vdh-chart-bar--teal'' else '' vdh-chart-bar--grey'')'
+                    ) { dynamictext rcConcBarText (Content: ' ') }
+                    dynamictext rcConcName (
+                      Content: '{1}',
+                      ContentParams: [{1} = ClientMonthSummary_Client/ShortName],
+                      Class: 'vdh-chart-foot'
+                    )
+                  }
+                }
+              }
+            }
+          }
+          column rcColDist (DesktopWidth: 6) {
+            container rcDistPanel (Class: 'vdh-panel') {
+              dynamictext rcDistTitle (Content: 'Report distribution', Class: 'vdh-panel-title')
+              listview rcDist (
+                DataSource: microflow "TimeReg"."DS_PeriodReports",
+                Class: 'vdh-table'
+              ) {
+                container rcDistRow (Class: 'vdh-trow') {
+                  container rcDistWhat (Class: 'vdh-w-fill') {
+                    dynamictext rcDistName (Attribute: Title, Class: 'vdh-cell-title')
+                    dynamictext rcDistMeta (Attribute: Detail, Class: 'vdh-cell-sub')
+                  }
+                  dynamictext rcDistStatus (
+                    Attribute: StatusLabel,
+                    Class: 'vdh-chip',
+                    DynamicClasses: 'if $currentObject/Status = TimeReg.ENUM_ReportStatus.Sent then ''vdh-chip--ok'' else if $currentObject/Status = TimeReg.ENUM_ReportStatus.Held then ''vdh-chip--warn'' else if $currentObject/Status = TimeReg.ENUM_ReportStatus.Blocked then ''vdh-chip--danger'' else ''vdh-chip--neutral'''
+                  )
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+/
+
+/**
+ * Report · per matter — the drill-down on Project Aurora.
+ */
+create or replace page "TimeReg"."ReportMatter" (
+  Title: 'Report · per matter',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'report-matter',
+  Folder: 'Reports'
+)
+{
+  container rmPage (Class: 'vdh-page') {
+
+    container rmTop (Class: 'vdh-topbar') {
+      dynamictext rmTitle (Content: 'Report · per matter', Class: 'vdh-topbar-title')
+      dynamictext rmSub (Content: 'M-2214 Project Aurora', Class: 'vdh-topbar-sub')
+      container rmSpacer (Class: 'vdh-topbar-spacer') { dynamictext rmSpacerText (Content: ' ') }
+      -- Period selector. Every figure below reads the same selection.
+      dataview rmNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton rmPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_ReportMatterPrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rmPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton rmNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_ReportMatterNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rmPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
+      actionbutton rmLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container rmBody (Class: 'vdh-body') {
+
+      -- Matter header --------------------------------------------------------
+      dataview rmMatter (DataSource: microflow "TimeReg"."DS_FocusMatter") {
+        container rmHeadPanel (Class: 'vdh-panel') {
+          container rmHeadBody (Class: 'vdh-body') {
+            container rmHeadRow (Class: 'vdh-row vdh-row--top') {
+              container rmHeadLeft (Class: 'vdh-w-fill') {
+                dynamictext rmCode (
+                  Content: '{1} · {2}',
+                  ContentParams: [{1} = Code, {2} = Matter_Client/Name],
+                  Class: 'vdh-caption'
+                )
+                dynamictext rmName (Attribute: Name, Class: 'vdh-h1')
+                dynamictext rmMeta (
+                  Content: 'Responsible partner {1} · {2} · fixed fee cap € 425.000',
+                  ContentParams: [{1} = Matter_ResponsiblePartner/ShortName, {2} = Practice],
+                  Class: 'vdh-caption vdh-fg-ox'
+                )
+              }
+              container rmStat1 (Class: 'vdh-w-120 vdh-col') {
+                dynamictext rmStat1Label (Content: 'Budget', Class: 'vdh-kpi-label')
+                dynamictext rmStat1Value (Attribute: BudgetLabel, Class: 'vdh-num--mid')
+              }
+              container rmStat2 (Class: 'vdh-w-120 vdh-col') {
+                dynamictext rmStat2Label (Content: 'Used', Class: 'vdh-kpi-label')
+                dynamictext rmStat2Value (Attribute: UsedLabel, Class: 'vdh-num--mid vdh-fg-ox')
+              }
+              container rmStat3 (Class: 'vdh-w-120 vdh-col') {
+                dynamictext rmStat3Label (Content: 'Fee cap used', Class: 'vdh-kpi-label')
+                dynamictext rmStat3Value (Content: '{1}%', ContentParams: [{1} = BudgetPct], Class: 'vdh-num--mid vdh-fg-ox')
+              }
+            }
+            container rmHeadMeter (Class: 'vdh-meter vdh-mt-l') {
+              container rmHeadFill (Class: 'vdh-meter-fill vdh-meter-fill--ink vdh-w-b18') {
+                dynamictext rmHeadFillText (Content: ' ')
+              }
+            }
+            container rmLegend (Class: 'vdh-row') {
+              dynamictext rmLeg1 (Content: 'Partner 44%', Class: 'vdh-caption')
+              dynamictext rmLeg2 (Content: 'Senior 28%', Class: 'vdh-caption vdh-fg-teal')
+              dynamictext rmLeg3 (Content: 'Associate 17,5%', Class: 'vdh-caption vdh-fg-ox')
+              dynamictext rmLeg4 (Content: 'Support 10,5%', Class: 'vdh-caption vdh-fg-faint')
+            }
+          }
+        }
+      }
+
+      layoutgrid rmCols (Class: 'vdh-cols vdh-mt-l') {
+        row rmRow {
+
+          column rmColTasks (DesktopWidth: 7) {
+            container rmTaskPanel (Class: 'vdh-panel') {
+              dynamictext rmTaskTitle (Content: 'Hours & value by task code', Class: 'vdh-panel-title')
+              container rmTaskHead (Class: 'vdh-thead') {
+                dynamictext rmthTask (Content: 'Task', Class: 'vdh-w-fill')
+                dynamictext rmthPartner (Content: 'Partner', Class: 'vdh-w-72 vdh-right')
+                dynamictext rmthSenior (Content: 'Senior', Class: 'vdh-w-72 vdh-right')
+                dynamictext rmthAssoc (Content: 'Assoc.', Class: 'vdh-w-72 vdh-right')
+                dynamictext rmthSupport (Content: 'Support', Class: 'vdh-w-72 vdh-right')
+                dynamictext rmthHours (Content: 'Hours', Class: 'vdh-w-80 vdh-right')
+                dynamictext rmthValue (Content: 'Value', Class: 'vdh-w-104 vdh-right')
+              }
+              listview rmTasks (DataSource: microflow "TimeReg"."DS_MatterTasks", Class: 'vdh-table') {
+                container rmTaskRow (Class: 'vdh-trow') {
+                  container rmTaskName (Class: 'vdh-w-fill') {
+                    dynamictext rmTaskLabel (
+                      Content: '{1}',
+                      ContentParams: [{1} = MatterTaskSummary_TaskCode/Name],
+                      Class: 'vdh-cell-title'
+                    )
+                    dynamictext rmTaskCode (
+                      Content: '{1}',
+                      ContentParams: [{1} = MatterTaskSummary_TaskCode/Code],
+                      Class: 'vdh-cell-sub'
+                    )
+                  }
+                  dynamictext rmTaskP (Attribute: PartnerLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+                  dynamictext rmTaskS (Attribute: SeniorLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+                  dynamictext rmTaskA (Attribute: AssociateLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+                  dynamictext rmTaskU (Attribute: SupportLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+                  dynamictext rmTaskH (Attribute: HoursLabel, Class: 'vdh-w-80 vdh-right vdh-num vdh-strong')
+                  dynamictext rmTaskV (Attribute: ValueLabel, Class: 'vdh-w-104 vdh-right vdh-num')
+                }
+              }
+              container rmTaskFoot (Class: 'vdh-tfoot') {
+                dynamictext rmTaskFootLabel (Content: 'Total July', Class: 'vdh-w-fill')
+                dynamictext rmTaskFootValue (Content: '318,5 h · € 96.140', Class: 'vdh-num')
+              }
+            }
+          }
+
+          column rmColSide (DesktopWidth: 5) {
+            container rmTeamPanel (Class: 'vdh-panel') {
+              dynamictext rmTeamTitle (Content: 'Team on this matter', Class: 'vdh-panel-title')
+              listview rmTeam (DataSource: microflow "TimeReg"."DS_MatterTeam", Class: 'vdh-table') {
+                container rmTeamRow (Class: 'vdh-trow') {
+                  dynamictext rmTeamAvatar (
+                    Content: '{1}',
+                    ContentParams: [{1} = MatterTeamMember_Employee/Initials],
+                    Class: 'vdh-avatar'
+                  )
+                  container rmTeamWho (Class: 'vdh-w-fill') {
+                    dynamictext rmTeamName (
+                      Content: '{1}',
+                      ContentParams: [{1} = MatterTeamMember_Employee/FullName],
+                      Class: 'vdh-cell-title'
+                    )
+                    dynamictext rmTeamRole (
+                      Content: '{1}',
+                      ContentParams: [{1} = MatterTeamMember_Employee/Employee_Role/Name],
+                      Class: 'vdh-cell-sub'
+                    )
+                  }
+                  container rmTeamNums (Class: 'vdh-w-104 vdh-col vdh-right') {
+                    dynamictext rmTeamHours (Attribute: HoursLabel, Class: 'vdh-num')
+                    dynamictext rmTeamValue (Attribute: ValueLabel, Class: 'vdh-caption')
+                  }
+                }
+              }
+            }
+
+            container rmBurnPanel (Class: 'vdh-panel vdh-mt-l') {
+              dynamictext rmBurnTitle (Content: 'Burn vs budget', Class: 'vdh-panel-title')
+              container rmBurnBody (Class: 'vdh-body') {
+                listview rmBurn (DataSource: microflow "TimeReg"."DS_MatterBurn", Class: 'vdh-chart') {
+                  container rmBurnCol (Class: 'vdh-chart-col') {
+                    container rmBurnBar (
+                      Class: 'vdh-chart-bar',
+                      DynamicClasses: '''vdh-h-b'' + toString($currentObject/HeightBucket) + (if $currentObject/IsOver then '' vdh-chart-bar--ox'' else if $currentObject/IsWarning then '' vdh-chart-bar--amber'' else '' vdh-chart-bar--teal'')'
+                    ) { dynamictext rmBurnBarText (Content: ' ') }
+                    dynamictext rmBurnLabel (Attribute: Label, Class: 'vdh-chart-foot')
+                  }
+                }
+                dynamictext rmBurnNote (
+                  Content: 'At the current burn rate the fee cap is reached in 3,1 weeks. Partner review recommended before further associate staffing.',
+                  Class: 'vdh-note vdh-mt-l'
+                )
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+/
+
+/**
+ * Report · per manager & employee — utilisation, value and margin per person.
+ */
+create or replace page "TimeReg"."ReportPeople" (
+  Title: 'Report · per manager & employee',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'report-people',
+  Folder: 'Reports'
+)
+{
+  container rpPage (Class: 'vdh-page') {
+
+    container rpTop (Class: 'vdh-topbar') {
+      dynamictext rpTitle (Content: 'Report · per manager & employee', Class: 'vdh-topbar-title')
+      dynamictext rpSub (Content: 'Utilisation, value and margin', Class: 'vdh-topbar-sub')
+      container rpSpacer (Class: 'vdh-topbar-spacer') { dynamictext rpSpacerText (Content: ' ') }
+      -- Period selector. Every figure below reads the same selection.
+      dataview rpNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton rpPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_ReportPeoplePrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rpPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton rpNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_ReportPeopleNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rpPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
+      actionbutton rpLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container rpBody (Class: 'vdh-body') {
+
+      container rpBar (Class: 'vdh-row') {
+                dynamictext rpFilter2 (Content: 'Group by: supervising partner', Class: 'btn vdh-btn')
+        container rpBarSpacer (Class: 'vdh-spacer') { dynamictext rpBarSpacerText (Content: ' ') }
+        dynamictext rpTargets (Content: 'Target utilisation 78% · firm average 74,6%', Class: 'vdh-caption')
+      }
+
+      container rpHead (Class: 'vdh-thead vdh-mt-l') {
+        dynamictext rphName (Content: 'Employee', Class: 'vdh-w-fill')
+        dynamictext rphRole (Content: 'Role', Class: 'vdh-w-150')
+        dynamictext rphCost (Content: 'Cost rate', Class: 'vdh-w-88 vdh-right')
+        dynamictext rphRecorded (Content: 'Recorded', Class: 'vdh-w-88 vdh-right')
+        dynamictext rphBillable (Content: 'Billable', Class: 'vdh-w-88 vdh-right')
+        dynamictext rphUtil (Content: 'Utilisation vs target', Class: 'vdh-w-180')
+        dynamictext rphValue (Content: 'Value', Class: 'vdh-w-104 vdh-right')
+        dynamictext rphCostTotal (Content: 'Cost', Class: 'vdh-w-104 vdh-right')
+        dynamictext rphMargin (Content: 'Margin', Class: 'vdh-w-88 vdh-right')
+      }
+
+      listview rpList (
+        DataSource: microflow "TimeReg"."DS_PeriodEmployees",
+        Class: 'vdh-table'
+      ) {
+        container rpRow (Class: 'vdh-trow') {
+          dynamictext rpName (
+            Content: '{1}',
+            ContentParams: [{1} = EmployeeMonthSummary_Employee/FullName],
+            Class: 'vdh-w-fill vdh-cell-title'
+          )
+          dynamictext rpRole (
+            Content: '{1}',
+            ContentParams: [{1} = EmployeeMonthSummary_Employee/Employee_Role/Name],
+            Class: 'vdh-w-150 vdh-fg-ox'
+          )
+          dynamictext rpCost (Attribute: CostRateLabel, Class: 'vdh-w-88 vdh-right vdh-num')
+          dynamictext rpRecorded (Attribute: RecordedLabel, Class: 'vdh-w-88 vdh-right vdh-num')
+          dynamictext rpBillable (Attribute: BillableLabel, Class: 'vdh-w-88 vdh-right vdh-num')
+          container rpUtilCell (Class: 'vdh-w-180 vdh-row') {
+            container rpUtilMeter (Class: 'vdh-meter vdh-w-128') {
+              container rpUtilFill (
+                Class: 'vdh-meter-fill',
+                DynamicClasses: '''vdh-w-b'' + toString($currentObject/UtilisationBucket) + (if $currentObject/UtilisationPct >= 85 then '' vdh-meter-fill--green'' else if $currentObject/UtilisationPct >= 75 then '' vdh-meter-fill--amber'' else '' vdh-meter-fill--ox'')'
+              ) { dynamictext rpUtilFillText (Content: ' ') }
+            }
+            dynamictext rpUtilPct (Content: '{1}%', ContentParams: [{1} = UtilisationPct], Class: 'vdh-w-40 vdh-right vdh-caption')
+          }
+          dynamictext rpValue (Attribute: ValueLabel, Class: 'vdh-w-104 vdh-right vdh-num')
+          dynamictext rpCostTotal (Attribute: CostLabel, Class: 'vdh-w-104 vdh-right vdh-num')
+          dynamictext rpMargin (
+            Content: '{1}',
+            ContentParams: [{1} = MarginLabel],
+            Class: 'vdh-w-88 vdh-right vdh-num',
+            DynamicClasses: 'if $currentObject/MarginPct >= 60 then ''vdh-fg-green'' else if $currentObject/MarginPct >= 52 then '''' else ''vdh-fg-ox'''
+          )
+        }
+      }
+
+      container rpFoot (Class: 'vdh-tfoot') {
+        dynamictext rpFootLabel (Content: 'Team of J. Haverkamp · 9 fee earners', Class: 'vdh-w-fill')
+        dynamictext rpFootTotals (Content: '1.402 h · € 421.600 value · € 168.240 cost · margin 60,1%', Class: 'vdh-num')
+      }
+
+      layoutgrid rpPanels (Class: 'vdh-cols vdh-mt-l') {
+        row rpPanelRow {
+          column rpColDist (DesktopWidth: 4) {
+            container rpDistPanel (Class: 'vdh-panel') {
+              dynamictext rpDistTitle (Content: 'Utilisation distribution', Class: 'vdh-panel-title')
+              container rpDistBody (Class: 'vdh-body') {
+                listview rpDist (
+                  DataSource: microflow "TimeReg"."DS_PeriodUtilisation",
+                  Class: 'vdh-chart vdh-chart--short'
+                ) {
+                  container rpDistCol (Class: 'vdh-chart-col') {
+                    container rpDistBar (
+                      Class: 'vdh-chart-bar',
+                      DynamicClasses: '''vdh-h-b'' + toString($currentObject/HeightBucket) + (if $currentObject/IsTarget then '' vdh-chart-bar--ink'' else '' vdh-chart-bar--grey'')'
+                    ) { dynamictext rpDistBarText (Content: ' ') }
+                    dynamictext rpDistLabel (Attribute: Label, Class: 'vdh-chart-foot')
+                  }
+                }
+              }
+            }
+          }
+          column rpColTime (DesktopWidth: 4) {
+            container rpTimePanel (Class: 'vdh-panel') {
+              dynamictext rpTimeTitle (Content: 'Timeliness of recording', Class: 'vdh-panel-title')
+              listview rpTime (
+                DataSource: microflow "TimeReg"."DS_PeriodTimeliness",
+                Class: 'vdh-table'
+              ) {
+                container rpTimeRow (Class: 'vdh-trow') {
+                  dynamictext rpTimeLabel (Attribute: Label, Class: 'vdh-w-96 vdh-note')
+                  container rpTimeBand (Class: 'vdh-band vdh-w-fill', DynamicClasses: '$currentObject/SeverityClass') {
+                    container rpTimeFill (
+                      Class: 'vdh-band-fill',
+                      DynamicClasses: '''vdh-w-b'' + toString($currentObject/Bucket)'
+                    ) { dynamictext rpTimeFillText (Content: ' ') }
+                  }
+                  dynamictext rpTimePct (Content: '{1}%', ContentParams: [{1} = Pct], Class: 'vdh-w-56 vdh-right vdh-num')
+                }
+              }
+              container rpTimeFoot (Class: 'vdh-body') {
+                dynamictext rpTimeNote (
+                  Content: 'Entries recorded more than 5 days late require a written reason.',
+                  Class: 'vdh-caption'
+                )
+              }
+            }
+          }
+          column rpColSet (DesktopWidth: 4) {
+            container rpSetPanel (Class: 'vdh-panel vdh-panel--sunk') {
+              dynamictext rpSetTitle (Content: 'Monthly report set · ready to send', Class: 'vdh-panel-title')
+              container rpSetBody (Class: 'vdh-body') {
+                container rpSet1 (Class: 'vdh-row') {
+                  dynamictext rpSet1Label (Content: 'Per customer (7)', Class: 'vdh-w-fill vdh-note')
+                  dynamictext rpSet1Link (Content: 'Preview', Class: 'vdh-fg-ox')
+                }
+                container rpSet2 (Class: 'vdh-row') {
+                  dynamictext rpSet2Label (Content: 'Per matter (34)', Class: 'vdh-w-fill vdh-note')
+                  dynamictext rpSet2Link (Content: 'Preview', Class: 'vdh-fg-ox')
+                }
+                container rpSet3 (Class: 'vdh-row') {
+                  dynamictext rpSet3Label (Content: 'Per supervising partner (6)', Class: 'vdh-w-fill vdh-note')
+                  dynamictext rpSet3Link (Content: 'Preview', Class: 'vdh-fg-ox')
+                }
+                container rpSet4 (Class: 'vdh-row') {
+                  dynamictext rpSet4Label (Content: 'Per employee (48)', Class: 'vdh-w-fill vdh-note')
+                  dynamictext rpSet4Link (Content: 'Preview', Class: 'vdh-fg-ox')
+                }
+                dynamictext rpSetBtn (Content: 'Generate July report set', Class: 'btn vdh-btn vdh-btn--ink vdh-mt-l')
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+/
+
+/**
+ * Rate card & role cost — the standard card and every negotiated client rate.
+ */
+create or replace page "TimeReg"."RateCard" (
+  Title: 'Rate card & role cost',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'rate-card',
+  Folder: 'Administration'
+)
+{
+  container rkPage (Class: 'vdh-page') {
+
+    container rkTop (Class: 'vdh-topbar') {
+      dynamictext rkTitle (Content: 'Rate card & role cost', Class: 'vdh-topbar-title')
+      dynamictext rkSub (Content: 'Version 2026.1', Class: 'vdh-topbar-sub')
+      container rkSpacer (Class: 'vdh-topbar-spacer') { dynamictext rkSpacerText (Content: ' ') }
+      -- Period selector. The negotiated matrix below is the agreement in
+      -- force in the month shown here, not today's.
+      dataview rkNav (DataSource: microflow "TimeReg"."DS_SelectedPeriod", Class: 'vdh-periodnav') {
+        actionbutton rkPrev (
+          Caption: '‹',
+          Action: microflow "TimeReg"."ACT_RateCardPrev"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rkPeriodName (Attribute: Name, Class: 'vdh-mono vdh-strong')
+        actionbutton rkNext (
+          Caption: '›',
+          Action: microflow "TimeReg"."ACT_RateCardNext"("Period": $currentObject),
+          Class: 'vdh-weeknav'
+        )
+        dynamictext rkPeriodStatus (Attribute: Status, Class: 'vdh-period')
+      }
+      actionbutton rkLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container rkBody (Class: 'vdh-body') {
+
+      container rkBar (Class: 'vdh-row') {
+        container rkSegWrap (Class: 'vdh-seg') {
+          dynamictext rkSeg1 (Content: 'Standard rate card', Class: 'btn vdh-seg--on')
+          dynamictext rkSeg2 (Content: 'Client agreements 12', Class: 'btn')
+          dynamictext rkSeg3 (Content: 'Cost rates', Class: 'btn')
+          dynamictext rkSeg4 (Content: 'History', Class: 'btn')
+        }
+        container rkBarSpacer (Class: 'vdh-spacer') { dynamictext rkBarSpacerText (Content: ' ') }
+        dataview rkCaption (DataSource: microflow "TimeReg"."DS_RateCardCaption") {
+          dynamictext rkEffective (Attribute: Label, Class: 'vdh-caption')
+        }
+        dynamictext rkNew (Content: 'New rate version', Class: 'btn vdh-btn vdh-btn--ox')
+      }
+
+      container rkHead (Class: 'vdh-thead vdh-mt-l') {
+        dynamictext rkhRole (Content: 'Role', Class: 'vdh-w-fill')
+        dynamictext rkhStd (Content: 'Standard', Class: 'vdh-w-104 vdh-right')
+        dynamictext rkhCost (Content: 'Cost rate', Class: 'vdh-w-104 vdh-right')
+        dynamictext rkhC1 (Content: 'ABN Delta', Class: 'vdh-w-120 vdh-right')
+        dynamictext rkhC2 (Content: 'Rijnmond', Class: 'vdh-w-120 vdh-right')
+        dynamictext rkhC3 (Content: 'Kessler', Class: 'vdh-w-120 vdh-right')
+        dynamictext rkhC4 (Content: 'Nieuw A.', Class: 'vdh-w-120 vdh-right')
+        dynamictext rkhC5 (Content: 'Bergland', Class: 'vdh-w-120 vdh-right')
+      }
+
+      listview rkList (DataSource: microflow "TimeReg"."DS_RateRows", Class: 'vdh-table') {
+        container rkRow (Class: 'vdh-trow') {
+          container rkRole (Class: 'vdh-w-fill') {
+            dynamictext rkRoleName (Attribute: RoleName, Class: 'vdh-cell-title')
+            dynamictext rkRoleSub (Attribute: RoleSub, Class: 'vdh-cell-sub')
+          }
+          dynamictext rkStd (Attribute: StandardRate, Class: 'vdh-w-104 vdh-right vdh-num vdh-strong')
+          dynamictext rkCost (Attribute: CostRate, Class: 'vdh-w-104 vdh-right vdh-num vdh-fg-muted')
+          dynamictext rkC1 (Attribute: "V1", Class: 'vdh-w-120 vdh-right vdh-num', DynamicClasses: '$currentObject/K1')
+          dynamictext rkC2 (Attribute: "V2", Class: 'vdh-w-120 vdh-right vdh-num', DynamicClasses: '$currentObject/K2')
+          dynamictext rkC3 (Attribute: "V3", Class: 'vdh-w-120 vdh-right vdh-num', DynamicClasses: '$currentObject/K3')
+          dynamictext rkC4 (Attribute: "V4", Class: 'vdh-w-120 vdh-right vdh-num', DynamicClasses: '$currentObject/K4')
+          dynamictext rkC5 (Attribute: "V5", Class: 'vdh-w-120 vdh-right vdh-num', DynamicClasses: '$currentObject/K5')
+        }
+      }
+
+      layoutgrid rkPanels (Class: 'vdh-cols vdh-mt-l') {
+        row rkPanelRow {
+          column rkColLegend (DesktopWidth: 6) {
+            container rkLegendPanel (Class: 'vdh-panel') {
+              dynamictext rkLegendTitle (Content: 'Legend & rules', Class: 'vdh-panel-title')
+              container rkLegendBody (Class: 'vdh-body') {
+                container rkLg1 (Class: 'vdh-row') {
+                  container rkLg1Sw (Class: 'vdh-swatch vdh-rate--std') { dynamictext rkLg1SwText (Content: ' ') }
+                  dynamictext rkLg1Text (Content: 'Standard rate applies', Class: 'vdh-note')
+                }
+                container rkLg2 (Class: 'vdh-row') {
+                  container rkLg2Sw (Class: 'vdh-swatch vdh-rate--neg') { dynamictext rkLg2SwText (Content: ' ') }
+                  dynamictext rkLg2Text (Content: 'Negotiated client rate (overrides standard)', Class: 'vdh-note')
+                }
+                container rkLg3 (Class: 'vdh-row') {
+                  container rkLg3Sw (Class: 'vdh-swatch vdh-rate--below') { dynamictext rkLg3SwText (Content: ' ') }
+                  dynamictext rkLg3Text (Content: 'Below cost + 40% floor — partner approval required', Class: 'vdh-note')
+                }
+                container rkLg4 (Class: 'vdh-row') {
+                  container rkLg4Sw (Class: 'vdh-swatch vdh-rate--none') { dynamictext rkLg4SwText (Content: ' ') }
+                  dynamictext rkLg4Text (Content: 'Role not staffed for this client', Class: 'vdh-note')
+                }
+              }
+            }
+          }
+          column rkColLog (DesktopWidth: 6) {
+            container rkLogPanel (Class: 'vdh-panel') {
+              dynamictext rkLogTitle (Content: 'Change log', Class: 'vdh-panel-title')
+              listview rkLog (
+                DataSource: microflow "TimeReg"."DS_PeriodRateChanges",
+                Class: 'vdh-table'
+              ) {
+                container rkLogRow (Class: 'vdh-trow vdh-row--top') {
+                  dynamictext rkLogDate (Attribute: DateLabel, Class: 'vdh-w-104 vdh-caption')
+                  dynamictext rkLogText (Attribute: Description, Class: 'vdh-w-fill vdh-note')
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

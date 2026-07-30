@@ -1,0 +1,94 @@
+/**
+ * TimeRegistration — security model, part 3: page and microflow access
+ *
+ * Menu items disappear on their own when a role cannot open the page, so this
+ * is also what shapes each role's navigation: a fee earner sees three items, a
+ * partner eight, practice management all nine.
+ */
+
+-- ---------------------------------------------------------------------------
+-- Pages
+-- ---------------------------------------------------------------------------
+grant view on page "TimeReg"."MyMatters"      to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant view on page "TimeReg"."WeekTimesheet"  to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant view on page "TimeReg"."NewEntry"       to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+-- Approving and the month close are management screens.
+grant view on page "TimeReg"."Approvals"      to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant view on page "TimeReg"."MonthlyRollup"  to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant view on page "TimeReg"."ReportCustomer" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant view on page "TimeReg"."ReportMatter"   to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant view on page "TimeReg"."ReportPeople"   to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+-- The rate card is practice management's.
+grant view on page "TimeReg"."RateCard"       to "TimeReg"."Administrator";
+/
+
+-- ---------------------------------------------------------------------------
+-- Datasource microflows
+-- ---------------------------------------------------------------------------
+grant execute on microflow "TimeReg"."DS_CurrentEmployee"   to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_CurrentTimesheet"  to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_CurrentPeriod"     to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_WeekRows"          to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_WeekTotals"        to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_MyMatters"         to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_MyNotices"         to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_NewTimeEntry"      to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_EntriesToday"      to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_ResolveRate"       to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+grant execute on microflow "TimeReg"."DS_CurrentPeriodStat" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_TeamWeek"          to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_TopMatters"        to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_FocusMatter"       to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_MatterTasks"       to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_MatterTeam"        to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_MatterBurn"        to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_RateRows"          to "TimeReg"."Administrator";
+/
+
+-- ---------------------------------------------------------------------------
+-- Actions
+-- ---------------------------------------------------------------------------
+grant execute on microflow "TimeReg"."ACT_SaveTimeEntry"        to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_RecalculateTimesheet" to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_SubmitWeek"           to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+-- Only a partner signs a week off or sends it back.
+grant execute on microflow "TimeReg"."ACT_ApproveWeek" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_ReturnWeek"  to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+-- Closing the period is practice management's.
+grant execute on microflow "TimeReg"."ACT_LockPeriod"  to "TimeReg"."Administrator";
+/

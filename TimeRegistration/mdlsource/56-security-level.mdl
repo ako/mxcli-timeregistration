@@ -1,0 +1,12 @@
+/**
+ * Turn security on.
+ *
+ * Production level enforces the access rules on every read and write. The
+ * platform's demo users are switched off — the app seeds real accounts for the
+ * nine fee earners plus a practice-management account, so signing in as
+ * somebody is the same thing as being them.
+ */
+alter project security level production;
+/
+alter project security demo users off;
+/

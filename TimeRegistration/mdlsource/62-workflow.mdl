@@ -1,0 +1,44 @@
+/**
+ * Weekly timesheet approval.
+ *
+ * The process a submitted week goes through. Replacing the status-enumeration
+ * version with a workflow buys three things the enumeration could not give:
+ * a task assigned to a named person, a due date the engine tracks, and a
+ * history of who decided what and when, kept by the platform.
+ *
+ * The outcome branches call the same microflows the buttons used to call, so
+ * Timesheet.Status stays the value the grid and the reports read. The decision
+ * lives in the workflow: WF_ApproveTask's buttons only claim the task and set
+ * its outcome, and the branch below is what does the work.
+ *
+ * The week is recalculated by ACT_SubmitWeek immediately before the workflow
+ * starts, so there is deliberately no recalculation step here: a second pass
+ * would recompute the seeded weeks whose entry detail is outside the demo
+ * dataset and zero their totals.
+ *
+ * Every `call microflow` names its parameter explicitly. An unmapped parameter
+ * used to be invisible to both checkers; `mxcli check --references` now catches
+ * it (finding 40), but the mapping is written out regardless.
+ */
+create or replace workflow "TimeReg"."TimesheetApproval"
+  parameter $Context: "TimeReg"."Timesheet"
+  due date 'addDays([%CurrentDateTime%], 3)'
+begin
+
+  user task Review 'Approve week timesheet'
+    page "TimeReg"."WF_ApproveTask"
+    targeting microflow "TimeReg"."ACT_WF_Approvers"
+    due date 'addDays([%CurrentDateTime%], 3)'
+    description 'Review the recorded hours, the billable ratio and any flags, then approve the week or return it to the fee earner.'
+    outcomes
+      'Approve' {
+        call microflow TimeReg.ACT_ApproveWeek
+          with (Timesheet = '$workflowContext');
+      }
+      'Return' {
+        call microflow TimeReg.ACT_ReturnWeek
+          with (Timesheet = '$workflowContext');
+      };
+
+end workflow;
+/

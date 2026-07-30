@@ -1,0 +1,55 @@
+/**
+ * TimeRegistration — multi-week support, part 1: the domain
+ *
+ * The Timesheet entity was always per week (Year, WeekNumber, WeekStart,
+ * WeekEnd); it was the screens that were pinned to week 30. Two things are
+ * missing to unpin them:
+ *
+ *   1. somewhere to remember which week a person is looking at, and
+ *   2. the week's own display labels, because a widget cannot format a date
+ *      into a column header.
+ */
+
+/**
+ * Which week a person is currently looking at.
+ *
+ * One row per employee, holding the Monday of the selected week. Persistent
+ * rather than session-scoped on purpose: a fee earner who steps out to the
+ * time-entry form and back should land in the week they were in, and so should
+ * they tomorrow morning.
+ */
+@Position(100, 860)
+create or modify persistent entity "TimeReg"."WeekSelection" (
+  /** The Monday of the selected week. Navigation only ever moves it by ±7 days, so it stays a Monday. */
+  WeekStart: DateTime
+);
+/
+
+create or modify association "TimeReg"."WeekSelection_Employee"
+from "TimeReg"."WeekSelection" to "TimeReg"."Employee"
+type reference;
+/
+
+/**
+ * Display labels for the week, written by ACT_RecalculateTimesheet.
+ *
+ * The seven day headers ("Mon 20", "Tue 21", …) were static text on the page
+ * when there was only ever one week. A Mendix widget cannot call formatDateTime,
+ * so the labels are computed once per recalculation and read as attributes.
+ */
+alter entity "TimeReg"."Timesheet" add attribute if not exists "WeekRangeLabel": string(48);
+/
+alter entity "TimeReg"."Timesheet" add attribute if not exists "DayLabel1": string(12);
+/
+alter entity "TimeReg"."Timesheet" add attribute if not exists "DayLabel2": string(12);
+/
+alter entity "TimeReg"."Timesheet" add attribute if not exists "DayLabel3": string(12);
+/
+alter entity "TimeReg"."Timesheet" add attribute if not exists "DayLabel4": string(12);
+/
+alter entity "TimeReg"."Timesheet" add attribute if not exists "DayLabel5": string(12);
+/
+alter entity "TimeReg"."Timesheet" add attribute if not exists "DayLabel6": string(12);
+/
+alter entity "TimeReg"."Timesheet" add attribute if not exists "DayLabel7": string(12);
+/

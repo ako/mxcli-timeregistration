@@ -1,0 +1,170 @@
+/**
+ * TimeRegistration — multi-week support, part 4: the buttons
+ *
+ * The ‹ › chips and "Copy last week" on the week screen were presentational.
+ * These are what they call now. Each ends by showing the week screen again,
+ * which is how a Mendix page re-runs its datasource.
+ */
+
+/**
+ * Moves back one week.
+ *
+ * @param $Timesheet the week currently on screen
+ * @returns true when the selection moved
+ */
+create or modify microflow "TimeReg"."ACT_WeekPrev" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  retrieve $employee from $Timesheet/"TimeReg"."Timesheet_Employee";
+
+  declare $target datetime = [%CurrentDateTime%];
+  set $target = addDays($Timesheet/WeekStart, -7);
+
+  $moved = call microflow "TimeReg"."ACT_SetSelectedWeek" ("Employee" = $employee, "WeekStart" = $target);
+  $opened = call microflow "TimeReg"."ACT_EnsureTimesheet" ("Employee" = $employee, "WeekStart" = $target);
+
+  show page "TimeReg"."WeekTimesheet";
+  return true;
+end;
+/
+
+/**
+ * Moves forward one week.
+ *
+ * @param $Timesheet the week currently on screen
+ * @returns true when the selection moved
+ */
+create or modify microflow "TimeReg"."ACT_WeekNext" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  retrieve $employee from $Timesheet/"TimeReg"."Timesheet_Employee";
+
+  declare $target datetime = [%CurrentDateTime%];
+  set $target = addDays($Timesheet/WeekStart, 7);
+
+  $moved = call microflow "TimeReg"."ACT_SetSelectedWeek" ("Employee" = $employee, "WeekStart" = $target);
+  $opened = call microflow "TimeReg"."ACT_EnsureTimesheet" ("Employee" = $employee, "WeekStart" = $target);
+
+  show page "TimeReg"."WeekTimesheet";
+  return true;
+end;
+/
+
+/**
+ * Copies last week's rows into this one.
+ *
+ * The rows, not the hours. A recurring engagement tends to come back week after
+ * week, and re-picking eight matter/task pairs from a combo box is the tedious
+ * part; the hours are the one thing nobody should be handed a default for. Each
+ * copied row arrives as a zero-hour entry dated the Monday, which is enough for
+ * the grid to show it and for the fee earner to type into.
+ *
+ * Pairs already present in the target week are skipped, so pressing the button
+ * twice is a no-op rather than a duplicate. A week that has been submitted or
+ * approved is left alone.
+ *
+ * @param $Timesheet the week being filled
+ * @returns true when rows were copied
+ */
+create or modify microflow "TimeReg"."ACT_CopyLastWeek" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  declare $copied integer = 0;
+
+  if $Timesheet = empty then
+    return false;
+  end if;
+
+  if $Timesheet/Status = "TimeReg"."ENUM_TimesheetStatus"."Submitted"
+     or $Timesheet/Status = "TimeReg"."ENUM_TimesheetStatus"."Approved" then
+    show page "TimeReg"."WeekTimesheet";
+    return false;
+  end if;
+
+  retrieve $employee from $Timesheet/"TimeReg"."Timesheet_Employee";
+
+  declare $previousStart datetime = [%CurrentDateTime%];
+  set $previousStart = addDays($Timesheet/WeekStart, -7);
+
+  retrieve $previous from "TimeReg"."Timesheet"
+    where ["TimeReg"."Timesheet_Employee" = $employee and "WeekStart" = $previousStart]
+    limit 1;
+
+  if $previous = empty then
+    show page "TimeReg"."WeekTimesheet";
+    return false;
+  end if;
+
+  $newEntries = create list of "TimeReg"."TimeEntry";
+
+  retrieve $matters from "TimeReg"."Matter" sort by TimeReg.Matter.Code asc;
+  retrieve $tasks from "TimeReg"."TaskCode" sort by TimeReg.TaskCode.SortOrder asc;
+
+  loop $matter in $matters
+  begin
+    loop $task in $tasks
+    begin
+      retrieve $source from "TimeReg"."TimeEntry"
+        where ["TimeReg"."TimeEntry_Timesheet" = $previous
+           and "TimeReg"."TimeEntry_Matter" = $matter
+           and "TimeReg"."TimeEntry_TaskCode" = $task]
+        limit 1;
+
+      if $source != empty then
+        retrieve $existing from "TimeReg"."TimeEntry"
+          where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
+             and "TimeReg"."TimeEntry_Matter" = $matter
+             and "TimeReg"."TimeEntry_TaskCode" = $task]
+          limit 1;
+
+        if $existing = empty then
+          -- The narrative is deliberately not copied: it is invoice text
+          -- describing what was done, and last week's is not this week's.
+          $entry = create "TimeReg"."TimeEntry" (
+            EntryDate = $Timesheet/WeekStart,
+            Hours = 0,
+            HoursLabel = '0.00',
+            Billability = $source/Billability,
+            IsOutOfHours = false,
+            Rate = 0,
+            AmountValue = 0,
+            RecordedOn = [%CurrentDateTime%],
+            DaysLate = 0,
+            "TimeReg"."TimeEntry_Employee" = $employee,
+            "TimeReg"."TimeEntry_Timesheet" = $Timesheet,
+            "TimeReg"."TimeEntry_Matter" = $matter,
+            "TimeReg"."TimeEntry_TaskCode" = $task);
+          add $entry to $newEntries;
+          set $copied = $copied + 1;
+        end if;
+      end if;
+    end loop;
+  end loop;
+
+  commit $newEntries;
+
+  if $copied > 0 then
+    $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $Timesheet);
+
+    $audit = create "TimeReg"."AuditEntry" (
+      EventTime = [%CurrentDateTime%],
+      EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+      Description = 'Rows copied from the previous week — ' + toString($copied) + ' matter/task rows, no hours',
+      SortOrder = 0,
+      "TimeReg"."AuditEntry_Timesheet" = $Timesheet);
+    commit $audit;
+  end if;
+
+  show page "TimeReg"."WeekTimesheet";
+  return true;
+end;
+/

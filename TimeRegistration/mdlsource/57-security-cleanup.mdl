@@ -1,0 +1,17 @@
+/**
+ * Retire the blank-project security defaults.
+ *
+ * "User" comes from the app template and carries no TimeReg module role, so
+ * under production security it can reach the home page without being able to
+ * read anything on it. FeeEarner / Partner / Administrator replace it, and the
+ * template's demo users go with it — the app seeds real accounts.
+ *
+ * The demo users are dropped first: a user role cannot be removed while a demo
+ * user still references it.
+ */
+drop demo user 'demo_user';
+/
+drop demo user 'demo_administrator';
+/
+drop user role User;
+/

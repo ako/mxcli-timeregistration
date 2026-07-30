@@ -1,0 +1,163 @@
+/**
+ * TimeRegistration — correcting time: editing and removing an entry
+ *
+ * Until now a time entry could be created and never touched again. The week
+ * screen showed a grid aggregated by matter and task, the entry form only ever
+ * opened blank, and nothing anywhere opened an entry that already existed. A
+ * typo in Monday's hours was permanent — which also made returning a week
+ * fairly pointless, since the fee earner could not act on the note.
+ *
+ * The grid stays as it is: it is a summary, one row per matter/task pair with
+ * seven day columns, and a cell can stand for more than one entry. Editing
+ * works on the entries themselves, listed beneath it.
+ */
+
+/**
+ * The individual entries behind the week grid, oldest first.
+ *
+ * @param $Timesheet the week being viewed
+ * @returns its entries, in date order
+ */
+create or modify microflow "TimeReg"."DS_WeekEntries" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns list of "TimeReg"."TimeEntry" as $entries
+folder 'Datasources'
+begin
+  retrieve $entries from "TimeReg"."TimeEntry"
+    where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet]
+    sort by TimeReg.TimeEntry.EntryDate asc;
+
+  -- The demo data creates entries directly rather than through
+  -- ACT_SaveTimeEntry, so the seeded rows arrive without their captions. Filling
+  -- them in here keeps the precomputed-label idiom the rest of the app uses
+  -- without a migration step: it converges on the first read and does nothing
+  -- after that.
+  -- formatDecimal and formatDateTime both throw on null rather than returning
+  -- an empty string, and a non-billable entry carries no value, so each figure
+  -- is defaulted before it is formatted.
+  declare $rate decimal = 0;
+  declare $value decimal = 0;
+  declare $recorded string = '';
+
+  loop $entry in $entries
+  begin
+    if trim($entry/EntryDateLabel) = '' then
+      set $rate = 0;
+      if $entry/Rate != empty then
+        set $rate = $entry/Rate;
+      end if;
+
+      set $value = 0;
+      if $entry/AmountValue != empty then
+        set $value = $entry/AmountValue;
+      end if;
+
+      set $recorded = '';
+      if $entry/RecordedOn != empty then
+        set $recorded = formatDateTime($entry/RecordedOn, 'd MMM HH:mm');
+      end if;
+
+      change $entry (
+        EntryDateLabel = formatDateTime($entry/EntryDate, 'EEE d MMM'),
+        RateLabel  = '€ ' + replaceAll(formatDecimal($rate, '#,##0'), ',', '.'),
+        ValueLabel = '€ ' + replaceAll(formatDecimal($value, '#,##0'), ',', '.'),
+        RecordedLabel = $recorded);
+      commit $entry;
+    end if;
+  end loop;
+
+  return $entries;
+end;
+/
+
+/**
+ * Removes an entry from the week.
+ *
+ * Guarded exactly as saving is: a week that has been submitted or approved, or
+ * a month the firm has closed, cannot be edited by deleting its way around the
+ * restriction. The audit trail keeps a line, because a removed entry is
+ * otherwise invisible — the grid simply has less in it than it did.
+ *
+ * @param $TimeEntry the entry being removed
+ * @returns true when the entry was deleted
+ */
+create or modify microflow "TimeReg"."ACT_DeleteTimeEntry" (
+  $TimeEntry: "TimeReg"."TimeEntry"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  $editable = call microflow "TimeReg"."VAL_EntryEditable" ("TimeEntry" = $TimeEntry);
+  if not($editable) then
+    return false;
+  end if;
+
+  retrieve $timesheet from $TimeEntry/"TimeReg"."TimeEntry_Timesheet";
+  retrieve $matter from $TimeEntry/"TimeReg"."TimeEntry_Matter";
+
+  -- Read before the delete: the object is gone by the time the line is written.
+  declare $what string = '';
+  set $what = 'Entry removed — ' + formatDecimal($TimeEntry/Hours, '###0.00') + ' h on '
+    + formatDateTime($TimeEntry/EntryDate, 'EEE d MMM');
+  if $matter != empty then
+    set $what = $what + ', ' + $matter/Name;
+  end if;
+
+  delete $TimeEntry;
+
+  if $timesheet != empty then
+    $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $timesheet);
+
+    $audit = create "TimeReg"."AuditEntry" (
+      EventTime = [%CurrentDateTime%],
+      EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+      Description = $what,
+      SortOrder = 0,
+      "TimeReg"."AuditEntry_Timesheet" = $timesheet);
+    commit $audit;
+  end if;
+
+  return true;
+end;
+/
+
+/**
+ * Saves an edited entry and goes back to the week.
+ *
+ * The save can be refused — a week submitted in another tab, a month closed
+ * while the form was open — and the page has to stay put when it is, or the
+ * correction is lost along with the warning explaining why. Hence a wrapper
+ * rather than a navigating button.
+ *
+ * @param $TimeEntry the entry being saved
+ */
+create or modify microflow "TimeReg"."ACT_SaveEntryEdit" (
+  $TimeEntry: "TimeReg"."TimeEntry"
+)
+folder 'Logic'
+begin
+  $saved = call microflow "TimeReg"."ACT_SaveTimeEntry" ("TimeEntry" = $TimeEntry);
+  if $saved then
+    show page "TimeReg"."WeekTimesheet";
+  end if;
+end;
+/
+
+/**
+ * Deletes an entry and goes back to the week.
+ *
+ * @param $TimeEntry the entry being removed
+ */
+create or modify microflow "TimeReg"."ACT_DeleteEntryEdit" (
+  $TimeEntry: "TimeReg"."TimeEntry"
+)
+folder 'Logic'
+begin
+  $deleted = call microflow "TimeReg"."ACT_DeleteTimeEntry" ("TimeEntry" = $TimeEntry);
+  if $deleted then
+    show page "TimeReg"."WeekTimesheet";
+  end if;
+end;
+/
+

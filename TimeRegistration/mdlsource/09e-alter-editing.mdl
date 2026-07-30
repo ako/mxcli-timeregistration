@@ -1,0 +1,37 @@
+/**
+ * Two attributes in service of correcting recorded time.
+ *
+ * The approval task's second button has always read "Return with note", and
+ * ACT_ReturnWeek has always written an audit line saying the week was returned
+ * with a note — but there was nowhere to put one and nothing captured one. The
+ * fee earner got a week back with no indication of what was wrong with it.
+ * ReturnNote is that note, stored on the week it concerns.
+ */
+ALTER ENTITY "TimeReg"."Timesheet" ADD ATTRIBUTE IF NOT EXISTS "ReturnNote": string(500);
+/
+
+/**
+ * A caption for the entry list on the week screen.
+ *
+ * The list shows one row per recorded entry, and every other list in this app
+ * renders its dates through a precomputed label rather than binding a Date
+ * attribute directly — the design's format ("Mon 20 Jul") is not one the client
+ * produces on its own.
+ */
+ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "EntryDateLabel": string(20);
+/
+
+/**
+ * And the same for the figures the edit form shows back.
+ *
+ * Rate and AmountValue are decimals, and bound directly they render as `287` and
+ * `717.5` where every other money figure in the app reads `€ 287` and `€ 718`.
+ * formatDecimal runs against the runtime's en_US locale, so the Dutch separators
+ * are swapped in when the label is built (as ACT_RecalculateTimesheet does).
+ */
+ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "RateLabel": string(20);
+/
+ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "ValueLabel": string(20);
+/
+ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "RecordedLabel": string(20);
+/

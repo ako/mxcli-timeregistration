@@ -1,0 +1,103 @@
+/**
+ * Opens the approval task for a week.
+ *
+ * The approval queue used to call ACT_ApproveWeek straight from the row, which
+ * meant a week could be approved without the workflow ever knowing. Now the row
+ * navigates to the task and the decision is taken there, so there is exactly one
+ * place a week can be approved.
+ *
+ * @param $Timesheet the week the partner clicked
+ */
+create or modify microflow "TimeReg"."ACT_OpenApprovalTask" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+folder 'Workflow'
+begin
+  retrieve $workflow from $Timesheet/"TimeReg"."Timesheet_Workflow";
+
+  if $workflow != empty then
+    retrieve $task from System.WorkflowUserTask
+      where [System.WorkflowUserTask_Workflow = $workflow and EndTime = empty]
+      limit 1;
+
+    if $task != empty then
+      show page "TimeReg"."WF_ApproveTask" ($Task = $task);
+    end if;
+  end if;
+end;
+/
+
+/**
+ * Seed — an approval workflow per submitted week.
+ *
+ * The two weeks the demo dataset submits are given a running workflow instance,
+ * so the partner's inbox has something in it on a fresh database instead of only
+ * after someone submits a week by hand. Weeks that are already approved, still
+ * draft or never submitted get nothing — they are not waiting on anyone.
+ *
+ * @returns true once every submitted week has a workflow
+ */
+create or modify microflow "TimeReg"."SED_Workflows" ()
+returns boolean as $ok
+folder 'Seed'
+begin
+  retrieve $submitted from "TimeReg"."Timesheet"
+    where [Status = 'Submitted']
+    sort by TimeReg.Timesheet.SubmittedOn asc;
+
+  loop $timesheet in $submitted
+  begin
+    retrieve $existing from $timesheet/"TimeReg"."Timesheet_Workflow";
+
+    if $existing = empty then
+      $workflow = call workflow "TimeReg"."TimesheetApproval" (Context = $timesheet);
+      change $timesheet ("TimeReg"."Timesheet_Workflow" = $workflow);
+      commit $timesheet;
+    end if;
+  end loop;
+
+  return true;
+end;
+/
+
+/**
+ * The queue row now opens the task instead of approving in place.
+ */
+alter page "TimeReg"."Approvals" {
+  replace apApprove with {
+    actionbutton apOpenTask (
+      Caption: 'Open task',
+      Action: microflow "TimeReg"."ACT_OpenApprovalTask"("Timesheet": $currentObject),
+      Class: 'vdh-link'
+    )
+  }
+}
+/
+
+/**
+ * Navigation.
+ *
+ * My tasks joins the menu as the first Manage item, which is where an approver
+ * starts their day. Adding it shifts every item below it, so the CSS that
+ * injects the section labels moves with it (theme/web/_vdh.scss).
+ */
+create or replace navigation Responsive
+  home page "TimeReg"."WeekTimesheet"
+  menu (
+    menu item 'My matters' page "TimeReg"."MyMatters";
+    menu item 'Week timesheet' page "TimeReg"."WeekTimesheet";
+    menu item 'New entry' page "TimeReg"."NewEntry";
+    menu item 'My tasks' page "TimeReg"."MyTasks";
+    menu item 'Approvals' page "TimeReg"."Approvals";
+    menu item 'Monthly rollup' page "TimeReg"."MonthlyRollup";
+    menu item 'Per customer' page "TimeReg"."ReportCustomer";
+    menu item 'Per matter' page "TimeReg"."ReportMatter";
+    menu item 'Per manager & employee' page "TimeReg"."ReportPeople";
+    menu item 'Rate card' page "TimeReg"."RateCard";
+  );
+/
+
+grant execute on microflow "TimeReg"."ACT_OpenApprovalTask" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."SED_Workflows" to "TimeReg"."Administrator";
+/

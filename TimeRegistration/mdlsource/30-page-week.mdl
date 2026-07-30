@@ -1,0 +1,254 @@
+/**
+ * Week timesheet — the flagship screen.
+ *
+ * One row per matter + task code with seven day columns, a day-total band, and
+ * three summary panels underneath. The grid is pivoted from the week's entries
+ * by DS_WeekRows, so it always agrees with the underlying facts.
+ *
+ * Everything that names a week — the range between the ‹ › buttons, the seven
+ * day headers, the status flag — reads the timesheet rather than saying so in
+ * static text, because the screen now moves from week to week. The labels
+ * themselves are computed by ACT_RecalculateTimesheet: a Mendix widget cannot
+ * call formatDateTime.
+ */
+create or replace page "TimeReg"."WeekTimesheet" (
+  Title: 'Week timesheet',
+  Layout: Atlas_Core.Atlas_Default,
+  URL: 'week',
+  Folder: 'Time'
+)
+{
+  container weekPage (Class: 'vdh-page') {
+
+    -- Header band -----------------------------------------------------------
+    container weekTop (Class: 'vdh-topbar') {
+      dynamictext weekTitle (Content: 'Week timesheet', Class: 'vdh-topbar-title')
+      dynamictext weekSub (Content: 'Decimal hours · Monday to Sunday', Class: 'vdh-topbar-sub')
+      container weekSpacer (Class: 'vdh-topbar-spacer') {
+        dynamictext weekSpacerText (Content: ' ')
+      }
+      dynamictext weekPeriodOpen (Content: 'Period Jul 2026 · open', Class: 'vdh-period')
+      dynamictext weekPeriodLocked (Content: 'Jun 2026 · locked', Class: 'vdh-period vdh-period--locked')
+      actionbutton weekLogTime (Caption: 'Log time', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn vdh-btn--ox')
+    }
+
+    container weekBody (Class: 'vdh-body') {
+
+      dataview weekSheet (DataSource: microflow "TimeReg"."DS_CurrentTimesheet") {
+
+        -- Toolbar ------------------------------------------------------------
+        container weekBar (Class: 'vdh-row vdh-mt-l') {
+          actionbutton weekPrev (
+            Caption: '‹',
+            Action: microflow "TimeReg"."ACT_WeekPrev"("Timesheet": $currentObject),
+            Class: 'vdh-weeknav'
+          )
+          dynamictext weekRange (
+            Content: 'Week {1} · {2}',
+            ContentParams: [{1} = WeekNumber, {2} = WeekRangeLabel],
+            Class: 'vdh-mono vdh-strong'
+          )
+          actionbutton weekNext (
+            Caption: '›',
+            Action: microflow "TimeReg"."ACT_WeekNext"("Timesheet": $currentObject),
+            Class: 'vdh-weeknav'
+          )
+          dynamictext weekStatus (Attribute: StatusLabel, Class: 'vdh-flag')
+          container weekBarSpacer (Class: 'vdh-spacer') {
+            dynamictext weekBarSpacerText (Content: ' ')
+          }
+          actionbutton weekCopy (
+            Caption: 'Copy last week',
+            Action: microflow "TimeReg"."ACT_CopyLastWeek"("Timesheet": $currentObject),
+            Class: 'vdh-btn'
+          )
+          actionbutton weekAddRow (Caption: 'Add row', Action: show_page "TimeReg"."NewEntry", Class: 'vdh-btn')
+          actionbutton weekSubmit (
+            Caption: 'Submit week',
+            Action: microflow "TimeReg"."ACT_SubmitWeek"("Timesheet": $currentObject),
+            Class: 'vdh-btn vdh-btn--ink'
+          )
+        }
+
+        -- Grid header --------------------------------------------------------
+        container weekHead (Class: 'vdh-thead vdh-mt-l') {
+          dynamictext whClient (Content: 'Client · Matter · Task', Class: 'vdh-w-fill')
+          dynamictext whBill (Content: 'B', Class: 'vdh-w-44')
+          dynamictext whMon (Attribute: DayLabel1, Class: 'vdh-w-72 vdh-right')
+          dynamictext whTue (Attribute: DayLabel2, Class: 'vdh-w-72 vdh-right')
+          dynamictext whWed (Attribute: DayLabel3, Class: 'vdh-w-72 vdh-right')
+          dynamictext whThu (Attribute: DayLabel4, Class: 'vdh-w-72 vdh-right')
+          dynamictext whFri (Attribute: DayLabel5, Class: 'vdh-w-72 vdh-right')
+          dynamictext whSat (Attribute: DayLabel6, Class: 'vdh-w-72 vdh-right')
+          dynamictext whSun (Attribute: DayLabel7, Class: 'vdh-w-72 vdh-right')
+          dynamictext whTotal (Content: 'Total', Class: 'vdh-w-80 vdh-right')
+        }
+
+        -- Grid rows ----------------------------------------------------------
+        listview weekGrid (
+          DataSource: microflow "TimeReg"."DS_WeekRows"("Timesheet": $currentObject),
+          Class: 'vdh-table'
+        ) {
+          container wrRow (Class: 'vdh-trow') {
+            container wrName (Class: 'vdh-w-fill') {
+              dynamictext wrMatter (Attribute: MatterName, Class: 'vdh-cell-title')
+              dynamictext wrSub (Attribute: MatterSub, Class: 'vdh-cell-sub')
+            }
+            container wrBillCell (Class: 'vdh-w-44') {
+              dynamictext wrBill (Attribute: BillLabel, DynamicClasses: '$currentObject/BillClass')
+            }
+            dynamictext wrD1 (Attribute: D1, Class: 'vdh-w-72 vdh-right vdh-num')
+            dynamictext wrD2 (Attribute: D2, Class: 'vdh-w-72 vdh-right vdh-num')
+            dynamictext wrD3 (Attribute: D3, Class: 'vdh-w-72 vdh-right vdh-num')
+            dynamictext wrD4 (Attribute: D4, Class: 'vdh-w-72 vdh-right vdh-num')
+            dynamictext wrD5 (Attribute: D5, Class: 'vdh-w-72 vdh-right vdh-num')
+            dynamictext wrD6 (Attribute: D6, Class: 'vdh-w-72 vdh-right vdh-num')
+            dynamictext wrD7 (Attribute: D7, Class: 'vdh-w-72 vdh-right vdh-num')
+            dynamictext wrTotal (Attribute: RowTotal, Class: 'vdh-w-80 vdh-right vdh-num vdh-strong')
+          }
+        }
+
+        -- Day totals ---------------------------------------------------------
+        dataview weekTotals (DataSource: microflow "TimeReg"."DS_WeekTotals"("Timesheet": $currentObject)) {
+          container wtBand (Class: 'vdh-tfoot') {
+            dynamictext wtLabel (Content: 'Day total', Class: 'vdh-w-fill')
+            dynamictext wtPad (Content: ' ', Class: 'vdh-w-44')
+            dynamictext wtT1 (Attribute: T1, Class: 'vdh-w-72 vdh-right vdh-num', DynamicClasses: '$currentObject/C1')
+            dynamictext wtT2 (Attribute: T2, Class: 'vdh-w-72 vdh-right vdh-num', DynamicClasses: '$currentObject/C2')
+            dynamictext wtT3 (Attribute: T3, Class: 'vdh-w-72 vdh-right vdh-num', DynamicClasses: '$currentObject/C3')
+            dynamictext wtT4 (Attribute: T4, Class: 'vdh-w-72 vdh-right vdh-num', DynamicClasses: '$currentObject/C4')
+            dynamictext wtT5 (Attribute: T5, Class: 'vdh-w-72 vdh-right vdh-num', DynamicClasses: '$currentObject/C5')
+            dynamictext wtT6 (Attribute: T6, Class: 'vdh-w-72 vdh-right vdh-num', DynamicClasses: '$currentObject/C6')
+            dynamictext wtT7 (Attribute: T7, Class: 'vdh-w-72 vdh-right vdh-num', DynamicClasses: '$currentObject/C7')
+            dynamictext wtGrand (Attribute: GrandTotal, Class: 'vdh-w-80 vdh-right vdh-num vdh-strong')
+          }
+        }
+
+        -- The entries behind the grid -----------------------------------------
+        -- The grid above is a summary: one row per matter/task pair, and a cell
+        -- can stand for more than one entry, so there is nothing there to click
+        -- on and correct. This is the list of what was actually recorded.
+        container weekEntriesPanel (Class: 'vdh-panel vdh-mt-l') {
+          container weekEntriesHead (Class: 'vdh-row') {
+            dynamictext weekEntriesTitle (Content: 'Entries this week', Class: 'vdh-panel-title vdh-w-fill')
+            dynamictext weekEntriesHint (Content: 'Edit to correct or remove', Class: 'vdh-caption')
+          }
+          listview weekEntries (
+            DataSource: microflow "TimeReg"."DS_WeekEntries"("Timesheet": $currentObject),
+            Class: 'vdh-table'
+          ) {
+            container weRow (Class: 'vdh-trow vdh-row--top') {
+              dynamictext weDate (Attribute: EntryDateLabel, Class: 'vdh-w-104 vdh-caption')
+              container weWhat (Class: 'vdh-w-fill') {
+                dynamictext weMatter (
+                  Content: '{1}',
+                  ContentParams: [{1} = TimeEntry_Matter/Name],
+                  Class: 'vdh-cell-title'
+                )
+                dynamictext weTask (
+                  Content: '{1} {2} · {3}',
+                  ContentParams: [
+                    {1} = TimeEntry_TaskCode/Code,
+                    {2} = TimeEntry_TaskCode/Name,
+                    {3} = Narrative
+                  ],
+                  Class: 'vdh-cell-sub'
+                )
+              }
+              dynamictext weHours (Attribute: HoursLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+              actionbutton weEdit (
+                Caption: 'Edit',
+                Action: show_page "TimeReg"."EditEntry"($Entry = $currentObject),
+                Class: 'vdh-link vdh-w-56 vdh-right'
+              )
+            }
+          }
+        }
+
+        -- Three summary panels ------------------------------------------------
+        layoutgrid weekPanels (Class: 'vdh-cols vdh-mt-l') {
+          row weekPanelRow {
+
+            column weekColCompo (DesktopWidth: 4) {
+              container compoPanel (Class: 'vdh-panel') {
+                dynamictext compoTitle (Content: 'Week composition', Class: 'vdh-panel-title')
+                container compoBody (Class: 'vdh-body') {
+                  container compoBar (Class: 'vdh-stack') {
+                    listview compoSegs (
+                      DataSource: $currentObject/"TimeReg"."WeekComposition_Timesheet",
+                      Class: 'vdh-stack'
+                    ) {
+                      container compoSeg (
+                        Class: 'vdh-stack-seg',
+                        DynamicClasses: '$currentObject/ColorClass + '' vdh-w-b'' + toString($currentObject/Bucket)'
+                      ) {
+                        dynamictext compoSegText (Content: ' ')
+                      }
+                    }
+                  }
+                  listview compoList (
+                    DataSource: $currentObject/"TimeReg"."WeekComposition_Timesheet",
+                    Class: 'vdh-lv vdh-mt-l'
+                  ) {
+                    container compoRow (Class: 'vdh-row') {
+                      container compoSwatch (
+                        Class: 'vdh-swatch',
+                        DynamicClasses: '$currentObject/ColorClass'
+                      ) {
+                        dynamictext compoSwatchText (Content: ' ')
+                      }
+                      dynamictext compoLabel (Attribute: Label, Class: 'vdh-w-fill')
+                      dynamictext compoHours (Attribute: HoursLabel, Class: 'vdh-num vdh-right')
+                    }
+                  }
+                }
+              }
+            }
+
+            column weekColValue (DesktopWidth: 4) {
+              container valuePanel (Class: 'vdh-panel') {
+                dynamictext valueTitle (Content: 'Value recorded', Class: 'vdh-panel-title')
+                container valueBody (Class: 'vdh-body') {
+                  dynamictext valueAmount (Attribute: AmountLabel, Class: 'vdh-num--big')
+                  dynamictext valueNote (
+                    Content: '{1} billable h at your matter rates',
+                    ContentParams: [{1} = BillableLabel],
+                    Class: 'vdh-note'
+                  )
+                  listview valueLines (
+                    DataSource: $currentObject/"TimeReg"."WeekValueLine_Timesheet",
+                    Class: 'vdh-lv vdh-mt-l'
+                  ) {
+                    container valueRow (Class: 'vdh-row') {
+                      dynamictext valueLabel (
+                        Attribute: Label,
+                        Class: 'vdh-w-fill',
+                        DynamicClasses: 'if $currentObject/IsMuted then ''vdh-fg-faint'' else '''''
+                      )
+                      dynamictext valueHours (Attribute: HoursLabel, Class: 'vdh-num vdh-right')
+                    }
+                  }
+                }
+              }
+            }
+
+            column weekColAudit (DesktopWidth: 4) {
+              container auditPanel (Class: 'vdh-panel') {
+                dynamictext auditTitle (Content: 'Audit trail · last edits', Class: 'vdh-panel-title')
+                listview auditList (
+                  DataSource: $currentObject/"TimeReg"."AuditEntry_Timesheet",
+                  Class: 'vdh-table'
+                ) {
+                  container auditRow (Class: 'vdh-trow vdh-row--top') {
+                    dynamictext auditWhen (Attribute: EventLabel, Class: 'vdh-w-104 vdh-caption')
+                    dynamictext auditWhat (Attribute: Description, Class: 'vdh-w-fill vdh-note')
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

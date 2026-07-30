@@ -1,0 +1,194 @@
+/**
+ * TimeRegistration — a rate card that follows the period, part 3: the card
+ */
+
+/**
+ * The last day of the period being reported on.
+ *
+ * The rate card prices as at the end of the month rather than the start,
+ * because a mid-month change — Kessler's blended rate arrived on 14 May — took
+ * effect for part of that month, and showing the superseded agreement for the
+ * whole of May would be the wrong half of the truth. The card says which date
+ * it is quoting.
+ *
+ * @returns the last day of the selected period
+ */
+create or modify microflow "TimeReg"."DS_SelectedPeriodEnd" ()
+returns datetime as $end
+folder 'Datasources'
+begin
+  declare $end datetime = [%CurrentDateTime%];
+  declare $first datetime = [%CurrentDateTime%];
+
+  $period = call microflow "TimeReg"."DS_SelectedPeriod" ();
+  if $period = empty then
+    return $end;
+  end if;
+
+  set $first = parseDateTime('1-' + toString($period/MonthNumber) + '-' + toString($period/Year), 'd-M-yyyy');
+  set $end = addDays(addMonths($first, 1), -1);
+  return $end;
+end;
+/
+
+/**
+ * The rate card matrix: one row per role, one column per negotiated client.
+ *
+ * Every cell is the agreement in force at the end of the selected period, so
+ * stepping back a month shows the card as it stood then — Rijnmond before the
+ * +2,1% indexation, no Kessler agreement at all before mid-May. A client with
+ * no agreement on that date leaves the cell empty and the standard rate
+ * applies; a rate below the cost + 40% floor is flagged so a partner can see it
+ * needs approval.
+ *
+ * The five columns are the five clients the design's card has; the header row
+ * on the page names them in the same order.
+ *
+ * @returns the rate card rows in seniority order
+ */
+create or modify microflow "TimeReg"."DS_RateRows" ()
+returns list of "TimeReg"."RateRow" as $rows
+folder 'Datasources'
+begin
+  $rows = create list of "TimeReg"."RateRow";
+
+  $asAt = call microflow "TimeReg"."DS_SelectedPeriodEnd" ();
+
+  retrieve $cAbn   from "TimeReg"."Client" where ShortName = 'ABN Delta' limit 1;
+  retrieve $cRijn  from "TimeReg"."Client" where ShortName = 'Rijnmond Port' limit 1;
+  retrieve $cKess  from "TimeReg"."Client" where ShortName = 'Kessler Pharma' limit 1;
+  retrieve $cNieuw from "TimeReg"."Client" where ShortName = 'Stichting N.A.' limit 1;
+  retrieve $cBerg  from "TimeReg"."Client" where ShortName = 'Bergland' limit 1;
+
+  retrieve $roles from "TimeReg"."Role" sort by TimeReg.Role.SortOrder asc;
+
+  loop $role in $roles
+  begin
+    declare $v1 string = '—';
+    declare $v2 string = '—';
+    declare $v3 string = '—';
+    declare $v4 string = '—';
+    declare $v5 string = '—';
+    declare $k1 string = 'vdh-rate--none';
+    declare $k2 string = 'vdh-rate--none';
+    declare $k3 string = 'vdh-rate--none';
+    declare $k4 string = 'vdh-rate--none';
+    declare $k5 string = 'vdh-rate--none';
+
+    $r1 = call microflow "TimeReg"."DS_ClientRateAt" ("Client" = $cAbn, "Role" = $role, "AsAt" = $asAt);
+    if $r1 > 0 then
+      set $v1 = '€ ' + formatDecimal($r1, '###0');
+      set $k1 = 'vdh-rate--std';
+      $f1 = call microflow "TimeReg"."DS_ClientRateBelowFloorAt" ("Client" = $cAbn, "Role" = $role, "AsAt" = $asAt);
+      if $f1 then
+        set $k1 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    $r2 = call microflow "TimeReg"."DS_ClientRateAt" ("Client" = $cRijn, "Role" = $role, "AsAt" = $asAt);
+    if $r2 > 0 then
+      set $v2 = '€ ' + formatDecimal($r2, '###0');
+      set $k2 = 'vdh-rate--std';
+      $f2 = call microflow "TimeReg"."DS_ClientRateBelowFloorAt" ("Client" = $cRijn, "Role" = $role, "AsAt" = $asAt);
+      if $f2 then
+        set $k2 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    $r3 = call microflow "TimeReg"."DS_ClientRateAt" ("Client" = $cKess, "Role" = $role, "AsAt" = $asAt);
+    if $r3 > 0 then
+      set $v3 = '€ ' + formatDecimal($r3, '###0');
+      set $k3 = 'vdh-rate--std';
+      $f3 = call microflow "TimeReg"."DS_ClientRateBelowFloorAt" ("Client" = $cKess, "Role" = $role, "AsAt" = $asAt);
+      if $f3 then
+        set $k3 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    $r4 = call microflow "TimeReg"."DS_ClientRateAt" ("Client" = $cNieuw, "Role" = $role, "AsAt" = $asAt);
+    if $r4 > 0 then
+      set $v4 = '€ ' + formatDecimal($r4, '###0');
+      set $k4 = 'vdh-rate--std';
+      $f4 = call microflow "TimeReg"."DS_ClientRateBelowFloorAt" ("Client" = $cNieuw, "Role" = $role, "AsAt" = $asAt);
+      if $f4 then
+        set $k4 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    $r5 = call microflow "TimeReg"."DS_ClientRateAt" ("Client" = $cBerg, "Role" = $role, "AsAt" = $asAt);
+    if $r5 > 0 then
+      set $v5 = '€ ' + formatDecimal($r5, '###0');
+      set $k5 = 'vdh-rate--std';
+      $f5 = call microflow "TimeReg"."DS_ClientRateBelowFloorAt" ("Client" = $cBerg, "Role" = $role, "AsAt" = $asAt);
+      if $f5 then
+        set $k5 = 'vdh-rate--below';
+      end if;
+    end if;
+
+    declare $sub string = '';
+    set $sub = 'Band ' + toString($role/Band) + ' · ' + toString($role/HeadCount) + ' people';
+    declare $std string = '';
+    set $std = '€ ' + formatDecimal($role/StandardRate, '###0');
+    declare $cost string = '';
+    set $cost = '€ ' + formatDecimal($role/CostRate, '###0');
+
+    $row = create "TimeReg"."RateRow" (
+      RoleName = $role/Name,
+      RoleSub = $sub,
+      StandardRate = $std,
+      CostRate = $cost,
+      "V1" = $v1,
+      "V2" = $v2,
+      "V3" = $v3,
+      "V4" = $v4,
+      "V5" = $v5,
+      "K1" = $k1,
+      "K2" = $k2,
+      "K3" = $k3,
+      "K4" = $k4,
+      "K5" = $k5,
+      SortOrder = $role/SortOrder);
+    add $row to $rows;
+  end loop;
+
+  return $rows;
+end;
+/
+
+/**
+ * The rate changes made up to the end of the selected period.
+ *
+ * A change log read in June should not already know about July's indexation.
+ *
+ * @returns the changes in force, most recent first
+ */
+create or modify microflow "TimeReg"."DS_PeriodRateChanges" ()
+returns list of "TimeReg"."RateChange" as $rows
+folder 'Datasources'
+begin
+  $asAt = call microflow "TimeReg"."DS_SelectedPeriodEnd" ();
+  retrieve $rows from "TimeReg"."RateChange"
+    where ["ChangeDate" <= $asAt]
+    sort by TimeReg.RateChange.ChangeDate desc;
+  return $rows;
+end;
+/
+
+/**
+ * "in force at 31 Jul 2026" — the date the card is quoting.
+ *
+ * A page cannot call formatDateTime, and the card sits outside any DataView
+ * that could carry the label, so it comes from a non-persistent row of its own.
+ *
+ * @returns a one-row list holding the caption
+ */
+create or modify microflow "TimeReg"."DS_RateCardCaption" ()
+returns "TimeReg"."RateCardCaption" as $caption
+folder 'Datasources'
+begin
+  $asAt = call microflow "TimeReg"."DS_SelectedPeriodEnd" ();
+  $caption = create "TimeReg"."RateCardCaption" (
+    Label = 'Agreements in force at ' + formatDateTime($asAt, 'd MMM yyyy'));
+  return $caption;
+end;
+/

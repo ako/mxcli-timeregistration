@@ -1,0 +1,29 @@
+/**
+ * Access for correcting recorded time.
+ *
+ * The edit form is a fee earner's screen, and the row-level rule on TimeEntry
+ * already decides whose entries reach it: a fee earner may create, read, write
+ * and delete only entries whose employee is their own account (53-security-
+ * entities.mdl). A partner has read on their reports' entries and nothing more,
+ * so the form opens for them read-only rather than not at all — the decision
+ * they are given is on the task page, not in someone else's timesheet.
+ */
+grant view on page "TimeReg"."EditEntry" to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+grant execute on microflow "TimeReg"."DS_WeekEntries"      to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodForDate"    to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."VAL_EntryEditable"   to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_DeleteTimeEntry" to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_SaveEntryEdit"   to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_DeleteEntryEdit" to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+
+/** The approval decision, unchanged in who may take it. */
+grant execute on microflow "TimeReg"."DS_OpenTaskFor" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/

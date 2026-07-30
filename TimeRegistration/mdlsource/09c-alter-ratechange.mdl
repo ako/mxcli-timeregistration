@@ -1,0 +1,10 @@
+/**
+ * Display date and ordering for the rate-card change log.
+ *
+ * Binding the date attribute directly renders a full timestamp; the design
+ * shows "01 Jul 2026".
+ */
+ALTER ENTITY "TimeReg"."RateChange" ADD ATTRIBUTE IF NOT EXISTS "DateLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."RateChange" ADD ATTRIBUTE IF NOT EXISTS "SortOrder": integer;
+/

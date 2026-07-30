@@ -1,0 +1,269 @@
+/**
+ * TimeRegistration — correcting time, part 2: the guards
+ *
+ * Three things the app displayed but did not enforce.
+ *
+ * 1. **Submitting was unguarded.** ACT_SubmitWeek changed the status and called
+ *    `call workflow` every time it ran, then overwrote Timesheet_Workflow with
+ *    the new instance. Pressing "Submit week" twice therefore started a second
+ *    approval and orphaned the first: its user task stayed open in the partner's
+ *    inbox forever, and nothing could reach it, because the approval queue
+ *    follows the association that had just been overwritten. The same hole let
+ *    an already-approved week be resubmitted.
+ *
+ * 2. **Locking a period enforced nothing.** ACT_LockPeriod flipped a status —
+ *    its own documentation said "so no further time can be recorded against it"
+ *    — but nothing on the recording path ever looked at it. Time booked into a
+ *    closed month was accepted, and silently changed figures the firm had
+ *    already reported on.
+ *
+ * 3. **"Return with note" captured no note.** See 84-domain-editing.mdl.
+ *
+ * The guards live in one place, VAL_EntryEditable, because saving, editing and
+ * deleting an entry all have to answer the same question.
+ */
+
+/**
+ * The period a date falls in, if the firm has one.
+ *
+ * A month is a date range on TimeEntry rather than an association (see
+ * ACT_RecalculatePeriod), so the period an entry belongs to is found by its
+ * calendar year and month rather than followed.
+ *
+ * @param $AsAt the date being recorded against
+ * @returns the period covering that date, or empty if it was never opened
+ */
+create or modify microflow "TimeReg"."DS_PeriodForDate" (
+  $AsAt: datetime
+)
+returns "TimeReg"."Period" as $period
+folder 'Datasources'
+begin
+  declare $year integer = 0;
+  declare $month integer = 0;
+  set $year = parseInteger(formatDateTime($AsAt, 'yyyy'));
+  set $month = parseInteger(formatDateTime($AsAt, 'M'));
+
+  retrieve $period from "TimeReg"."Period"
+    where ["Year" = $year and "MonthNumber" = $month]
+    limit 1;
+  return $period;
+end;
+/
+
+/**
+ * Whether an entry may still be recorded, changed or removed.
+ *
+ * Two things close a week to further editing, and they close it for different
+ * reasons. The fee earner's own submission hands it to the partner: changing it
+ * behind their back would make the figures they approved untrue. Locking the
+ * month closes it for the firm: those figures have been reported on.
+ *
+ * A month the firm has never opened does not constrain anything — time can be
+ * recorded into the future, and ACT_EnsurePeriod will summarise that month the
+ * first time someone reports on it.
+ *
+ * @param $TimeEntry the entry being saved, changed or deleted
+ * @returns true when the entry may be written
+ */
+create or modify microflow "TimeReg"."VAL_EntryEditable" (
+  $TimeEntry: "TimeReg"."TimeEntry"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  retrieve $timesheet from $TimeEntry/"TimeReg"."TimeEntry_Timesheet";
+
+  if $timesheet != empty then
+    if $timesheet/Status = "TimeReg"."ENUM_TimesheetStatus"."Submitted" then
+      show message 'This week is with your supervising partner for approval and can no longer be changed.' type Warning;
+      return false;
+    end if;
+
+    if $timesheet/Status = "TimeReg"."ENUM_TimesheetStatus"."Approved" then
+      show message 'This week has been approved and can no longer be changed.' type Warning;
+      return false;
+    end if;
+  end if;
+
+  $period = call microflow "TimeReg"."DS_PeriodForDate" ("AsAt" = $TimeEntry/EntryDate);
+
+  if $period != empty then
+    if $period/Status = "TimeReg"."ENUM_PeriodStatus"."Locked" then
+      show message '{1} is closed. Time can no longer be recorded against it.'
+        type Warning objects [$period/Name];
+      return false;
+    end if;
+  end if;
+
+  return true;
+end;
+/
+
+/**
+ * Saves a time entry: applies the rate, values it and refreshes the week.
+ *
+ * As the version in 82-rate-logic.mdl, with the guard in front of it. The rate
+ * is still resolved as at the entry's own date, so a later rate change never
+ * rewrites history.
+ *
+ * @param $TimeEntry the entry being saved
+ * @returns true when the entry was committed
+ */
+create or modify microflow "TimeReg"."ACT_SaveTimeEntry" (
+  $TimeEntry: "TimeReg"."TimeEntry"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  declare $amount decimal = 0;
+  declare $late integer = 0;
+
+  $editable = call microflow "TimeReg"."VAL_EntryEditable" ("TimeEntry" = $TimeEntry);
+  if not($editable) then
+    return false;
+  end if;
+
+  retrieve $matter from $TimeEntry/"TimeReg"."TimeEntry_Matter";
+  retrieve $employee from $TimeEntry/"TimeReg"."TimeEntry_Employee";
+
+  if $matter = empty or $employee = empty then
+    return false;
+  end if;
+
+  $rate = call microflow "TimeReg"."DS_ResolveRate" (
+    "Matter" = $matter, "Employee" = $employee, "AsAt" = $TimeEntry/EntryDate);
+
+  -- Internal matters are always non-billable, whatever the form said.
+  if $matter/IsInternal then
+    change $TimeEntry (Billability = "TimeReg"."ENUM_Billability"."NonBillable");
+  end if;
+
+  if $TimeEntry/Billability = "TimeReg"."ENUM_Billability"."Billable" then
+    set $amount = $TimeEntry/Hours * $rate;
+  end if;
+
+  set $late = round(daysBetween($TimeEntry/EntryDate, [%CurrentDateTime%]));
+  if $late < 0 then
+    set $late = 0;
+  end if;
+
+  declare $hoursLabel string = '';
+  declare $dateLabel string = '';
+  declare $rateLabel string = '';
+  declare $valueLabel string = '';
+  set $hoursLabel = formatDecimal($TimeEntry/Hours, '###0.00');
+  set $dateLabel = formatDateTime($TimeEntry/EntryDate, 'EEE d MMM');
+  set $rateLabel = '€ ' + replaceAll(formatDecimal($rate, '#,##0'), ',', '.');
+  set $valueLabel = '€ ' + replaceAll(formatDecimal($amount, '#,##0'), ',', '.');
+
+  change $TimeEntry (
+    Rate = $rate,
+    AmountValue = $amount,
+    HoursLabel = $hoursLabel,
+    EntryDateLabel = $dateLabel,
+    RateLabel = $rateLabel,
+    ValueLabel = $valueLabel,
+    RecordedOn = [%CurrentDateTime%],
+    RecordedLabel = formatDateTime([%CurrentDateTime%], 'd MMM HH:mm'),
+    DaysLate = $late);
+  commit $TimeEntry;
+
+  retrieve $timesheet from $TimeEntry/"TimeReg"."TimeEntry_Timesheet";
+  if $timesheet != empty then
+    $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $timesheet);
+  end if;
+
+  return true;
+end;
+/
+
+/**
+ * Submits a week for approval by starting the approval workflow.
+ *
+ * Now refuses a week that is already with the partner or already approved. That
+ * is what stops a second workflow being started over the top of the first — the
+ * association can only hold one, and the instance it displaced kept running.
+ *
+ * A returned week may be resubmitted, which is the point of returning it; the
+ * partner's note is cleared as it goes back, because it describes the version
+ * that was sent back rather than the one being sent now.
+ *
+ * @param $Timesheet the week being submitted
+ * @returns true when the week moved to Submitted and the workflow started
+ */
+create or modify microflow "TimeReg"."ACT_SubmitWeek" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  if $Timesheet/Status = "TimeReg"."ENUM_TimesheetStatus"."Submitted" then
+    show message 'This week is already with your supervising partner.' type Warning;
+    return false;
+  end if;
+
+  if $Timesheet/Status = "TimeReg"."ENUM_TimesheetStatus"."Approved" then
+    show message 'This week has already been approved.' type Warning;
+    return false;
+  end if;
+
+  $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $Timesheet);
+
+  $workflow = call workflow "TimeReg"."TimesheetApproval" (Context = $Timesheet);
+
+  change $Timesheet (
+    Status = "TimeReg"."ENUM_TimesheetStatus"."Submitted",
+    StatusLabel = 'submitted',
+    SubmittedOn = [%CurrentDateTime%],
+    ReturnNote = '',
+    "TimeReg"."Timesheet_Workflow" = $workflow);
+  commit $Timesheet refresh;
+
+  $audit = create "TimeReg"."AuditEntry" (
+    EventTime = [%CurrentDateTime%],
+    EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+    Description = 'Week submitted for approval — task assigned to the supervising partner',
+    SortOrder = 0,
+    "TimeReg"."AuditEntry_Timesheet" = $Timesheet);
+  commit $audit;
+
+  return true;
+end;
+/
+
+/**
+ * Returns the week to the fee earner, with the partner's note.
+ *
+ * The note is written on the task page and travels on the timesheet, so the
+ * audit line can quote it. Called by the workflow's 'Return' branch.
+ *
+ * @param $Timesheet the week being returned
+ * @returns true when the week moved to Rejected
+ */
+create or modify microflow "TimeReg"."ACT_ReturnWeek" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns boolean as $ok
+folder 'Logic'
+begin
+  change $Timesheet (Status = "TimeReg"."ENUM_TimesheetStatus"."Rejected", StatusLabel = 'returned');
+  commit $Timesheet refresh;
+
+  declare $description string = '';
+  set $description = 'Week returned by the supervising partner';
+  if trim($Timesheet/ReturnNote) != '' then
+    set $description = 'Week returned by the supervising partner — "' + trim($Timesheet/ReturnNote) + '"';
+  end if;
+
+  $audit = create "TimeReg"."AuditEntry" (
+    EventTime = [%CurrentDateTime%],
+    EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+    Description = $description,
+    SortOrder = 0,
+    "TimeReg"."AuditEntry_Timesheet" = $Timesheet);
+  commit $audit;
+
+  return true;
+end;
+/

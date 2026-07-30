@@ -1,0 +1,80 @@
+/**
+ * Display labels.
+ *
+ * The design formats every figure the Dutch way — "268.410", "842,0", "96,2%".
+ * The runtime's locale is en_US, so the formatted form is stored alongside the
+ * value rather than derived per widget. The numeric attribute stays the source
+ * of truth; the label is what the dense report columns render.
+ */
+ALTER ENTITY "TimeReg"."ClientMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "HoursLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."ClientMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "StandardLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."ClientMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "BilledLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."ClientMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "RealisationLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."ClientMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "AvgRateLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."EmployeeMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "RecordedLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."EmployeeMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "BillableLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."EmployeeMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "ValueLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."EmployeeMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "CostLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."EmployeeMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "MarginLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."EmployeeMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "CostRateLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "HoursLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "ValueLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTaskSummary" ADD ATTRIBUTE IF NOT EXISTS "PartnerLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTaskSummary" ADD ATTRIBUTE IF NOT EXISTS "SeniorLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTaskSummary" ADD ATTRIBUTE IF NOT EXISTS "AssociateLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTaskSummary" ADD ATTRIBUTE IF NOT EXISTS "SupportLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTaskSummary" ADD ATTRIBUTE IF NOT EXISTS "HoursLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTaskSummary" ADD ATTRIBUTE IF NOT EXISTS "ValueLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTeamMember" ADD ATTRIBUTE IF NOT EXISTS "HoursLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTeamMember" ADD ATTRIBUTE IF NOT EXISTS "ValueLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."MatterTeamMember" ADD ATTRIBUTE IF NOT EXISTS "RateLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."RoleMonthSummary" ADD ATTRIBUTE IF NOT EXISTS "HoursLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."WeekSummary" ADD ATTRIBUTE IF NOT EXISTS "TotalLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."PeriodStat" ADD ATTRIBUTE IF NOT EXISTS "RecordedLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."PeriodStat" ADD ATTRIBUTE IF NOT EXISTS "BillableLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."PeriodStat" ADD ATTRIBUTE IF NOT EXISTS "StandardLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."PeriodStat" ADD ATTRIBUTE IF NOT EXISTS "RealisationLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."PeriodStat" ADD ATTRIBUTE IF NOT EXISTS "DeltaLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."PeriodStat" ADD ATTRIBUTE IF NOT EXISTS "BillablePctLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."WeekComposition" ADD ATTRIBUTE IF NOT EXISTS "HoursLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."Timesheet" ADD ATTRIBUTE IF NOT EXISTS "RecordedLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."Timesheet" ADD ATTRIBUTE IF NOT EXISTS "BillableLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."Timesheet" ADD ATTRIBUTE IF NOT EXISTS "AmountLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."Matter" ADD ATTRIBUTE IF NOT EXISTS "BudgetLabel": string(16);
+/
+ALTER ENTITY "TimeReg"."Matter" ADD ATTRIBUTE IF NOT EXISTS "UsedLabel": string(16);
+/

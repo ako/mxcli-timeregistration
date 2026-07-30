@@ -1,0 +1,195 @@
+/**
+ * Who may pick up the approval task for a week.
+ *
+ * The supervising partner on the fee earner's record. Returning a list rather
+ * than a single user is what the workflow engine expects, and it leaves room
+ * for a second approver or a delegate later.
+ *
+ * A targeting microflow must accept the workflow instance as well as the
+ * context entity, in that order (CE6677).
+ *
+ * @param $Workflow the running workflow instance
+ * @param $Timesheet the week the task is about
+ * @returns the accounts allowed to complete the task
+ */
+create or modify microflow "TimeReg"."ACT_WF_Approvers" (
+  $Workflow: System.Workflow,
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns list of System.User as $approvers
+folder 'Workflow'
+begin
+  $approvers = create list of System.User;
+
+  retrieve $employee from $Timesheet/"TimeReg"."Timesheet_Employee";
+  if $employee = empty then
+    return $approvers;
+  end if;
+
+  retrieve $manager from $employee/"TimeReg"."Employee_Manager";
+  if $manager = empty then
+    return $approvers;
+  end if;
+
+  retrieve $account from $manager/"TimeReg"."Employee_Account";
+  if $account != empty then
+    add $account to $approvers;
+  end if;
+
+  return $approvers;
+end;
+/
+
+/**
+ * The week a workflow user task is about.
+ *
+ * System.WorkflowUserTask has a direct reference to its workflow, so this is one
+ * hop each way: task -> workflow, then back to the Timesheet that recorded the
+ * workflow when it was submitted. Routing through System.WorkflowActivity does
+ * not survive the build (CE1613), and there is no need to.
+ *
+ * @param $Task the user task being displayed
+ * @returns the timesheet under review
+ */
+create or modify microflow "TimeReg"."DS_TaskTimesheet" (
+  $Task: System.WorkflowUserTask
+)
+returns "TimeReg"."Timesheet" as $timesheet
+folder 'Workflow'
+begin
+  retrieve $workflow from $Task/System.WorkflowUserTask_Workflow;
+
+  retrieve $timesheet from "TimeReg"."Timesheet"
+    where ["TimeReg"."Timesheet_Workflow" = $workflow]
+    limit 1;
+  return $timesheet;
+end;
+/
+
+/**
+ * Claims a task for the signed-in user.
+ *
+ * Mendix separates the users a task is *targeted* at from the one it is
+ * *assigned* to, and only an assignee may complete it — `set task outcome`
+ * on an unassigned task is refused with "You can't complete this user task,
+ * it is not assigned to you" (finding 44). Studio Pro's generated task page
+ * has a Take button for this; here the decision buttons claim the task on the
+ * approver's behalf, which is the same thing without the extra click.
+ *
+ * @param $Task the task being acted on
+ * @returns true when the task is assigned to the signed-in user
+ */
+create or modify microflow "TimeReg"."ACT_ClaimTask" (
+  $Task: System.WorkflowUserTask
+)
+returns boolean as $ok
+folder 'Workflow'
+begin
+  retrieve $me from System.User where [id = '[%CurrentUser%]'] limit 1;
+
+  if $me = empty then
+    return false;
+  end if;
+
+  change $Task (System.WorkflowUserTask_Assignees = $me);
+  commit $Task;
+  return true;
+end;
+/
+
+/**
+ * The open user task of a week's approval workflow.
+ *
+ * The same hop the approval queue makes: Mendix generates no association from a
+ * workflow back to its context entity, so the timesheet records the instance and
+ * the task is found from there.
+ *
+ * @param $Timesheet the week under review
+ * @returns its open task, or empty when there is none
+ */
+create or modify microflow "TimeReg"."DS_OpenTaskFor" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+returns System.WorkflowUserTask as $task
+folder 'Workflow'
+begin
+  retrieve $workflow from $Timesheet/"TimeReg"."Timesheet_Workflow";
+  if $workflow = empty then
+    return empty;
+  end if;
+
+  retrieve $task from System.WorkflowUserTask
+    where [System.WorkflowUserTask_Workflow = $workflow and EndTime = empty]
+    limit 1;
+  return $task;
+end;
+/
+
+/**
+ * Claims the task and completes it with the Approve outcome.
+ *
+ * It does no domain work: the workflow's 'Approve' branch calls ACT_ApproveWeek.
+ * This used to do both, because mxcli wrote a workflow call-microflow activity
+ * the runtime could not load (finding 39) — fixed upstream, so the decision is
+ * back where it belongs.
+ *
+ * Takes the week rather than the task. The partner's note is typed into a
+ * DataView over the timesheet, and Mendix hands a button the object of the
+ * DataView it sits in — so to see the note at all, the button has to sit with
+ * it. The task is then looked up rather than passed.
+ *
+ * @param $Timesheet the week under review
+ */
+create or modify microflow "TimeReg"."ACT_ApproveFromTask" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+folder 'Workflow'
+begin
+  $task = call microflow "TimeReg"."DS_OpenTaskFor" ("Timesheet" = $Timesheet);
+  if $task = empty then
+    show message 'This week no longer has an open approval task.' type Warning;
+    return;
+  end if;
+
+  $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $task);
+  set task outcome $task 'Approve';
+  show page "TimeReg"."MyTasks";
+end;
+/
+
+/**
+ * Claims the task and completes it with the Return outcome.
+ *
+ * As above: the workflow's 'Return' branch calls ACT_ReturnWeek, which quotes
+ * the note in the audit trail. The note is committed here, before the outcome is
+ * set, because the branch reads it off the timesheet rather than being handed it.
+ *
+ * The button has said "Return with note" since the first version of this screen
+ * and there was nothing to type one into; a return without one is refused rather
+ * than the caption being made honest by weakening it.
+ *
+ * @param $Timesheet the week under review
+ */
+create or modify microflow "TimeReg"."ACT_ReturnFromTask" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+folder 'Workflow'
+begin
+  if trim($Timesheet/ReturnNote) = '' then
+    validation feedback $Timesheet/ReturnNote message 'Say what needs correcting before returning the week.';
+    return;
+  end if;
+
+  commit $Timesheet;
+
+  $task = call microflow "TimeReg"."DS_OpenTaskFor" ("Timesheet" = $Timesheet);
+  if $task = empty then
+    show message 'This week no longer has an open approval task.' type Warning;
+    return;
+  end if;
+
+  $claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $task);
+  set task outcome $task 'Return';
+  show page "TimeReg"."MyTasks";
+end;
+/
