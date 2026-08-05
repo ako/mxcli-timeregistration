@@ -26,7 +26,7 @@ are a browser suite that drives the app and then checks the database behind it:
 
 ```bash
 bash tests/reset.sh     # empty database, restart, wait for the seed
-node tests/run.mjs      # 135 assertions across the eight specs, ~9 minutes
+node tests/run.mjs      # 136 assertions across the eight specs, ~9 minutes
 ```
 
 See [tests/README.md](tests/README.md) for what each spec covers.
@@ -381,6 +381,32 @@ Two techniques worth knowing about when editing it:
 
 The sidebar's section labels (MY WORK / MANAGE / …) and the item badges are CSS
 pseudo-elements: the Mendix navigation model has no group header or badge field.
+
+### Formatting figures
+
+Every number and date on these screens is a `Decimal` or a `DateTime`, and a
+dynamictext bound straight to one renders `2.50000000`. Two mechanisms handle
+that, and which applies is worth knowing before adding a column.
+
+**A `format` block on the content parameter**, for anything the runtime's own
+formatter can express — hours to two decimals, a date as `EEE d MMM`:
+
+```mdl
+dynamictext weHours (Content: '{1}', ContentParams: [{1} = Hours format (decimalPrecision: 2)])
+```
+
+**A precomputed `*Label` string**, for money. `groupDigits` follows the runtime
+locale, which is `en_US`, so it produces `€ 9,142` where the design wants
+`€ 9.142`; the microflow builds the caption and swaps the separator. Switching
+the runtime to `nl_NL` is not the way out — it would render hours as `2,50`,
+which the design does not use. The mixed convention the design specifies (a dot
+for thousands in money, a dot for decimals in hours) is not expressible as one
+locale.
+
+Everything else that reads `*Label` — the week grid's day cells, the report
+columns — is a *composed* caption rather than a formatted number: a middle dot
+for an empty cell, `11.0 h` with its unit, `—` for a day outside the week. Those
+are not formatting and stay in the microflow.
 
 ## Where this departs from the handoff, and why
 

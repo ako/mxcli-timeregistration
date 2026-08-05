@@ -14,7 +14,7 @@
 #
 # Overrides:
 #   MENDIX_VERSION=11.12.1   Mendix version to pre-cache
-#   MXCLI_REF=main           branch/tag/SHA of ako/mxcli to build
+#   MXCLI_REF=<sha>          branch/tag/SHA of ako/mxcli to build (pinned below)
 #   MXCLI_FORCE_REBUILD=1    rebuild even when the installed binary is current
 #   SKIP_MENDIX_CACHE=1      skip the ~1.2 GB MxBuild/runtime download
 
@@ -22,7 +22,11 @@ set -euo pipefail
 
 MENDIX_VERSION="${MENDIX_VERSION:-11.12.1}"
 MXCLI_REPO="${MXCLI_REPO:-https://github.com/ako/mxcli.git}"
-MXCLI_REF="${MXCLI_REF:-main}"
+# Pinned to a commit rather than a branch: TOOLING.md records this SHA so the
+# build is reproducible, and tracking `main` quietly made that untrue — a session
+# would build whatever had landed that day. Pass MXCLI_REF=main to follow the
+# branch again when retesting an upstream fix.
+MXCLI_REF="${MXCLI_REF:-4a7bfd3ea09376951d43b56f6fafa7850841d895}"
 MXCLI_SRC="${MXCLI_SRC:-/opt/mxcli-src}"
 ANTLR_VERSION="${ANTLR_VERSION:-4.13.1}"
 ANTLR_JAR="/opt/antlr/antlr-${ANTLR_VERSION}-complete.jar"
@@ -161,19 +165,25 @@ ok "antlr4 shim -> $(antlr4 2>&1 | grep -m1 -o 'Version [0-9.]*')"
 # ---------------------------------------------------------------------------
 log "Building mxcli from $MXCLI_REPO ($MXCLI_REF)"
 
-if [ -d "$MXCLI_SRC/.git" ]; then
-  git -C "$MXCLI_SRC" fetch --depth 1 origin "$MXCLI_REF" --quiet
-  git -C "$MXCLI_SRC" checkout --quiet FETCH_HEAD
-else
+# One path for a branch, a tag or a SHA: `git fetch origin <ref>` serves a bare
+# commit too. The old fresh-clone fallback cloned the default branch and never
+# checked MXCLI_REF out, so a first run on a new machine could build something
+# else entirely.
+if [ ! -d "$MXCLI_SRC/.git" ]; then
   $SUDO rm -rf "$MXCLI_SRC"
-  git clone --depth 1 --branch "$MXCLI_REF" "$MXCLI_REPO" "$MXCLI_SRC" --quiet \
-    || git clone --depth 1 "$MXCLI_REPO" "$MXCLI_SRC" --quiet
+  git init --quiet "$MXCLI_SRC"
+  git -C "$MXCLI_SRC" remote add origin "$MXCLI_REPO"
 fi
+git -C "$MXCLI_SRC" fetch --depth 1 origin "$MXCLI_REF" --quiet
+git -C "$MXCLI_SRC" checkout --quiet --detach FETCH_HEAD
 MXCLI_SHA="$(git -C "$MXCLI_SRC" rev-parse --short HEAD)"
 
+# `mxcli --version` reports "<sha>-dirty" — the parser sources are regenerated
+# before every build, so the tree is always dirty. Compare on the SHA alone, or
+# the skip never fires and each session pays for a full rebuild.
 installed_sha=""
 if command -v mxcli >/dev/null 2>&1; then
-  installed_sha="$(mxcli --version 2>/dev/null | awk '{print $3}')"
+  installed_sha="$(mxcli --version 2>/dev/null | awk '{print $3}' | cut -d- -f1)"
 fi
 
 if [ "${MXCLI_FORCE_REBUILD:-0}" != "1" ] && [ "$installed_sha" = "$MXCLI_SHA" ]; then

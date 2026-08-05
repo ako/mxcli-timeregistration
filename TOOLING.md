@@ -55,20 +55,30 @@ Verified on Ubuntu 24.04.4 LTS (x86_64), 2026-07-29.
 
 ```
 repo:   https://github.com/ako/mxcli
-branch: main
-commit: 48548ca089ba647cf673bcefb0b7a9b2c5da08ea   (short: 48548ca)
-date:   2026-07-29T10:57:59-07:00
+commit: 4a7bfd3ea09376951d43b56f6fafa7850841d895   (short: 4a7bfd3)
+date:   2026-08-05
 ```
 
-This is the merge of PR 53, which the app depends on: before it, mxcli wrote a
-workflow call-microflow activity the Mendix 11.12.1 runtime could not load, and
-`TimeReg.TimesheetApproval` would build clean and then refuse to start the app
-(finding 39). `scripts/setup-tools.sh` builds `main` HEAD by default so the
-toolchain tracks upstream. To reproduce this exact build instead:
+`scripts/setup-tools.sh` builds **this commit**, not `main`. It used to default
+to the branch, which made the SHA recorded here decorative — a session built
+whatever had landed that day, and one of them silently built a `main` that was
+106 commits stale. Pass `MXCLI_REF=main` to follow the branch when retesting an
+upstream fix.
 
-```bash
-MXCLI_REF=48548ca089ba647cf673bcefb0b7a9b2c5da08ea bash scripts/setup-tools.sh
-```
+Two things in this pin the app depends on:
+
+- **PR 53** (`48548ca`, the previous pin) — before it, mxcli wrote a workflow
+  call-microflow activity the Mendix 11.12.1 runtime could not load, so
+  `TimeReg.TimesheetApproval` built clean and then refused to start the app
+  (finding 39).
+- **PR 55** (`a91e732`) — `ALTER PAGE` no longer drops the attribute binding off
+  a widget it writes (findings 49 and 55), and `dynamictext` content parameters
+  take a `format` block, which is what lets the entry list render its own hours
+  and dates instead of reading captions a microflow had to maintain.
+
+Moving to this pin also turns on `FormOrientation: Vertical` on the two entry
+forms. Both have declared it since they were written; the modelsdk writer was
+discarding it (#762), so the labels sat beside the fields rather than above them.
 
 ### Why ANTLR is pinned
 

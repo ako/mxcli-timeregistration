@@ -1,5 +1,11 @@
 /**
- * Two-decimal display form of the hours on an entry.
+ * TimeEntry once carried a two-decimal display form of its hours, because a
+ * Decimal bound to a dynamictext rendered as `2.50000000` and there was no way
+ * to say otherwise. A `format` block on the content parameter says otherwise, so
+ * the attribute is gone and the widgets format themselves.
+ *
+ * Dropped rather than left in place: an unused string that four microflows used
+ * to maintain is a trap for whoever reads them next.
  */
-ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "HoursLabel": string(10);
+ALTER ENTITY "TimeReg"."TimeEntry" DROP ATTRIBUTE IF EXISTS "HoursLabel";
 /

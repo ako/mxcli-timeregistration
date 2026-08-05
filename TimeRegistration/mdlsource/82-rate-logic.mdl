@@ -176,13 +176,9 @@ begin
     set $late = 0;
   end if;
 
-  declare $hoursLabel string = '';
-  set $hoursLabel = formatDecimal($TimeEntry/Hours, '###0.00');
-
   change $TimeEntry (
     Rate = $rate,
     AmountValue = $amount,
-    HoursLabel = $hoursLabel,
     RecordedOn = [%CurrentDateTime%],
     DaysLate = $late);
   commit $TimeEntry;

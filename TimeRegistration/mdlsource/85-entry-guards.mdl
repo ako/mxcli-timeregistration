@@ -148,24 +148,21 @@ begin
     set $late = 0;
   end if;
 
-  declare $hoursLabel string = '';
-  declare $dateLabel string = '';
+  -- Only the money captions are precomputed now. Hours and the two dates are
+  -- formatted at the widget through a `format` block on the content parameter;
+  -- the currency ones cannot be, because groupDigits follows the runtime locale
+  -- and would render € 9,142 where the design wants € 9.142.
   declare $rateLabel string = '';
   declare $valueLabel string = '';
-  set $hoursLabel = formatDecimal($TimeEntry/Hours, '###0.00');
-  set $dateLabel = formatDateTime($TimeEntry/EntryDate, 'EEE d MMM');
   set $rateLabel = '€ ' + replaceAll(formatDecimal($rate, '#,##0'), ',', '.');
   set $valueLabel = '€ ' + replaceAll(formatDecimal($amount, '#,##0'), ',', '.');
 
   change $TimeEntry (
     Rate = $rate,
     AmountValue = $amount,
-    HoursLabel = $hoursLabel,
-    EntryDateLabel = $dateLabel,
     RateLabel = $rateLabel,
     ValueLabel = $valueLabel,
     RecordedOn = [%CurrentDateTime%],
-    RecordedLabel = formatDateTime([%CurrentDateTime%], 'd MMM HH:mm'),
     DaysLate = $late);
   commit $TimeEntry;
 

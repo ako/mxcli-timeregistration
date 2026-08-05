@@ -51,25 +51,25 @@ begin
   add $tsMaartje to $lTimesheet;
 
   -- M-2214 A103 Draft/revise SPA schedules — 2.50 3.00 1.50 — 2.00
-  $e01 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 2.5, HoursLabel = '2.50', Rate = 287, AmountValue = 717.50,
+  $e01 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 2.5, Rate = 287, AmountValue = 717.50,
     Narrative = 'Drafting schedules 4 and 5 to the SPA; incorporating disclosure comments from the data room review.',
     RecordedOn = dateTime(2026, 7, 20, 18, 10, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAurora, "TimeReg"."TimeEntry_TaskCode" = $tA103);
   add $e01 to $lTimeEntry;
-  $e02 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 21), Hours = 3, HoursLabel = '3.00', Rate = 287, AmountValue = 861,
+  $e02 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 21), Hours = 3, Rate = 287, AmountValue = 861,
     Narrative = 'Revising SPA schedules following partner mark-up; reconciling defined terms across the annexes.',
     RecordedOn = dateTime(2026, 7, 21, 17, 40, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAurora, "TimeReg"."TimeEntry_TaskCode" = $tA103);
   add $e02 to $lTimeEntry;
-  $e03 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 1.5, HoursLabel = '1.50', Rate = 287, AmountValue = 430.50,
+  $e03 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 1.5, Rate = 287, AmountValue = 430.50,
     Narrative = 'Further revision of the SPA schedules; circulating a comparison against the 17 July version.',
     RecordedOn = dateTime(2026, 7, 22, 16, 5, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAurora, "TimeReg"."TimeEntry_TaskCode" = $tA103);
   add $e03 to $lTimeEntry;
-  $e04 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 24), Hours = 2, HoursLabel = '2.00', Rate = 287, AmountValue = 574,
+  $e04 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 24), Hours = 2, Rate = 287, AmountValue = 574,
     Narrative = 'Finalising the schedule pack for signing; checking cross-references against the main agreement.',
     RecordedOn = dateTime(2026, 7, 24, 17, 20, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
@@ -77,19 +77,19 @@ begin
   add $e04 to $lTimeEntry;
 
   -- M-2214 A106 Communicate with client — 0.50 — 1.00 0.50
-  $e05 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 0.5, HoursLabel = '0.50', Rate = 287, AmountValue = 143.50,
+  $e05 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 0.5, Rate = 287, AmountValue = 143.50,
     Narrative = 'Call with M. Strijker (ABN Delta) on the revised completion timetable for Project Aurora.',
     RecordedOn = dateTime(2026, 7, 20, 18, 15, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAurora, "TimeReg"."TimeEntry_TaskCode" = $tA106);
   add $e05 to $lTimeEntry;
-  $e06 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 1, HoursLabel = '1.00', Rate = 287, AmountValue = 287,
+  $e06 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 1, Rate = 287, AmountValue = 287,
     Narrative = 'Correspondence with the client on the disclosure letter and the outstanding warranty positions.',
     RecordedOn = dateTime(2026, 7, 22, 15, 30, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAurora, "TimeReg"."TimeEntry_TaskCode" = $tA106);
   add $e06 to $lTimeEntry;
-  $e07 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 0.5, HoursLabel = '0.50', Rate = 287, AmountValue = 143.50,
+  $e07 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 0.5, Rate = 287, AmountValue = 143.50,
     Narrative = 'Update call with the client on the status of the schedules and the signing logistics.',
     RecordedOn = dateTime(2026, 7, 23, 12, 45, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
@@ -97,25 +97,25 @@ begin
   add $e07 to $lTimeEntry;
 
   -- M-1980 A104 Review & analyse file — 3.00 2.00 — 4.00 1.50
-  $e08 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 3, HoursLabel = '3.00', Rate = 295, AmountValue = 885,
+  $e08 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 3, Rate = 295, AmountValue = 885,
     Narrative = 'Review of the concession file and the port authority correspondence bundle for the Maasvlakte dispute.',
     RecordedOn = dateTime(2026, 7, 20, 13, 5, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mConcession, "TimeReg"."TimeEntry_TaskCode" = $tA104);
   add $e08 to $lTimeEntry;
-  $e09 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 21), Hours = 2, HoursLabel = '2.00', Rate = 295, AmountValue = 590,
+  $e09 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 21), Hours = 2, Rate = 295, AmountValue = 590,
     Narrative = 'Analysis of the tender documentation and the award criteria applied by the authority.',
     RecordedOn = dateTime(2026, 7, 21, 11, 25, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mConcession, "TimeReg"."TimeEntry_TaskCode" = $tA104);
   add $e09 to $lTimeEntry;
-  $e10 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 4, HoursLabel = '4.00', Rate = 295, AmountValue = 1180,
+  $e10 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 4, Rate = 295, AmountValue = 1180,
     Narrative = 'Detailed analysis of the concession conditions; preparing a chronology for counsel.',
     RecordedOn = dateTime(2026, 7, 23, 18, 30, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mConcession, "TimeReg"."TimeEntry_TaskCode" = $tA104);
   add $e10 to $lTimeEntry;
-  $e11 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 24), Hours = 1.5, HoursLabel = '1.50', Rate = 295, AmountValue = 442.50,
+  $e11 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 24), Hours = 1.5, Rate = 295, AmountValue = 442.50,
     Narrative = 'Reviewing the authority''s response of 23 July and noting the points for the reply.',
     RecordedOn = dateTime(2026, 7, 24, 16, 0, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
@@ -123,31 +123,31 @@ begin
   add $e11 to $lTimeEntry;
 
   -- M-2301 A101 Plan & prepare — 1.00 2.50 4.00 1.00 2.00
-  $e12 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 1, HoursLabel = '1.00', Rate = 275, AmountValue = 275,
+  $e12 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 1, Rate = 275, AmountValue = 275,
     Narrative = 'Planning the opposition strategy against EP3 118 442 and mapping the prior art already on file.',
     RecordedOn = dateTime(2026, 7, 20, 9, 40, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mPatent, "TimeReg"."TimeEntry_TaskCode" = $tA101);
   add $e12 to $lTimeEntry;
-  $e13 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 21), Hours = 2.5, HoursLabel = '2.50', Rate = 275, AmountValue = 687.50,
+  $e13 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 21), Hours = 2.5, Rate = 275, AmountValue = 687.50,
     Narrative = 'Preparing the outline of the grounds of opposition; reviewing the EPO communication of 14 July.',
     RecordedOn = dateTime(2026, 7, 21, 14, 15, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mPatent, "TimeReg"."TimeEntry_TaskCode" = $tA101);
   add $e13 to $lTimeEntry;
-  $e14 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 4, HoursLabel = '4.00', Rate = 275, AmountValue = 1100,
+  $e14 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 4, Rate = 275, AmountValue = 1100,
     Narrative = 'Reviewing prior art cited in the EPO communication of 14 July and preparing outline of grounds of opposition for partner review.',
     RecordedOn = dateTime(2026, 7, 22, 17, 42, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mPatent, "TimeReg"."TimeEntry_TaskCode" = $tA101);
   add $e14 to $lTimeEntry;
-  $e15 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 1, HoursLabel = '1.00', Rate = 275, AmountValue = 275,
+  $e15 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 1, Rate = 275, AmountValue = 275,
     Narrative = 'Preparing the claim-chart annex to the grounds of opposition for the partner''s review.',
     RecordedOn = dateTime(2026, 7, 23, 10, 5, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mPatent, "TimeReg"."TimeEntry_TaskCode" = $tA101);
   add $e15 to $lTimeEntry;
-  $e16 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 24), Hours = 2, HoursLabel = '2.00', Rate = 275, AmountValue = 550,
+  $e16 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 24), Hours = 2, Rate = 275, AmountValue = 550,
     Narrative = 'Finalising the opposition outline and preparing the filing checklist for the deadline.',
     RecordedOn = dateTime(2026, 7, 24, 15, 50, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
@@ -155,14 +155,14 @@ begin
   add $e16 to $lTimeEntry;
 
   -- M-2288 A105 Internal memo — no charge to the foundation — — — 1.00 0.50
-  $e17 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 1, HoursLabel = '1.00', Rate = 248, AmountValue = 0,
+  $e17 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 1, Rate = 248, AmountValue = 0,
     Billability = "TimeReg"."ENUM_Billability"."NoCharge",
     Narrative = 'Internal memorandum on the governance review board mandate; not charged to the foundation.',
     RecordedOn = dateTime(2026, 7, 22, 11, 0, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mGovernance, "TimeReg"."TimeEntry_TaskCode" = $tA105);
   add $e17 to $lTimeEntry;
-  $e18 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 0.5, HoursLabel = '0.50', Rate = 248, AmountValue = 0,
+  $e18 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 0.5, Rate = 248, AmountValue = 0,
     Billability = "TimeReg"."ENUM_Billability"."NoCharge",
     Narrative = 'Completing the internal memorandum and circulating it to the review board secretary.',
     RecordedOn = dateTime(2026, 7, 23, 9, 20, 0), DaysLate = 0,
@@ -171,31 +171,31 @@ begin
   add $e18 to $lTimeEntry;
 
   -- NB-ADM KYC, filing, timesheet — 0.50 0.50 0.50 0.50 1.00
-  $e19 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 0.5, HoursLabel = '0.50', AmountValue = 0,
+  $e19 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 20), Hours = 0.5, AmountValue = 0,
     Billability = "TimeReg"."ENUM_Billability"."NonBillable", Narrative = 'KYC, filing and timesheet administration.',
     RecordedOn = dateTime(2026, 7, 20, 19, 0, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAdmin, "TimeReg"."TimeEntry_TaskCode" = $tNB);
   add $e19 to $lTimeEntry;
-  $e20 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 21), Hours = 0.5, HoursLabel = '0.50', AmountValue = 0,
+  $e20 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 21), Hours = 0.5, AmountValue = 0,
     Billability = "TimeReg"."ENUM_Billability"."NonBillable", Narrative = 'KYC, filing and timesheet administration.',
     RecordedOn = dateTime(2026, 7, 21, 19, 0, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAdmin, "TimeReg"."TimeEntry_TaskCode" = $tNB);
   add $e20 to $lTimeEntry;
-  $e21 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 0.5, HoursLabel = '0.50', AmountValue = 0,
+  $e21 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 22), Hours = 0.5, AmountValue = 0,
     Billability = "TimeReg"."ENUM_Billability"."NonBillable", Narrative = 'KYC, filing and timesheet administration.',
     RecordedOn = dateTime(2026, 7, 22, 19, 0, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAdmin, "TimeReg"."TimeEntry_TaskCode" = $tNB);
   add $e21 to $lTimeEntry;
-  $e22 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 0.5, HoursLabel = '0.50', AmountValue = 0,
+  $e22 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 23), Hours = 0.5, AmountValue = 0,
     Billability = "TimeReg"."ENUM_Billability"."NonBillable", Narrative = 'KYC, filing and timesheet administration.',
     RecordedOn = dateTime(2026, 7, 23, 19, 0, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
     "TimeReg"."TimeEntry_Matter" = $mAdmin, "TimeReg"."TimeEntry_TaskCode" = $tNB);
   add $e22 to $lTimeEntry;
-  $e23 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 24), Hours = 1, HoursLabel = '1.00', AmountValue = 0,
+  $e23 = create "TimeReg"."TimeEntry" (EntryDate = dateTime(2026, 7, 24), Hours = 1, AmountValue = 0,
     Billability = "TimeReg"."ENUM_Billability"."NonBillable", Narrative = 'Weekly filing, matter housekeeping and timesheet completion.',
     RecordedOn = dateTime(2026, 7, 24, 18, 0, 0), DaysLate = 0,
     "TimeReg"."TimeEntry_Timesheet" = $tsMaartje, "TimeReg"."TimeEntry_Employee" = $maartje,
@@ -309,15 +309,15 @@ begin
   add $tsRuben to $lTimesheet;
 
   -- --- Entries the approver has to look at --------------------------------
-  $f1 = create "TimeReg"."ReviewFlag" (PersonLabel = 'S. Bakhuis', HoursLabel = '3.50', FlagLabel = 'no narrative', SortOrder = 1,
+  $f1 = create "TimeReg"."ReviewFlag" (PersonLabel = 'S. Bakhuis', FlagLabel = 'no narrative', SortOrder = 1,
     Description = 'M-2301 A104 — narrative missing; client requires invoice text of min. 40 characters',
     "TimeReg"."ReviewFlag_Timesheet" = $tsSanne);
   add $f1 to $lReviewFlag;
-  $f2 = create "TimeReg"."ReviewFlag" (PersonLabel = 'P. Ravensbergen', HoursLabel = '2.00', FlagLabel = 'late > 5 days', SortOrder = 2,
+  $f2 = create "TimeReg"."ReviewFlag" (PersonLabel = 'P. Ravensbergen', FlagLabel = 'late > 5 days', SortOrder = 2,
     Description = 'M-1980 A103 — entry recorded 9 days after the fact',
     "TimeReg"."ReviewFlag_Timesheet" = $tsPieter);
   add $f2 to $lReviewFlag;
-  $f3 = create "TimeReg"."ReviewFlag" (PersonLabel = 'J. Haverkamp', HoursLabel = '52.0', FlagLabel = 'WTD check', SortOrder = 3,
+  $f3 = create "TimeReg"."ReviewFlag" (PersonLabel = 'J. Haverkamp', FlagLabel = 'WTD check', SortOrder = 3,
     Description = 'Week 29 total 52.0 h — rolling average approaching WTD ceiling',
     "TimeReg"."ReviewFlag_Timesheet" = $tsJoost);
   add $f3 to $lReviewFlag;
@@ -333,6 +333,35 @@ begin
 
   -- Derive Maartje's totals now that her entries are in the database.
   $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $tsMaartje);
+
+  -- The money captions, which the edit form reads back. Hours and dates format
+  -- themselves at the widget; these cannot, because groupDigits follows the
+  -- runtime's en_US locale and the design wants Dutch separators. Filling them
+  -- here rather than in a datasource: the seed creates these rows, so the seed
+  -- finishes them, and nothing has to write to what it reads.
+  -- formatDecimal throws on null rather than returning an empty string, and an
+  -- internal matter carries neither rate nor value, so both are defaulted first.
+  declare $rate decimal = 0;
+  declare $value decimal = 0;
+
+  retrieve $seeded from "TimeReg"."TimeEntry";
+  loop $entry in $seeded
+  begin
+    set $rate = 0;
+    if $entry/Rate != empty then
+      set $rate = $entry/Rate;
+    end if;
+
+    set $value = 0;
+    if $entry/AmountValue != empty then
+      set $value = $entry/AmountValue;
+    end if;
+
+    change $entry (
+      RateLabel  = '€ ' + replaceAll(formatDecimal($rate, '#,##0'), ',', '.'),
+      ValueLabel = '€ ' + replaceAll(formatDecimal($value, '#,##0'), ',', '.'));
+  end loop;
+  commit $seeded;
 
   log info node 'TimeRegSeed' 'Seeded week 30';
   return true;

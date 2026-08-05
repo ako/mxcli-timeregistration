@@ -132,11 +132,14 @@ begin
           $entry = create "TimeReg"."TimeEntry" (
             EntryDate = $Timesheet/WeekStart,
             Hours = 0,
-            HoursLabel = '0.00',
             Billability = $source/Billability,
             IsOutOfHours = false,
             Rate = 0,
             AmountValue = 0,
+            -- A copied row carries no hours and no value yet; the captions the
+            -- edit form reads back say so rather than being blank.
+            RateLabel = '€ 0',
+            ValueLabel = '€ 0',
             RecordedOn = [%CurrentDateTime%],
             DaysLate = 0,
             "TimeReg"."TimeEntry_Employee" = $employee,
