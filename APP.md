@@ -473,6 +473,25 @@ This is a prototype dataset, not a credential store.
 `mxcli lint` now reports **no** `SEC001` findings for any `TimeReg` entity (the
 38 remaining are in the Atlas / Administration / System marketplace modules).
 
+## A hazard in how the scripts are arranged
+
+Fifteen microflows are defined in one script and redefined in a later one —
+`ACT_RecalculateTimesheet` in `20-logic.mdl` sets the week's totals, and
+`71-week-logic.mdl` redefines it to rebuild the composition bar and the value
+panel as well. The Approvals page is the same shape: `33-page-approvals.mdl`
+defines it, `65-workflow-integration.mdl` patches the *Open task* button on.
+
+That is fine for a rebuild, which runs the scripts in order. It is a trap for
+anything else. **Re-running one script on its own can silently revert behaviour**,
+because an earlier definition overwrites a later one — and nothing catches it:
+`mx check` stays at 0 errors, since the reverted microflow is still valid. Both
+times it has happened here, only the browser suite noticed.
+
+If you edit a microflow, check whether a later script redefines it
+(`grep -l 'microflow "TimeReg"."NAME"' mdlsource/*.mdl`), and re-run every script
+from the earliest one that defines it. Where a document has two definitions for
+no reason other than history, collapsing them into one is the better fix.
+
 ## Not done
 
 - **Strict XPath mode is off.** mxcli's linter recommends it (SEC005) but its
