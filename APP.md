@@ -477,6 +477,29 @@ This is a prototype dataset, not a credential store.
 `mxcli lint` now reports **no** `SEC001` findings for any `TimeReg` entity (the
 38 remaining are in the Atlas / Administration / System marketplace modules).
 
+## The marketplace modules
+
+All seven are current: `Administration` 4.5.0, `Atlas_Core` 4.4.0,
+`Atlas_Web_Content` 4.3.0, `DataWidgets` 3.11.3, `FeedbackModule` 5.0.0,
+`NanoflowCommons` 7.2.1, `WebActions` 2.11.2. `mxcli marketplace update` does
+this now; **[TOOLING.md](TOOLING.md)** has the commands and the flags that turn
+out to be mandatory, and findings 57–62 have what it cost.
+
+Only one of them changed the app. Atlas_Core 4.4.0 puts a Sprintr feedback widget
+into `Atlas_Default`, which all 22 pages use, so the upgrade hung a floating
+**Feedback** tab down the right edge of every screen. A layout cannot be edited
+from MDL, and editing Atlas_Core would be undone by the next update, so it is
+hidden from the app's own stylesheet:
+
+```scss
+// theme/web/_vdh.scss
+.mxfeedback-start-button { display: none !important; }
+```
+
+Worth knowing that nothing automated caught that: `mx check` reported 0 errors
+and all 136 assertions passed with the tab on the page. Comparing a screenshot
+against `docs/screenshots/` is what found it.
+
 ## A hazard in how the scripts are arranged
 
 Fifteen microflows are defined in one script and redefined in a later one —
@@ -498,12 +521,6 @@ no reason other than history, collapsing them into one is the better fix.
 
 ## Not done
 
-- **The marketplace modules are at the versions the scaffold installed.**
-  `Administration` 4.3.2, `Atlas_Core` 4.1.3, `DataWidgets` 3.5.0 and four others.
-  There is no CLI route to upgrading them — the marketplace needs a Mendix
-  personal access token, and even with one, an in-place module update is refused
-  because it can change persistent-entity IDs and lose data. See finding 57. It
-  needs Studio Pro.
 - **Strict XPath mode is off.** mxcli's linter recommends it (SEC005) but its
   parser has no command to set it — see finding 36. It needs Studio Pro.
 - **No SSO.** The design's Entra ID and smartcard buttons are not implemented;

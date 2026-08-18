@@ -26,7 +26,7 @@ MXCLI_REPO="${MXCLI_REPO:-https://github.com/ako/mxcli.git}"
 # build is reproducible, and tracking `main` quietly made that untrue — a session
 # would build whatever had landed that day. Pass MXCLI_REF=main to follow the
 # branch again when retesting an upstream fix.
-MXCLI_REF="${MXCLI_REF:-4a7bfd3ea09376951d43b56f6fafa7850841d895}"
+MXCLI_REF="${MXCLI_REF:-8fd0085834b2f424aff1baa6e5db3a5579b93cf6}"
 MXCLI_SRC="${MXCLI_SRC:-/opt/mxcli-src}"
 ANTLR_VERSION="${ANTLR_VERSION:-4.13.1}"
 ANTLR_JAR="/opt/antlr/antlr-${ANTLR_VERSION}-complete.jar"

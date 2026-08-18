@@ -28,6 +28,13 @@ mprcontents/mprjournal*
 *.mda
 *.launch
 
+# ...except the project's own widgets, which are inputs and not output. Nothing
+# rebuilds them: they arrive with `mxcli new` or a `marketplace update`, and a
+# clone without them does not build at all — 134 CE0462 "Could not find widget"
+# errors, which is what this repo did until the marketplace sweep found it.
+!TimeRegistration/widgets/
+!TimeRegistration/widgets/**/*.mpk
+
 # --- Local tool caches --------------------------------------------------------
 .mxcli/
 mxcli
