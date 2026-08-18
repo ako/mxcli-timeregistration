@@ -26,7 +26,7 @@ are a browser suite that drives the app and then checks the database behind it:
 
 ```bash
 bash tests/reset.sh     # empty database, restart, wait for the seed
-node tests/run.mjs      # 135 assertions across the eight specs, ~9 minutes
+node tests/run.mjs      # 136 assertions across the eight specs, ~9 minutes
 ```
 
 See [tests/README.md](tests/README.md) for what each spec covers.
@@ -330,6 +330,10 @@ refused to load the model — the whole model, not just the workflow. The work h
 to sit in the buttons instead. Fixed upstream in mxcli (finding 39), and the app
 now uses the shape it always wanted.
 
+The app has since moved to **Mendix 11.13.0**, which calls the activity the same
+thing — the workflow was rewritten against the converted project and the runtime
+loads it. See [TOOLING.md](TOOLING.md) for how the migration was done.
+
 **Mendix does not link a workflow to its context object**, so `Timesheet_Workflow`
 does, set when the workflow starts. That association is how the task page finds
 the week it is about — and why `ACT_SubmitWeek` refuses a week that already has
@@ -381,6 +385,32 @@ Two techniques worth knowing about when editing it:
 
 The sidebar's section labels (MY WORK / MANAGE / …) and the item badges are CSS
 pseudo-elements: the Mendix navigation model has no group header or badge field.
+
+### Formatting figures
+
+Every number and date on these screens is a `Decimal` or a `DateTime`, and a
+dynamictext bound straight to one renders `2.50000000`. Two mechanisms handle
+that, and which applies is worth knowing before adding a column.
+
+**A `format` block on the content parameter**, for anything the runtime's own
+formatter can express — hours to two decimals, a date as `EEE d MMM`:
+
+```mdl
+dynamictext weHours (Content: '{1}', ContentParams: [{1} = Hours format (decimalPrecision: 2)])
+```
+
+**A precomputed `*Label` string**, for money. `groupDigits` follows the runtime
+locale, which is `en_US`, so it produces `€ 9,142` where the design wants
+`€ 9.142`; the microflow builds the caption and swaps the separator. Switching
+the runtime to `nl_NL` is not the way out — it would render hours as `2,50`,
+which the design does not use. The mixed convention the design specifies (a dot
+for thousands in money, a dot for decimals in hours) is not expressible as one
+locale.
+
+Everything else that reads `*Label` — the week grid's day cells, the report
+columns — is a *composed* caption rather than a formatted number: a middle dot
+for an empty cell, `11.0 h` with its unit, `—` for a day outside the week. Those
+are not formatting and stay in the microflow.
 
 ## Where this departs from the handoff, and why
 
@@ -446,6 +476,48 @@ This is a prototype dataset, not a credential store.
 
 `mxcli lint` now reports **no** `SEC001` findings for any `TimeReg` entity (the
 38 remaining are in the Atlas / Administration / System marketplace modules).
+
+## The marketplace modules
+
+All seven are current: `Administration` 4.5.0, `Atlas_Core` 4.4.0,
+`Atlas_Web_Content` 4.3.0, `DataWidgets` 3.11.3, `FeedbackModule` 5.0.0,
+`NanoflowCommons` 7.2.1, `WebActions` 2.11.2. `mxcli marketplace update` does
+this now; **[TOOLING.md](TOOLING.md)** has the commands and the flags that turn
+out to be mandatory, and findings 57–62 have what it cost.
+
+Only one of them changed the app. Atlas_Core 4.4.0 puts a Sprintr feedback widget
+into `Atlas_Default`, which all 22 pages use, so the upgrade hung a floating
+**Feedback** tab down the right edge of every screen. A layout cannot be edited
+from MDL, and editing Atlas_Core would be undone by the next update, so it is
+hidden from the app's own stylesheet:
+
+```scss
+// theme/web/_vdh.scss
+.mxfeedback-start-button { display: none !important; }
+```
+
+Worth knowing that nothing automated caught that: `mx check` reported 0 errors
+and all 136 assertions passed with the tab on the page. Comparing a screenshot
+against `docs/screenshots/` is what found it.
+
+## A hazard in how the scripts are arranged
+
+Fifteen microflows are defined in one script and redefined in a later one —
+`ACT_RecalculateTimesheet` in `20-logic.mdl` sets the week's totals, and
+`71-week-logic.mdl` redefines it to rebuild the composition bar and the value
+panel as well. The Approvals page is the same shape: `33-page-approvals.mdl`
+defines it, `65-workflow-integration.mdl` patches the *Open task* button on.
+
+That is fine for a rebuild, which runs the scripts in order. It is a trap for
+anything else. **Re-running one script on its own can silently revert behaviour**,
+because an earlier definition overwrites a later one — and nothing catches it:
+`mx check` stays at 0 errors, since the reverted microflow is still valid. Both
+times it has happened here, only the browser suite noticed.
+
+If you edit a microflow, check whether a later script redefines it
+(`grep -l 'microflow "TimeReg"."NAME"' mdlsource/*.mdl`), and re-run every script
+from the earliest one that defines it. Where a document has two definitions for
+no reason other than history, collapsing them into one is the better fix.
 
 ## Not done
 

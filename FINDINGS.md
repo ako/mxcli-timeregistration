@@ -10,7 +10,8 @@ the output as printed.
 |---|---|
 | mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39). Finding 55 was found later, on `0580ead`; PR 55 was retested on top of that, at `25b02ac` and again at `a91e732` |
 | (built during the findings) | `ead8926` then `0ed0359` — everything below was found on those |
-| Mendix | 11.12.1 (MxBuild + runtime) |
+| (current pin) | `8fd0085` — moved here for `marketplace update`; findings 57–62 are on it |
+| Mendix | 11.12.1 (MxBuild + runtime) — every finding below was reproduced on it; the app has since moved to 11.13.0 |
 | Engine | `modelsdk` (default) |
 | Platform | Ubuntu 24.04.4, Go 1.24.7 with `GOTOOLCHAIN=auto`, JDK 21.0.10, ANTLR 4.13.1 |
 
@@ -19,7 +20,8 @@ the finished project unless marked *(captured during the build)*.
 
 Legend: **[bug]** mxcli defect · **[gap]** `mxcli check` passes what MxBuild
 rejects · **[platform]** a Mendix rule mxcli reports correctly · **[mine]** my own
-mistake, recorded so the next person doesn't repeat it.
+mistake, recorded so the next person doesn't repeat it · **[closed]** fixed
+upstream, kept for the history.
 
 ---
 
@@ -166,6 +168,367 @@ So a bare `show_page` binds `$currentObject` when the context entity matches the
 page parameter. That is convenient, and it is why the round-trip is safe here —
 but it is inference, not preservation, and it would not save an argument that
 was anything other than the enclosing object.
+
+### 57. A marketplace module could not be upgraded through the CLI — now it can **[closed]**
+
+Recorded on `4a7bfd3` as a hole in the story, and closed by `8fd0085`. Kept
+because half of what it said was my own error, and that is worth keeping visible.
+
+**What it said, and what was wrong with it.** I reported two independent blocks.
+The second was real: on `4a7bfd3` there was no update path. `marketplace install`
+refused an in-place module update by design —
+
+> Updating a module that is already present is NOT done automatically: it could
+> discard local edits and, for modules with persistent entities, change entity
+> IDs (which loses data). Such updates are reported and left to Studio Pro.
+
+— and the Mendix toolset had no upgrade either: `mx` 11.13.0 offers
+`module-import`, `show-module-version`, `set-module-version`,
+`create-module-package`, `merge`, `diff`, and nothing else.
+
+The first block was **not real, and it was mine**. I wrote that no Mendix PAT was
+available, on this evidence:
+
+```
+$ ./mxcli marketplace versions 107249
+auth: no credential for profile "default". Run: mxcli auth login --profile default
+```
+
+That is the credential *store* being empty. It is not the same question as
+"is there a credential", because `internal/auth/resolver.go` checks the
+environment first and env vars take precedence over the store:
+
+```go
+const (
+	EnvPAT     = "MENDIX_PAT"
+	EnvProfile = "MXCLI_PROFILE"
+)
+```
+
+`MENDIX_PAT` was set in this container the whole time. One `env | grep -i mendix`
+would have shown it. I took a single command's error message for the state of the
+world, and reported "cannot be done" to the user on the strength of it. The
+content ID in that command was also wrong (107249 is not Administration; 23513
+is), so the command would not have proved anything either way — it printed the
+auth error before it ever got to the ID.
+
+**What the seven modules did.** With `8fd0085` built and the PAT read from the
+environment, all seven updated to their current versions and the app still passes
+its 136 assertions:
+
+| Module | Was | Now | `update` reported |
+|---|---|---|---|
+| Administration | 4.3.2 | 4.5.0 | 28 units, **9 element identities preserved**, 3 role grants restored |
+| Atlas_Core | 4.1.3 | 4.4.0 | 51 units, 3 role grants restored (needed `--force`, see 59) |
+| Atlas_Web_Content | 4.1.0 | 4.3.0 | needed `--force`; kept 5 newer widgets (see below) |
+| DataWidgets | 3.5.0 | 3.11.3 | 11 units, 3 role grants restored |
+| FeedbackModule | 4.0.2 | 5.0.0 | needed `--force`, see 59 |
+| NanoflowCommons | 6.0.0 | 7.2.1 | 59 units, 12 identities preserved — needed `--no-baseline`, see 60 |
+| WebActions | 2.11.0 | 2.11.2 | 14 units |
+
+**The data-loss claim is the one worth testing, so I tested it.** The old finding
+argued the refusal was right *for this app in particular*, because
+`Administration` carries the persistent entities and the identity model hangs off
+`Administration.Account` through `Employee_Account`. So: seeded the database with
+the app running on Administration 4.3.2, stopped it, updated to 4.5.0, and
+restarted against **the same database** without dropping it.
+
+```
+before          after
+administration$account       11    11
+timereg$employee             10    10
+timereg$timesheet            10    10
+timereg$timeentry            29    29
+system$user                  11    11
+employees still linked to an account: 10
+```
+
+Nothing was dropped, and `TimeReg.Employee_Account` still points at
+`Administration.Account`. The identity transplant does what it claims.
+
+**Two things the update does that are not obvious from the name.**
+
+`mxcli fix widgets` after each update is not optional. It is printed as a
+suggestion — "repair what a headless update leaves behind (expected, not a
+fault)" — but on DataWidgets it changed **23 units**, and `mx check` is only clean
+because it ran. Same for `fix design-properties`: Atlas_Core 4.4.0 renamed two
+design properties, and it rewrote the two documents using them.
+
+Bundled widgets are version-aware, which matters for update *order*.
+Atlas_Web_Content 4.3.0 ships the DataWidgets widgets at 3.4.0, and had it been
+updated after DataWidgets naively it would have rolled 3.11.3 back:
+
+```
+  Kept 5 newer widget(s) the package would have rolled back:
+    widgets/com.mendix.widget.web.Datagrid.mpk — kept 3.11.3, package ships 3.4.0
+    ...
+```
+
+**What is left.** `marketplace update` moved this project from "buildable but not
+maintainable" to maintainable. Findings 58–62 are what it cost to get there.
+
+---
+
+### 58. `marketplace diff` gives opposite answers on two identical runs **[bug]**
+
+The command exists to answer one question — *has anyone edited this module?* — and
+it answers it differently depending on whether a cache is warm. Same command, run
+twice, nothing touched in between:
+
+```
+$ rm -rf ~/.mxcli/marketplace-refs/ref/11.13.0_7b3e3f82-… ~/.mxcli/marketplace-refs/ref/11.13.0_f35c23c0-…
+$ mxcli marketplace diff 114337 -p TimeRegistration.mpr --module WebActions
+  No local modifications: 9 of 9 elements verified unchanged.
+
+$ mxcli marketplace diff 114337 -p TimeRegistration.mpr --module WebActions
+  Locally modified (8 of 9 elements):
+    changed   JAVASCRIPT_ACTION FocusNext
+    changed   JAVASCRIPT_ACTION FocusPrevious
+    changed   JAVASCRIPT_ACTION ReadCookie
+    changed   JAVASCRIPT_ACTION ScrollTo
+    changed   JAVASCRIPT_ACTION SetCookie
+    changed   JAVASCRIPT_ACTION SetFavicon
+    changed   JAVASCRIPT_ACTION SetFocus
+    changed   JAVASCRIPT_ACTION TakePicture
+```
+
+The first is right; the second is a false positive. mxcli ships the bisect switch
+for exactly this, and it agrees:
+
+```
+$ MXCLI_NO_REF_CACHE=1 mxcli marketplace diff 114337 -p TimeRegistration.mpr --module WebActions
+  No local modifications: 9 of 9 elements verified unchanged.
+```
+
+**Root cause, and it is written down in the source.** A cached reference stores
+the model file alone. `cmd/mxcli/marketplace/refcache.go`, on `isModelFile`:
+
+```
+//	PackageRef.mpr      14 MB   read
+//	widgets/           9.6 MB   never read
+//	themesource/       6.4 MB   never read
+//	theme-cache/       2.1 MB   never read (compiled CSS)
+//	javascriptsource/  1.6 MB   never read
+```
+
+`javascriptsource/` is not "never read" — it is where a JavaScript action's body
+lives, and comparing one needs it. So on a cache hit every JS action in the module
+differs from a reference that no longer has any JS in it. The 8 that flip are
+exactly the 8 `JAVASCRIPT_ACTION`s; the 9th element, which is not one, stays
+unchanged either way. A module of nothing but JS actions would report 100 %
+locally modified on the second run.
+
+The consequence is not cosmetic — `update` shares the check and refuses:
+
+```
+refusing to update: 8 element(s) have been changed locally and the update would discard them:
+    JAVASCRIPT_ACTION FocusNext
+    ...
+  - Save them first:  --save-edits <dir>
+  - Then update:      --force
+```
+
+The advice that follows is worse than the refusal. A user who takes it reaches for
+`--force` — the flag whose whole job is *discard local edits I have been told
+about* — to get past edits that do not exist. The one time the tool is wrong about
+edits is the time it tells you to override the protection.
+
+There is a second, quieter symptom: passing `--to` changes the answer to the
+question `--to` has nothing to do with.
+
+```
+$ mxcli marketplace diff 114337 -p … --module WebActions --to 2.11.0
+  Locally modified (8 of 9 elements): …
+  Upgrading to 2.11.0 would touch 0 element(s), none of which you have modified.
+```
+
+Installed 2.11.0, target 2.11.0. Read together: *eight elements differ from
+2.11.0, and installing 2.11.0 would change none of them.* Both halves cannot be
+true.
+
+**Workaround:** `MXCLI_NO_REF_CACHE=1` on every `diff` and `update`. Every module
+in finding 57 was updated with it set. The cost is real — a reference is a
+`mx create-project` plus a `mx module-import` plus a download, and the cache is
+there because that is ~67 s per module — but a fast wrong answer to "has anyone
+edited this?" is worth nothing.
+
+---
+
+### 59. A module nobody has ever opened reports local modifications **[platform]**
+
+`FeedbackModule` came back with three edited pages. I have never opened it:
+
+```
+$ MXCLI_NO_REF_CACHE=1 mxcli marketplace diff 205506 -p TimeRegistration.mpr --module FeedbackModule
+  Locally modified (3 of 51 elements):
+    changed   PAGE PopupFailure
+    changed   PAGE PopupSuccess
+    changed   PAGE ShareFeedback
+```
+
+Not the cache from finding 58 — this survives `MXCLI_NO_REF_CACHE=1`. `--save-edits`
+writes the three out, and they are ordinary untouched Atlas pages; there is nothing
+in them that looks like anyone's work.
+
+So I scaffolded a brand-new app and asked it the same question:
+
+```
+$ mxcli new Pristine --version 11.13.0
+$ MXCLI_NO_REF_CACHE=1 mxcli marketplace diff 205506 -p Pristine.mpr --module FeedbackModule
+FeedbackModule — installed 4.0.2 (Mendix 11.13.0)
+
+  Locally modified (3 of 51 elements):
+    changed   PAGE PopupFailure
+    changed   PAGE PopupSuccess
+    changed   PAGE ShareFeedback
+```
+
+A project that is four minutes old and has never been opened reports three locally
+modified pages. The premise underneath `diff` — that a module installed at version
+X is byte-identical to the published package for X — does not hold for modules
+that arrive inside Mendix's own app template. The template's copy of
+FeedbackModule 4.0.2 is simply not the marketplace's copy of FeedbackModule 4.0.2.
+
+This is Mendix's doing rather than mxcli's, but it lands on mxcli's users: every
+scaffolded app starts life with phantom edits, and the only way through is
+`--force`, which is indistinguishable from the way you get through real ones.
+Atlas_Core has the same shape in a milder form — one element (`SNIPPET
+FeedbackWidget`) that cannot be described at all, which is enough to make it
+refuse:
+
+```
+1 element(s) could not be read, so it cannot be shown that the module is unedited.
+Re-run with --force to update anyway
+```
+
+That refusal is the honest one — *we could not tell* and *nothing changed* are
+different answers, and the tool says so rather than guessing. It just means four
+of the seven modules here needed `--force` for reasons that have nothing to do
+with anyone editing anything.
+
+---
+
+### 60. The baseline for "has anyone edited this?" can be unpublished **[platform]**
+
+`NanoflowCommons` shipped in the template at 6.0.0. The 6.x line on the
+marketplace now starts at 6.3.0 — 6.0.0 has been withdrawn — so the version the
+check needs to download is the one version that cannot be downloaded:
+
+```
+$ mxcli marketplace update 109515 -p TimeRegistration.mpr --module NanoflowCommons --to 7.2.1
+version "6.0.0" not found; run 'mxcli marketplace versions <id>' to list available versions
+  The installed version is the baseline for "has anyone edited this?", so it has to be
+  downloadable. It is not, and --force does not help: there is nothing to compare against.
+  hint: re-run with --no-baseline to update without that check (local edits are lost silently)
+```
+
+The error is exact and the hint is the right one, so this is a limit rather than a
+defect — but note where it falls. The module furthest behind (6.0.0 → 7.2.1, a
+major version) is the one whose safety check cannot run at all, and `--force` is
+explicitly no help. The diagnosis is worth reading twice: `--force` overrides *we
+found edits*, and this is *we cannot look*.
+
+I satisfied it another way. The app is reproducible from `mdlsource/`, so "did we
+edit NanoflowCommons" is answerable by grep:
+
+```
+$ grep -ril nanoflowcommons TimeRegistration/mdlsource/
+TimeRegistration/mdlsource/52-security-roles.mdl
+```
+
+— and all three hits are `NanoflowCommons.User` in user-role grants, which live in
+the project's security document, not in the module. Then `--no-baseline`, and the
+update restored those three grants by itself.
+
+---
+
+### 61. A Mendix project's `widgets/` are inputs, and `*.mpk` looks like build output **[mine]**
+
+Found while committing the marketplace sweep: `git status` had nothing to say
+about `widgets/`, even though `marketplace update` had just replaced 1 374 files
+under it. The root `.gitignore` had this, under a heading reading *Build
+artifacts*:
+
+```
+*.mpk
+*.mda
+```
+
+`.mpk` is Mendix's package extension, so that rule reads as "ignore downloaded
+marketplace packages", which is right — and it also silently swallows
+`TimeRegistration/widgets/*.mpk`, which are not downloads but the project's own
+pluggable widgets. Nothing regenerates them: they arrive with `mxcli new` or a
+`marketplace update` and are read at build time.
+
+The repo had therefore never been buildable from a clone. Testing it is one
+command, and I should have run it long before this:
+
+```
+$ git clone -q <repo> /tmp/fresh
+$ mx check /tmp/fresh/TimeRegistration/TimeRegistration.mpr
+[error] [CE0462] "Could not find widget 'Combo box' in the 'widgets' directory. …" at Combo box 'eeMatter'
+[error] [CE0462] "Could not find widget 'Combo box' in the 'widgets' directory. …" at Combo box 'eeTask'
+[error] [CE0462] "Could not find widget 'Combo box' in the 'widgets' directory. …" at Combo box 'eeBillability'
+The app contains: 134 errors.
+```
+
+Every session so far worked on a container where `widgets/` already existed —
+`mxcli new` put it there in session 1 and nothing removed it — so the app built
+every time and the gap never showed. TOOLING.md has claimed since session 1 that
+the model "**is** committed — it is the app, not build output". It was half
+committed.
+
+Fixed by un-ignoring the directory (33 files, 12 MB):
+
+```gitignore
+*.mpk
+!TimeRegistration/widgets/
+!TimeRegistration/widgets/**/*.mpk
+```
+
+The lesson is about what "reproducible" is worth unverified. A setup script that
+passes on the machine that has been running all along proves only that the
+machine has not changed. Clone into an empty directory and check.
+
+---
+
+### 62. Updating Atlas puts a feedback widget on every page, and MDL cannot take it off **[platform]**
+
+Atlas_Core 4.4.0 adds a Sprintr feedback widget to `Atlas_Default`. All 22 pages
+in this app use that layout, so the upgrade hung a floating **Feedback** tab down
+the right-hand edge of every screen in a law firm's timesheet. It is visible in a
+screenshot diff against `docs/screenshots/02-week-timesheet.png` and in nothing
+else — no assertion in the 136 caught it, and `mx check` reports 0 errors.
+
+```
+$ # the element, found by walking up from the text
+button.mxfeedback-start-button.mx-name-feedback1.mxfeedback-start-button--side
+  < div.mx-scrollcontainer-center.region-content
+  …
+```
+
+The obvious fix is to remove the widget from the layout, and that is the one thing
+MDL will not do:
+
+```
+$ mxcli describe layout Atlas_Core.Atlas_Default -p TimeRegistration.mpr
+-- Layout Type: Responsive
+-- This is a layout document. Layouts define the structure that pages are built upon.
+-- Layouts cannot be created via MDL; they must be created in Studio Pro.
+```
+
+Editing Atlas_Core directly would also be undone by the next `marketplace update`,
+and would make this module report a real local edit forever after. So it is hidden
+from the app's own stylesheet instead — `theme/web/_vdh.scss`:
+
+```scss
+.mxfeedback-start-button { display: none !important; }
+```
+
+The general point is the one to keep: a marketplace update can change what every
+page *renders* without changing anything the model validator or a DOM-content
+assertion can see. Upgrading a theme module is a visual change, and the only thing
+that catches it is looking.
 
 ---
 

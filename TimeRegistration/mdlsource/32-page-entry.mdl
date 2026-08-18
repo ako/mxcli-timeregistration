@@ -80,7 +80,11 @@ create or replace page "TimeReg"."NewEntry" (
               dynamictext neeTodayTitle (Content: 'Already recorded that day', Class: 'vdh-panel-title')
               listview neeToday (DataSource: microflow "TimeReg"."DS_EntriesToday", Class: 'vdh-table') {
                 container neeTodayRow (Class: 'vdh-trow vdh-row--top') {
-                  dynamictext neeTodayHours (Attribute: HoursLabel, Class: 'vdh-w-56 vdh-num')
+                  dynamictext neeTodayHours (
+                    Content: '{1}',
+                    ContentParams: [{1} = Hours format (decimalPrecision: 2)],
+                    Class: 'vdh-w-56 vdh-num'
+                  )
                   container neeTodayWhat (Class: 'vdh-w-fill') {
                     dynamictext neeTodayMatter (
                       Content: '{1} · {2}',

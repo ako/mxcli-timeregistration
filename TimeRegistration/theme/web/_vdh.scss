@@ -876,3 +876,10 @@ html, body, .mx-page {
   gap: 10px;
 }
 .vdh-periodnav .vdh-period { margin-left: 4px; }
+
+// Atlas_Core 4.4.0 puts a Sprintr feedback widget into Atlas_Default, so every
+// page in the app grew a floating "Feedback" tab when the marketplace modules
+// were updated. It belongs to Mendix's own app template, not to a law firm's
+// timesheet, and a layout cannot be edited from MDL — so it is hidden here
+// rather than by editing Atlas_Core, which the next update would overwrite.
+.mxfeedback-start-button { display: none !important; }

@@ -95,7 +95,11 @@ create or replace page "TimeReg"."EditEntry" (
                 }
                 container eeArRow3 (Class: 'vdh-row') {
                   dynamictext eeArWhenL (Content: 'Recorded', Class: 'vdh-w-fill vdh-note')
-                  dynamictext eeArWhen (Attribute: RecordedLabel, Class: 'vdh-caption')
+                  dynamictext eeArWhen (
+                    Content: '{1}',
+                    ContentParams: [{1} = RecordedOn format (dateFormat: Custom, customDateFormat: 'd MMM HH:mm')],
+                    Class: 'vdh-caption'
+                  )
                 }
                 container eeArRow4 (Class: 'vdh-row') {
                   dynamictext eeArLateL (Content: 'Days late', Class: 'vdh-w-fill vdh-note')

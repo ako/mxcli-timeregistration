@@ -138,7 +138,14 @@ create or replace page "TimeReg"."WeekTimesheet" (
             Class: 'vdh-table'
           ) {
             container weRow (Class: 'vdh-trow vdh-row--top') {
-              dynamictext weDate (Attribute: EntryDateLabel, Class: 'vdh-w-104 vdh-caption')
+              -- Formatted at the widget rather than through a precomputed
+              -- caption: a `format` block on the content parameter is what
+              -- EntryDateLabel used to exist for.
+              dynamictext weDate (
+                Content: '{1}',
+                ContentParams: [{1} = EntryDate format (dateFormat: Custom, customDateFormat: 'EEE d MMM')],
+                Class: 'vdh-w-104 vdh-caption'
+              )
               container weWhat (Class: 'vdh-w-fill') {
                 dynamictext weMatter (
                   Content: '{1}',
@@ -155,7 +162,11 @@ create or replace page "TimeReg"."WeekTimesheet" (
                   Class: 'vdh-cell-sub'
                 )
               }
-              dynamictext weHours (Attribute: HoursLabel, Class: 'vdh-w-72 vdh-right vdh-num')
+              dynamictext weHours (
+                Content: '{1}',
+                ContentParams: [{1} = Hours format (decimalPrecision: 2)],
+                Class: 'vdh-w-72 vdh-right vdh-num'
+              )
               actionbutton weEdit (
                 Caption: 'Edit',
                 Action: show_page "TimeReg"."EditEntry"($Entry = $currentObject),

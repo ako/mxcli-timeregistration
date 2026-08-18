@@ -53,6 +53,16 @@ export async function run() {
     check('which opens the entry, filled in', onForm.includes('Edit time entry'));
     check('showing what it was recorded at', onForm.includes('As recorded'));
 
+    // The rate and value are the two captions that still have to be precomputed,
+    // because a format block cannot produce Dutch separators. A row the seed or
+    // copy-last-week created goes through neither ACT_SaveTimeEntry nor, since
+    // the labels moved out of the datasource, any backfill — so this checks that
+    // whatever created the row also finished it.
+    const money = await page.$$eval('.mx-name-eeArRate, .mx-name-eeArValue',
+      els => els.map(e => e.textContent.trim()));
+    check('with the money captions filled in, whatever created the row',
+      money.length === 2 && money.every(v => /^€\s*[\d.]+$/.test(v)), JSON.stringify(money));
+
     const oldHours = Number(await (await page.$$('input.form-control'))[1].inputValue());
     await (await page.$$('input.form-control'))[1].fill('9.75');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();

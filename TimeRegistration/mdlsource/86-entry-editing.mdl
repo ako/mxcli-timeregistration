@@ -28,45 +28,12 @@ begin
     where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet]
     sort by TimeReg.TimeEntry.EntryDate asc;
 
-  -- The demo data creates entries directly rather than through
-  -- ACT_SaveTimeEntry, so the seeded rows arrive without their captions. Filling
-  -- them in here keeps the precomputed-label idiom the rest of the app uses
-  -- without a migration step: it converges on the first read and does nothing
-  -- after that.
-  -- formatDecimal and formatDateTime both throw on null rather than returning
-  -- an empty string, and a non-billable entry carries no value, so each figure
-  -- is defaulted before it is formatted.
-  declare $rate decimal = 0;
-  declare $value decimal = 0;
-  declare $recorded string = '';
-
-  loop $entry in $entries
-  begin
-    if trim($entry/EntryDateLabel) = '' then
-      set $rate = 0;
-      if $entry/Rate != empty then
-        set $rate = $entry/Rate;
-      end if;
-
-      set $value = 0;
-      if $entry/AmountValue != empty then
-        set $value = $entry/AmountValue;
-      end if;
-
-      set $recorded = '';
-      if $entry/RecordedOn != empty then
-        set $recorded = formatDateTime($entry/RecordedOn, 'd MMM HH:mm');
-      end if;
-
-      change $entry (
-        EntryDateLabel = formatDateTime($entry/EntryDate, 'EEE d MMM'),
-        RateLabel  = '€ ' + replaceAll(formatDecimal($rate, '#,##0'), ',', '.'),
-        ValueLabel = '€ ' + replaceAll(formatDecimal($value, '#,##0'), ',', '.'),
-        RecordedLabel = $recorded);
-      commit $entry;
-    end if;
-  end loop;
-
+  -- This used to backfill a date caption onto every seeded row, because the demo
+  -- data creates entries directly rather than through ACT_SaveTimeEntry and a
+  -- Decimal bound to a dynamictext rendered as 717.50000000. The widget formats
+  -- itself now, so a datasource no longer has to write to what it reads — which
+  -- also removes the null-guarding that formatDecimal and formatDateTime needed,
+  -- since both throw rather than returning an empty string.
   return $entries;
 end;
 /

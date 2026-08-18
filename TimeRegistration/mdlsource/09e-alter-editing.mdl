@@ -1,5 +1,5 @@
 /**
- * Two attributes in service of correcting recorded time.
+ * Attributes in service of correcting recorded time.
  *
  * The approval task's second button has always read "Return with note", and
  * ACT_ReturnWeek has always written an audit line saying the week was returned
@@ -11,27 +11,30 @@ ALTER ENTITY "TimeReg"."Timesheet" ADD ATTRIBUTE IF NOT EXISTS "ReturnNote": str
 /
 
 /**
- * A caption for the entry list on the week screen.
+ * The money captions on an entry, which still have to be precomputed.
  *
- * The list shows one row per recorded entry, and every other list in this app
- * renders its dates through a precomputed label rather than binding a Date
- * attribute directly — the design's format ("Mon 20 Jul") is not one the client
- * produces on its own.
- */
-ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "EntryDateLabel": string(20);
-/
-
-/**
- * And the same for the figures the edit form shows back.
- *
- * Rate and AmountValue are decimals, and bound directly they render as `287` and
+ * Rate and AmountValue are Decimals, and bound directly they render as `287` and
  * `717.5` where every other money figure in the app reads `€ 287` and `€ 718`.
- * formatDecimal runs against the runtime's en_US locale, so the Dutch separators
- * are swapped in when the label is built (as ACT_RecalculateTimesheet does).
+ * A `format` block gets the precision right but not the separators: groupDigits
+ * follows the runtime's en_US locale and produces `9,142` where the design wants
+ * `9.142`, so the swap still happens in the microflow (as
+ * ACT_RecalculateTimesheet does). Switching the runtime to nl_NL is not the way
+ * out — it would render hours as `2,50`, which the design does not use.
  */
 ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "RateLabel": string(20);
 /
 ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "ValueLabel": string(20);
 /
-ALTER ENTITY "TimeReg"."TimeEntry" ADD ATTRIBUTE IF NOT EXISTS "RecordedLabel": string(20);
+
+/**
+ * The two date captions, on the other hand, are gone.
+ *
+ * "Mon 20 Jul" on the week's entry list and "20 Jul 18:10" on the edit form are
+ * both `dateFormat: Custom` with the pattern the design asks for, set at the
+ * widget. Nothing has to write them, so nothing can write them wrong — and
+ * DS_WeekEntries no longer backfills a caption onto every row it reads.
+ */
+ALTER ENTITY "TimeReg"."TimeEntry" DROP ATTRIBUTE IF EXISTS "EntryDateLabel";
+/
+ALTER ENTITY "TimeReg"."TimeEntry" DROP ATTRIBUTE IF EXISTS "RecordedLabel";
 /

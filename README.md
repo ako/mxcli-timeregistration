@@ -124,7 +124,7 @@ screen, because a page that reads the wrong thing still looks right.
 
 ```bash
 bash tests/reset.sh     # empty database, restart, wait for the seed
-node tests/run.mjs      # 135 assertions, ~9 minutes
+node tests/run.mjs      # 136 assertions, ~9 minutes
 ```
 
 Nothing to install: it uses the Chromium and Playwright that
