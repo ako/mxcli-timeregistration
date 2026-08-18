@@ -330,6 +330,10 @@ refused to load the model — the whole model, not just the workflow. The work h
 to sit in the buttons instead. Fixed upstream in mxcli (finding 39), and the app
 now uses the shape it always wanted.
 
+The app has since moved to **Mendix 11.13.0**, which calls the activity the same
+thing — the workflow was rewritten against the converted project and the runtime
+loads it. See [TOOLING.md](TOOLING.md) for how the migration was done.
+
 **Mendix does not link a workflow to its context object**, so `Timesheet_Workflow`
 does, set when the workflow starts. That association is how the task page finds
 the week it is about — and why `ACT_SubmitWeek` refuses a week that already has

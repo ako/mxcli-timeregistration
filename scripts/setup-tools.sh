@@ -13,14 +13,14 @@
 #   5. Verification ............. fails loudly if anything is missing
 #
 # Overrides:
-#   MENDIX_VERSION=11.12.1   Mendix version to pre-cache
+#   MENDIX_VERSION=11.13.0   Mendix version to pre-cache
 #   MXCLI_REF=<sha>          branch/tag/SHA of ako/mxcli to build (pinned below)
 #   MXCLI_FORCE_REBUILD=1    rebuild even when the installed binary is current
 #   SKIP_MENDIX_CACHE=1      skip the ~1.2 GB MxBuild/runtime download
 
 set -euo pipefail
 
-MENDIX_VERSION="${MENDIX_VERSION:-11.12.1}"
+MENDIX_VERSION="${MENDIX_VERSION:-11.13.0}"
 MXCLI_REPO="${MXCLI_REPO:-https://github.com/ako/mxcli.git}"
 # Pinned to a commit rather than a branch: TOOLING.md records this SHA so the
 # build is reproducible, and tracking `main` quietly made that untrue — a session

@@ -29,21 +29,21 @@ runtime download. Re-runs on a warm container finish in seconds.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `MENDIX_VERSION` | `11.12.1` | Mendix version to pre-cache |
+| `MENDIX_VERSION` | `11.13.0` | Mendix version to pre-cache |
 | `MXCLI_REF` | `main` | branch/tag/SHA of `ako/mxcli` to build |
 | `MXCLI_FORCE_REBUILD` | `0` | rebuild mxcli even when the installed binary is current |
 | `SKIP_MENDIX_CACHE` | `0` | skip the MxBuild/runtime download (fast toolchain-only run) |
 
 ## Installed versions
 
-Verified on Ubuntu 24.04.4 LTS (x86_64), 2026-07-29.
+Verified on Ubuntu 24.04.4 LTS (x86_64), 2026-08-18.
 
 | Component | Version | Location |
 | --- | --- | --- |
-| **mxcli** | `ead8926` (built from source) | `/usr/local/bin/mxcli` |
-| **MxBuild** | 11.12.1 | `~/.mxcli/mxbuild/11.12.1/modeler/mxbuild` |
-| **`mx` validator** | 11.12.1 | `~/.mxcli/mxbuild/11.12.1/modeler/mx` |
-| **Mendix runtime** | 11.12.1 | `~/.mxcli/runtime/11.12.1` |
+| **mxcli** | `4a7bfd3` (built from source, pinned) | `/usr/local/bin/mxcli` |
+| **MxBuild** | 11.13.0 | `~/.mxcli/mxbuild/11.13.0/modeler/mxbuild` |
+| **`mx` validator** | 11.13.0 | `~/.mxcli/mxbuild/11.13.0/modeler/mx` |
+| **Mendix runtime** | 11.13.0 | `~/.mxcli/runtime/11.13.0` |
 | **ANTLR** | 4.13.1 (pinned) | `/opt/antlr/antlr-4.13.1-complete.jar`, shim at `/usr/local/bin/antlr4` |
 | **Go** | go1.24.7 (`GOTOOLCHAIN=auto` fetches 1.26 per `go.mod`) | `/usr/local/go1.24.7` |
 | **JDK** | OpenJDK 21.0.10 | system |
@@ -127,6 +127,35 @@ The app lives in `TimeRegistration/` and was scaffolded with:
 mxcli new TimeRegistration --version 11.12.1
 ```
 
+### Upgraded to 11.13.0
+
+mxcli has no upgrade command; the Mendix toolset does the migration, the same
+way opening a project in a newer Studio Pro does:
+
+```bash
+mxcli setup mxbuild  --version 11.13.0
+mxcli setup mxruntime --version 11.13.0
+~/.mxcli/mxbuild/11.13.0/modeler/mx convert -p TimeRegistration
+```
+
+`mx convert` rewrites the `.mpr` in place and is **one-way** — 11.12.1 cannot
+open the result. It reported 0 errors, and `mx check` agrees. The 111 warnings
+and 1 deprecation it counted are the same ones the project carried on 11.12.1;
+the deprecation is CW0700, the old string behaviour, which Mendix 12 removes.
+
+Two things worth having checked, given finding 39. mxcli version-gates the class
+name it writes for a workflow's call-microflow activity, and that gate still
+lands `Workflows$CallMicroflowActivity` on 11.13.0 — re-running
+`62-workflow.mdl` against the converted project produces a model the runtime
+loads, which is exactly what failed before the gate existed. And the runtime
+picks the matching version by itself:
+
+```
+Core: Using runtime version '11.13.0' for model version '11.13.0'
+```
+
+The regression suite passes unchanged: 136 assertions, 0 failures.
+
 See **[APP.md](APP.md)** for what it does. To run it:
 
 ```bash
@@ -145,7 +174,7 @@ Everything in the app is reproducible from `TimeRegistration/mdlsource/`:
 cd TimeRegistration
 ./mxcli check mdlsource/01-domain.mdl -p TimeRegistration.mpr --references  # validate
 ./mxcli exec  mdlsource/01-domain.mdl -p TimeRegistration.mpr               # apply
-~/.mxcli/mxbuild/11.12.1/modeler/mx check TimeRegistration.mpr              # full build check
+~/.mxcli/mxbuild/11.13.0/modeler/mx check TimeRegistration.mpr              # full build check
 ```
 
 The scripts are numbered in dependency order (`0x` domain, `1x` seed, `2x` logic

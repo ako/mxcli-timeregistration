@@ -10,7 +10,7 @@ the output as printed.
 |---|---|
 | mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39). Finding 55 was found later, on `0580ead`; PR 55 was retested on top of that, at `25b02ac` and again at `a91e732` |
 | (built during the findings) | `ead8926` then `0ed0359` — everything below was found on those |
-| Mendix | 11.12.1 (MxBuild + runtime) |
+| Mendix | 11.12.1 (MxBuild + runtime) — every finding below was reproduced on it; the app has since moved to 11.13.0 |
 | Engine | `modelsdk` (default) |
 | Platform | Ubuntu 24.04.4, Go 1.24.7 with `GOTOOLCHAIN=auto`, JDK 21.0.10, ANTLR 4.13.1 |
 
