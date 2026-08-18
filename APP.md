@@ -498,6 +498,12 @@ no reason other than history, collapsing them into one is the better fix.
 
 ## Not done
 
+- **The marketplace modules are at the versions the scaffold installed.**
+  `Administration` 4.3.2, `Atlas_Core` 4.1.3, `DataWidgets` 3.5.0 and four others.
+  There is no CLI route to upgrading them — the marketplace needs a Mendix
+  personal access token, and even with one, an in-place module update is refused
+  because it can change persistent-entity IDs and lose data. See finding 57. It
+  needs Studio Pro.
 - **Strict XPath mode is off.** mxcli's linter recommends it (SEC005) but its
   parser has no command to set it — see finding 36. It needs Studio Pro.
 - **No SSO.** The design's Entra ID and smartcard buttons are not implemented;

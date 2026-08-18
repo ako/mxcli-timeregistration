@@ -167,6 +167,62 @@ page parameter. That is convenient, and it is why the round-trip is safe here �
 but it is inference, not preservation, and it would not save an argument that
 was anything other than the enclosing object.
 
+### 57. A marketplace module cannot be upgraded through the CLI **[gap]**
+
+Asked to upgrade the app's marketplace components after the move to 11.13.0.
+Seven modules are installed, and this is as far as it goes:
+
+```
+$ ./mxcli -p TimeRegistration.mpr -c 'show modules'
+| Administration    | Marketplace v4.3.2  |
+| Atlas_Core        | Marketplace v4.1.3  |
+| Atlas_Web_Content | Marketplace v4.1.0  |
+| DataWidgets       | Marketplace v3.5.0  |
+| FeedbackModule    | Marketplace v4.0.2  |
+| NanoflowCommons   | Marketplace v6.0.0  |
+| WebActions        | Marketplace v2.11.0 |
+```
+
+**Two independent blocks.** The first is credentials — every marketplace command
+needs a Mendix Personal Access Token, so without one you cannot even ask what the
+current versions *are*:
+
+```
+$ ./mxcli marketplace versions 107249
+auth: no credential for profile "default". Run: mxcli auth login --profile default
+```
+
+A PAT is minted by a human at `user-settings.mendix.com`; there is no machine
+route to one. So in an unattended session the answer is simply no.
+
+The second block survives the first. `marketplace install` refuses an in-place
+module update by design, and says why:
+
+> Updating a module that is already present is NOT done automatically: it could
+> discard local edits and, for modules with persistent entities, change entity
+> IDs (which loses data). Such updates are reported and left to Studio Pro.
+
+And there is no way around it in the Mendix toolset either — `mx` 11.13.0 offers
+`module-import`, `show-module-version`, `set-module-version`,
+`create-module-package`, `merge`, `diff`, and no upgrade. `module-import` fails
+on a name collision unconditionally.
+
+**Not a defect — a hole in the story.** mxcli's refusal is right: for this app in
+particular, `Administration` is the module carrying persistent entities, and the
+whole identity model hangs off `Administration.Account` through `Employee_Account`.
+Changing those entity IDs is exactly the data loss the refusal is protecting.
+
+Widgets are the exception. A `.mpk` under `widgets/` is "copied into the project's
+widgets/ folder (overwrites on update)", so the ~30 widget packages here *are*
+upgradable in principle — still gated on the PAT.
+
+Upstream knows: `docs/11-proposals/PROPOSAL_marketplace_module_upgrade.md` sets
+out to close this, and opens with the same report from a sibling project —
+"six of seven marketplace modules were behind — `DataWidgets` at 3.5.0 against
+3.11.3 — and every route closed". This project sits at `DataWidgets` 3.5.0 too.
+Its conclusion is the one worth quoting: *"An app buildable but not maintainable
+through the CLI is only half-automatable."*
+
 ---
 
 ## Retest against ako/mxcli PR 53
