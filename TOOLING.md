@@ -230,6 +230,42 @@ cd TimeRegistration
 ~/.mxcli/mxbuild/11.13.0/modeler/mx check TimeRegistration.mpr              # full build check
 ```
 
-The scripts are numbered in dependency order (`0x` domain, `1x` seed, `2x` logic
-and datasources, `3x` pages, `4x` navigation and settings) and are re-runnable —
-they use `create or modify` / `create or replace` / `add attribute if not exists`.
+The scripts are numbered by feature (`0x` domain, `1x` seed, `2x` logic and
+datasources, `3x` pages, `4x` navigation and settings, then one block per feature
+with its security script last).
+
+### Rebuilding the app from `mdlsource/`
+
+```bash
+mxcli new TimeRegistration --version 11.13.0
+cp -r <repo>/TimeRegistration/mdlsource <repo>/TimeRegistration/theme TimeRegistration/
+cd TimeRegistration
+for pass in 1 2; do
+  for f in mdlsource/*.mdl; do mxcli exec "$f" -p TimeRegistration.mpr; done
+done
+~/.mxcli/mxbuild/11.13.0/modeler/mx check TimeRegistration.mpr   # 0 errors
+```
+
+Verified end to end. Three things about it are not obvious:
+
+- **Two passes are required.** The numbering is by feature, not by dependency,
+  and there are forward references — `30-page-week.mdl` binds `ACT_WeekPrev`,
+  which `73-week-actions.mdl` defines. A page cannot be written before the
+  microflow it calls exists, so pass one leaves seven scripts failed; pass two
+  resolves them and pass three changes nothing.
+- **The logic and page scripts are re-runnable; the domain scripts are not.**
+  `2x`–`8x` use `create or modify` / `create or replace` / `add attribute if not
+  exists`. The domain scripts (`01`–`06`, `50`, `52`) use bare `create entity` /
+  `create module role`, so a second pass stops at their first statement with
+  "already exists". That is the guard working — the definitions are already
+  there — but note that **`exec` halts at the failing statement**, so nothing
+  later in such a file runs either. Do not put anything after a bare `create`.
+- **A security script must follow the feature it secures.** Granting on an entity
+  a later script creates fails on pass one, and on pass two the grant applies and
+  is then destroyed when `create or modify entity` replaces the entity. The build
+  sits at 2 errors forever. This is finding 63, and it is why the rate-card grants
+  live in `84-security-rate.mdl` rather than at the end of `80-security-period.mdl`.
+
+Until that was fixed the app could not be rebuilt from its own source at all,
+while `mx check` on the committed `.mpr` reported 0 errors — the model was right
+and the recipe for it was not.

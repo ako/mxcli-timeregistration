@@ -532,6 +532,155 @@ that catches it is looking.
 
 ---
 
+### 63. The app could not be rebuilt from its own source **[mine]**
+
+`APP.md` has said since session 1 that the whole app "is defined by the scripts in
+`TimeRegistration/mdlsource/`, so it can be rebuilt from source", and TOOLING.md
+that the scripts "are re-runnable". Testing that — scaffold an empty 11.13.0 app,
+copy `mdlsource/` in, run all 62 scripts in order — produces a project that does
+not build:
+
+```
+[error] [CE2729] "No access to entity 'TimeReg.RateCardCaption' for user role 'Administrator'." at Data view 'rkCaption'
+[error] [CE2729] "No read access to attribute 'Label' in entity 'TimeReg.RateCardCaption' …" at Text 'rkEffective'
+The app contains: 2 errors.
+```
+
+**The cause is an ordering mistake of mine, doubled by a property of `exec`.**
+`80-security-period.mdl` ended with the rate-card block, which grants on
+`TimeReg.RateCardCaption` — an entity `81-domain-rate.mdl` creates. So on a cold
+first pass the grant hits an entity that does not exist yet, and because **`exec`
+halts at the failing statement**, the rest of that file never runs either:
+
+```
+!! 80-security-period.mdl: Error: entity not found: TimeReg.RateCardCaption
+```
+
+A second pass looks like it should fix it, and does not, which is the part worth
+keeping. On pass two the names all resolve and the grants apply — and then `81`
+runs again in the same pass, where `create or modify entity` **replaces**
+RateCardCaption and takes its access rules with it. The build is therefore stable
+at 2 errors no matter how many times it is run: pass three, pass four, identical.
+
+**Why it stayed hidden for the whole engagement.** The committed `.mpr` is
+correct, because it was never cold-built — it grew incrementally across sessions,
+and in the session where the rate card was added, `81` had already run before
+`80` was written. Every check since has been run against that `.mpr`, where the
+grants are present and `mx check` reports 0 errors. Nothing in the repo ever
+executed the claim.
+
+Fixed by moving the block into `84-security-rate.mdl`, after the feature it
+secures — which is what `75-security-week.mdl` and `88-security-editing.mdl`
+already do. Verified the way the claim should have been verified all along:
+
+```
+$ mxcli new TimeRegistration --version 11.13.0     # empty project
+$ for f in mdlsource/*.mdl; do mxcli exec "$f" -p TimeRegistration.mpr; done   # twice
+$ mx check TimeRegistration.mpr
+The app contains: 0 errors.
+```
+
+Two passes are needed, and that is not the ordering bug — it is forward
+references between scripts (`30-page-week.mdl` binds `ACT_WeekPrev`, defined in
+`73-week-actions.mdl`). A page cannot be written before the microflow it calls
+exists, so a single pass through a numbered-by-feature layout cannot work. The
+second pass converges and a third changes nothing.
+
+**One claim in TOOLING.md is still wrong and is left wrong deliberately.** The
+domain scripts use bare `create entity` / `create module role`, not
+`create or modify`, so on a re-run they fail at their first statement:
+
+```
+!! 01-domain.mdl: Error: enumeration already exists: TimeReg.ENUM_Billability
+!! 02-domain-reporting.mdl: Error: entity already exists: TimeReg.PeriodStat
+!! 52-security-roles.mdl: Error: module role already exists: TimeReg.FeeEarner
+```
+
+That is harmless on a rebuild — the definitions are already there and the failure
+is the guard doing its job — but it means "the scripts are re-runnable" is true of
+the logic and page scripts and false of the domain ones. Changing them to
+`create entity if not exists` would make the sentence true; changing the sentence
+is the smaller edit and does not risk `create or modify entity` silently dropping
+an attribute a statement omits. TOOLING.md now says which is which.
+
+The lesson is the same one as finding 61, one level up: **a claim about
+reproducibility that nothing executes is decoration.** Both were found by running
+the claim rather than reading it.
+
+---
+
+### 64. Upstream survey at `e6a83b5d` — four new rules, one behaviour change **[survey]**
+
+3,922 commits and three releases (0.19, 0.20, 0.21) after the `8fd0085` pin.
+Built from source and run against this project's 62 scripts. **Zero errors on
+both binaries**; the new one adds 14 findings, in four rules:
+
+| Rule | Hits | Verdict here |
+|---|---|---|
+| MDL067 | 27 | behaviour change, inert for this app — see below |
+| MDL077 | 19 | true, and deliberately not acted on |
+| MDL071 | 2 | not applicable — no view entities |
+| MDL-WORKFLOW10 | 2 | false positive |
+
+**MDL067 is the one that matters, and it is not a diagnostic.** The default for a
+bare `commit $X;` changed:
+
+```
+ℹ 7 commit activities use the default, which is now WITH EVENTS to match Studio Pro
+  (#895); before this release a bare `commit $X;` wrote events OFF
+```
+
+78 commit statements here were written under the old default and are stored with
+events off. Re-running the scripts on the new binary flips them on. That is inert
+in this app — the only `Event*` names in `mdlsource/` are our own `AuditEntry`
+attributes, and neither `TimeReg` nor `Administration.Account` declares an event
+handler — but it is a silent semantic change to 27 microflows, and an app with
+before/after-commit handlers would find its seed data behaving differently after a
+rebuild that reported nothing. Worth spelling the intent out (`commit $X without
+events;`) in any project where handlers exist.
+
+**MDL077** reports all 19 navigation items as having no icon, correctly:
+Mendix's sidebar collapses to an icon rail and an item without one shows a few
+characters of its caption. Not acted on because the design handoff's sidebar is
+text-only and this app ships its own sidebar styling; adding icons would be
+changing the design to satisfy a linter. Recorded rather than suppressed.
+
+**MDL071** flags `Year` on `Period` and `Timesheet` as an OQL reserved word. The
+rule's own advice says the problem is confined to a view entity's own attribute,
+whose name is its select alias — this app has no view entities, so there is
+nothing to do.
+
+**MDL-WORKFLOW10 is wrong here, and says so itself.** It reports that
+`ACT_ApproveFromTask` and `ACT_ReturnFromTask` complete a user task without
+assigning it first, which would fail at runtime with *"You can't complete this
+user task, it is not assigned to you"*. Both call `ACT_ClaimTask` on the line
+before, which does exactly what the rule asks for:
+
+```mdl
+$claimed = call microflow "TimeReg"."ACT_ClaimTask" ("Task" = $task);
+set task outcome $task 'Approve';
+```
+
+The rule does not follow a call, and its advice ends *"Ignore this if the task is
+claimed elsewhere — in a microflow this one calls."* That is the honest way to
+ship a rule that cannot see the whole picture, and it is worth contrasting with
+finding 58, where the tool is confidently wrong instead.
+
+**Finding 58 is not fixed.** No commit has touched
+`cmd/mxcli/marketplace/refcache.go` since the pin, and `javascriptsource/ never
+read` is still in `isModelFile`'s table. `MXCLI_NO_REF_CACHE=1` remains required
+for any `marketplace diff` or `update`.
+
+**Nothing in the release notes required action here.** The larger fixes are for
+constructs this app does not use: `update security` (never used), `SIGN_OUT` /
+`OPEN_LINK` (no sign-out button), image widgets (none), message definition
+collections, SOAP mappings, Reduce folds. The documentation-preservation fix
+(#1018 — `create or replace` writing an empty documentation field over a stored
+one) would have mattered, except all 62 scripts already carry `/** … */` comments,
+so there was nothing to overwrite.
+
+---
+
 ## Retest against ako/mxcli PR 53
 
 PR 53 sets out to fix eighteen of these. Built from source and re-run against the

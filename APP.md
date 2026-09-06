@@ -5,7 +5,11 @@ capture, weekly approval and monthly client reporting for a Dutch law firm.
 
 Built with [mxcli](https://github.com/ako/mxcli) / MDL. The whole app — domain
 model, logic, pages, navigation, demo data — is defined by the scripts in
-`TimeRegistration/mdlsource/`, so it can be rebuilt from source.
+`TimeRegistration/mdlsource/`, and can be rebuilt from them into an empty
+project: two passes, 0 errors. **[TOOLING.md](TOOLING.md)** has the commands and
+the three things about the ordering that are not obvious. It says two passes
+because that is what was measured — the claim went untested until the marketplace
+work, and when it was finally run it failed (finding 63).
 
 ## Running it
 
@@ -518,6 +522,13 @@ If you edit a microflow, check whether a later script redefines it
 (`grep -l 'microflow "TimeReg"."NAME"' mdlsource/*.mdl`), and re-run every script
 from the earliest one that defines it. Where a document has two definitions for
 no reason other than history, collapsing them into one is the better fix.
+
+The same arrangement has a second edge, which cost a cold rebuild: **a security
+script must come after the feature it grants on.** Granting on an entity a later
+script creates fails on the first pass, and on the second the grant applies and is
+then wiped when `create or modify entity` replaces the entity — so the rebuild
+sits at 2 errors on every pass while the committed model stays clean. That is
+finding 63; it is why the rate-card grants moved into `84-security-rate.mdl`.
 
 ## Not done
 

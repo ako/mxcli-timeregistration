@@ -1,0 +1,46 @@
+/**
+ * Access for the rate card.
+ *
+ * Its matrix is the agreement in force in the selected month, so it needs the
+ * same period navigation as the reports; the card itself is administrator-only,
+ * as it always was, with a partner able to read it.
+ *
+ * This block used to sit at the end of 80-security-period.mdl, which was wrong
+ * in a way only a cold rebuild shows. Every name below is created in 81, 82 or
+ * 83 — RateCardCaption in 81-domain-rate.mdl, the datasources in
+ * 83-rate-datasources.mdl — so at 80 none of them exist yet.
+ *
+ * Two things then happen, and the second is the one that hides the first.
+ * `exec` halts at the failing statement, so the whole block was skipped on a
+ * first pass with the entity grant reported as "entity not found". On a second
+ * pass the names resolve, the grants apply — and then 81 runs again, where
+ * `create or modify entity` replaces RateCardCaption and takes its access rules
+ * with it. The result is a rebuild that ends, on every pass, with
+ *
+ *     CE2729 "No access to entity 'TimeReg.RateCardCaption' for user role
+ *             'Administrator'" at Data view 'rkCaption'
+ *
+ * and a project that cannot be built from its own source. Granting after the
+ * entity is created is the fix, and matches 75-security-week.mdl and
+ * 88-security-editing.mdl, which already follow their features rather than
+ * preceding them.
+ */
+grant "TimeReg"."Administrator" on "TimeReg"."RateCardCaption" (create, read *, write *);
+/
+grant "TimeReg"."Partner" on "TimeReg"."RateCardCaption" (create, read *, write *);
+/
+
+grant execute on microflow "TimeReg"."DS_SelectedPeriodEnd"      to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_ClientRateAt"           to "TimeReg"."FeeEarner", "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_ClientRateBelowFloorAt" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_RateCardCaption"        to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."DS_PeriodRateChanges"      to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_RateCardPrev"          to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
+grant execute on microflow "TimeReg"."ACT_RateCardNext"          to "TimeReg"."Partner", "TimeReg"."Administrator";
+/
