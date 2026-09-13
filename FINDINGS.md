@@ -681,6 +681,161 @@ so there was nothing to overwrite.
 
 ---
 
+### 65. PR 457 makes the escalation timer buildable — tested by building it **[retest]**
+
+The one thing APP.md lists as not done is an escalation on the approval workflow:
+*"The user task has a due date the engine tracks, but nothing acts when it
+passes. A boundary timer event is the place for it … it is simply not built."*
+PR 457 (`3c4598ed`, four commits, unmerged as of today) is about exactly that, so
+the way to test it is to build the thing.
+
+**On the pin, written the way mxcli's own documentation says to write it.** The
+example in `mxcli syntax workflow boundary-event` is:
+
+```mdl
+boundary event timer 'P3D' {
+  call microflow Module.WF_Escalate;
+}
+```
+
+Attached to `TimeReg.TimesheetApproval` verbatim, on `8fd0085`:
+
+```
+$ mxcli check … --references
+✓ All references valid
+Check passed!
+$ mxcli exec …
+Created workflow: TimeReg.TimesheetApproval
+$ mx check TimeRegistration.mpr
+[error] [CE0117] "Error(s) in expression." at Call microflow 'ACT_EscalateOverdueReview'
+[error] [CE6686] "The current outcomes of the call microflow activity do not match the
+                  configured microflow. Regenerate the outcomes." at Call microflow …
+The app contains: 2 errors.
+```
+
+Three separate defects are in that one example, and the documentation carries all
+three: the missing `interrupting` / `non interrupting` kind, `'P3D'` where Mendix
+wants a DateTime expression, and a path ending in `call microflow` where Mendix
+requires an end marker.
+
+**PR 457 refuses the first before it reaches storage:**
+
+```
+$ mxcli-pr457 check … --references
+  - 1 boundary event(s) written as a bare `timer` — on Mendix 11.13.0 that stores
+    Workflows$TimerBoundaryEvent, a type the runtime does not have, so check and
+    mxbuild pass and the application then refuses to start ("Class
+    'Workflows$TimerBoundaryEvent' could not be found"). Write `boundary event
+    interrupting timer` or `boundary event non interrupting timer`  [MDL-WF07]
+✗ 1 reference error(s) found
+```
+
+That is the shape of diagnostic worth having: it names what gets stored, what the
+runtime does with it, and which two spellings are correct — and it fires at the
+one moment the mistake is still cheap.
+
+**Corrected, and run through both binaries.** Same script, one line different:
+
+```mdl
+boundary event interrupting timer 'addDays([%CurrentDateTime%], 3)' {
+  call microflow TimeReg.ACT_EscalateOverdueReview
+    with (Timesheet = '$workflowContext');
+}
+```
+
+| | `mxcli check --references` | `exec` | `mx check` |
+|---|---|---|---|
+| pin `8fd0085` | passed | "Created workflow" | **3 errors** — CE0105, CE0117, CE6686 |
+| PR 457 | passed | "Created workflow" | **0 errors** |
+
+CE0105 is *"Call microflow cannot be the last object of a flow"* — the missing
+`EndOfBoundaryEventPathActivity`. CE6686 is the nested call-microflow not being
+auto-wired, which `6dddd6ba` fixes with a diagnosis worth quoting: the walk that
+binds activities enumerated nested flows through a type switch, and *"no
+boundary-event body was entered at all."*
+
+**Then the test the build cannot do.** The PR's sharpest claim is that a
+non-interrupting path used to build at 0 errors and then stop the runtime from
+starting — so 0 errors is not the finish line here. Booted with the timer
+attached:
+
+```
+APP UP after 96s
+$ node tests/run.mjs workflow
+  20 passed, 0 failed
+```
+
+The app starts and the approval flow still works with a boundary event hanging
+off the user task.
+
+**Not shipped, and the reason is the pin rather than the code.** PR 457 is not
+merged — four commits ahead of `main`, and none of the three fixes is on `main`
+(`6dddd6ba` is, which is why the errors above are down to CE0105 alone on a
+`main` build). Pinning the project to an unmerged PR head would trade a
+reproducible build for a ref that can be force-pushed or garbage-collected. The
+escalation is therefore still *not done*, for a reason that now has a date on it:
+when 457 merges, move the pin and apply the MDL above.
+
+Running the PR's binary over all 62 scripts reports the same four rules and the
+same zero errors as finding 64, so adopting it costs nothing else.
+
+---
+
+### 66. 40 of our 47 page datasources run with full access **[mine]**
+
+`8d97e430` on `main` fixes a microflow rewrite silently clearing **Apply entity
+access** — a setting that makes a microflow run under the current user's rules
+rather than with full access, so clearing it *widens* what the microflow may read
+and write, with `mxcli check` and mxbuild both quiet.
+
+Nothing was cleared here: MDL had no way to set it, so none of this app's
+microflows ever had it.
+
+```
+$ for m in DS_WeekRows DS_WeekEntries DS_MyMatters ACT_SaveTimeEntry; do
+    mxcli describe microflow TimeReg.$m -p TimeRegistration.mpr | grep -c applyentityaccess; done
+0
+0
+0
+0
+```
+
+Reading the fix is what made me count how the app's data actually reaches a page:
+
+```
+$ grep -rhoE "DataSource: (microflow|database|association)" mdlsource/*.mdl | sort | uniq -c
+      7 DataSource: database
+     40 DataSource: microflow
+```
+
+**So APP.md's security paragraph is imprecise, and I wrote it.** It says of the
+partner with no entries of his own: *"the access rules stop him seeing anyone
+else's."* For the 7 database datasources, true. For the other 40 it is the
+microflow's own constraint doing the work —
+
+```mdl
+retrieve $rows from "TimeReg"."MatterMonthSummary"
+  where ["TimeReg"."MatterMonthSummary_Employee" = $employee]
+```
+
+— with `$employee` resolved from `[%CurrentUser%]`. The behaviour the security
+spec asserts is real and the tests are not lying; the *mechanism* is the XPath in
+40 microflows, not the entity access rules, and those two fail differently. A
+typo in one `where` clause is a data leak that no access rule would catch, which
+is precisely the class of mistake a second layer exists to stop.
+
+**What `@applyentityaccess` now offers, and why it is not switched on here.** The
+annotation makes the second layer available for the first time. It is not a
+wholesale flip: the rollup, the per-customer report and the approval queue read
+across employees *by design*, and running those under the current user's rules
+would empty them. The candidates are the "my"-scoped read datasources, one at a
+time, each with the security spec as the check. Recorded as a real hardening
+option rather than done in passing, because turning entity access on for a
+datasource that legitimately reads wide is a silent empty grid, and this is not
+the session to be discovering which is which.
+
+---
+
 ## Retest against ako/mxcli PR 53
 
 PR 53 sets out to fix eighteen of these. Built from source and re-run against the

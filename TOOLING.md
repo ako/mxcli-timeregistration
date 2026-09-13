@@ -84,6 +84,22 @@ The `4a7bfd3` pin also turned on `FormOrientation: Vertical` on the two entry
 forms. Both have declared it since they were written; the modelsdk writer was
 discarding it (#762), so the labels sat beside the fields rather than above them.
 
+### When to move the pin next
+
+Two surveys have said "stay" (findings 64 and 65). The thing to move it *for* is
+**`ako/mxcli` PR 457**, once merged. It is the only upstream change so far that
+unblocks work this app wants: without it a workflow boundary timer cannot be
+written correctly at all — the form `mxcli syntax workflow boundary-event`
+teaches stores a class the runtime does not have, and the corrected form fails
+mxbuild with CE0105 because no end marker is written for a boundary event path.
+With it, the escalation timer builds at 0 errors, the app starts, and the
+workflow spec passes 20/20 (all measured against this project). None of the three
+fixes is on `main`, so waiting for `main` is waiting for 457.
+
+Two things deliberately *not* reasons to move it: MDL067, which silently rewrites
+27 microflows' commit-event flags for no behaviour change here, and the four new
+lint rules, none of which finds anything wrong with this app.
+
 ### Why ANTLR is pinned
 
 `make build` regenerates the MDL parser with whatever `antlr4` it finds on

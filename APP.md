@@ -473,7 +473,17 @@ documentation. Lists fed by `database from …` are scoped by the rules as norma
 | praktijkbeheer@vdh-law.nl (practice mgmt) | 10 items | none — no fee-earner record | firm-wide |
 
 Pieter's empty week is the proof: he has no entries of his own in the demo
-dataset, and the access rules stop him seeing anyone else's.
+dataset, and nothing shows him anyone else's.
+
+**What enforces that is worth stating precisely**, because it is not one thing.
+Forty of the app's forty-seven page datasources are microflows, and a microflow
+runs with full access unless *Apply entity access* is set — which none of these
+have, because MDL had no way to say it until recently. So for those forty it is
+the microflow's own `where [… = $employee]` that scopes the data, with
+`$employee` resolved from `[%CurrentUser%]`. The entity access rules are real and
+do cover the seven database datasources, page access and the client's own
+retrieves; they are not what makes the week screen show you your week. Both
+layers are wanted and only one is currently in place — see finding 66.
 
 All demo accounts use the password `VdhDemo2026!`, shown on the sign-in page.
 This is a prototype dataset, not a credential store.
@@ -538,8 +548,20 @@ finding 63; it is why the rate-card grants moved into `84-security-rate.mdl`.
   the page uses the platform's local sign-in.
 - **No escalation or delegation on the workflow.** The user task has a due date
   the engine tracks, but nothing acts when it passes. A boundary timer event is
-  the place for it, and now that finding 39 is fixed its body could call a
-  microflow like the outcome branches do — it is simply not built.
+  the place for it — and it has now been built and thrown away once, which is
+  more useful than it sounds. On the current pin the timer cannot be written
+  correctly at all: the form mxcli's own syntax help teaches builds a model the
+  runtime cannot load, and the corrected form fails mxbuild with CE0105 because
+  mxcli writes no end marker on a boundary event path. `ako/mxcli` PR 457 fixes
+  both; with it the timer builds at 0 errors, the app starts and the workflow
+  spec still passes 20/20. It is not shipped because 457 is unmerged and pinning
+  to a PR head would cost the reproducible build. Finding 65 has the MDL, ready
+  to apply when it lands.
+- **Entity access is not applied by the datasource microflows.** A second,
+  independent layer under the forty microflow datasources that currently scope
+  "my" data by their own XPath. `@applyentityaccess` makes it expressible; it
+  needs doing per datasource rather than wholesale, since the rollup and the
+  reports read across employees by design. Finding 66.
 - **The approvals queue still shows every week.** Weeks without a running
   workflow (already approved, still draft) show an *Open task* button that does
   nothing. Hiding it needs a conditional-visibility expression across the
