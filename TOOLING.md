@@ -36,11 +36,11 @@ runtime download. Re-runs on a warm container finish in seconds.
 
 ## Installed versions
 
-Verified on Ubuntu 24.04.4 LTS (x86_64), 2026-08-18.
+Verified on Ubuntu 24.04.4 LTS (x86_64), 2026-09-13.
 
 | Component | Version | Location |
 | --- | --- | --- |
-| **mxcli** | `8fd0085` (built from source, pinned) | `/usr/local/bin/mxcli` |
+| **mxcli** | `337b232b` (built from source, pinned) | `/usr/local/bin/mxcli` |
 | **MxBuild** | 11.13.0 | `~/.mxcli/mxbuild/11.13.0/modeler/mxbuild` |
 | **`mx` validator** | 11.13.0 | `~/.mxcli/mxbuild/11.13.0/modeler/mx` |
 | **Mendix runtime** | 11.13.0 | `~/.mxcli/runtime/11.13.0` |
@@ -55,8 +55,8 @@ Verified on Ubuntu 24.04.4 LTS (x86_64), 2026-08-18.
 
 ```
 repo:   https://github.com/ako/mxcli
-commit: 8fd0085834b2f424aff1baa6e5db3a5579b93cf6   (short: 8fd0085)
-date:   2026-08-18
+commit: 337b232b2a9ee68b23d71f8de9cb045784230410   (short: 337b232b)
+date:   2026-09-13
 ```
 
 `scripts/setup-tools.sh` builds **this commit**, not `main`. It used to default
@@ -65,7 +65,7 @@ whatever had landed that day, and one of them silently built a `main` that was
 106 commits stale. Pass `MXCLI_REF=main` to follow the branch when retesting an
 upstream fix.
 
-Three things in this pin the app depends on:
+Four things in this pin the app depends on:
 
 - **PR 53** (`48548ca`, an earlier pin) — before it, mxcli wrote a workflow
   call-microflow activity the Mendix 11.12.1 runtime could not load, so
@@ -75,30 +75,38 @@ Three things in this pin the app depends on:
   a widget it writes (findings 49 and 55), and `dynamictext` content parameters
   take a `format` block, which is what lets the entry list render its own hours
   and dates instead of reading captions a microflow had to maintain.
-- **`marketplace update`** (`8fd0085`) — the reason for this pin. `4a7bfd3` had
-  no way to move a marketplace module to a newer version; finding 57 recorded
-  that as a hole in the story, and this closes it. All seven modules were
-  updated with it (see below).
+- **`marketplace update`** (`8fd0085`, the previous pin) — `4a7bfd3` had no way
+  to move a marketplace module to a newer version; finding 57 recorded that as a
+  hole in the story, and this closed it. All seven modules were updated with it
+  (see below).
+- **Workflow boundary events** (PR 457, merged as `68a5f29d`) — the reason for
+  *this* pin. Before it a boundary timer could not be written correctly at all:
+  the form `mxcli syntax workflow boundary-event` taught stores
+  `Workflows$TimerBoundaryEvent`, which no Mendix 11 runtime has, and the
+  corrected form failed mxbuild with CE0105 because no end marker was written for
+  the path. The approval workflow's escalation timer depends on all three fixes
+  (finding 65).
 
 The `4a7bfd3` pin also turned on `FormOrientation: Vertical` on the two entry
 forms. Both have declared it since they were written; the modelsdk writer was
 discarding it (#762), so the labels sat beside the fields rather than above them.
 
-### When to move the pin next
+### When to move the pin
 
-Two surveys have said "stay" (findings 64 and 65). The thing to move it *for* is
-**`ako/mxcli` PR 457**, once merged. It is the only upstream change so far that
-unblocks work this app wants: without it a workflow boundary timer cannot be
-written correctly at all — the form `mxcli syntax workflow boundary-event`
-teaches stores a class the runtime does not have, and the corrected form fails
-mxbuild with CE0105 because no end marker is written for a boundary event path.
-With it, the escalation timer builds at 0 errors, the app starts, and the
-workflow spec passes 20/20 (all measured against this project). None of the three
-fixes is on `main`, so waiting for `main` is waiting for 457.
+The bar this project has settled on is **something upstream unblocks work the app
+wants**, not "there are newer commits". Two surveys said stay (finding 64, and
+finding 65 while PR 457 was unmerged); 457 merging is what moved it, because the
+approval workflow's escalation timer cannot be written correctly without it.
 
-Two things deliberately *not* reasons to move it: MDL067, which silently rewrites
-27 microflows' commit-event flags for no behaviour change here, and the four new
-lint rules, none of which finds anything wrong with this app.
+Two things that are deliberately *not* reasons to move it, and were not:
+MDL067 — which silently rewrites 27 microflows' commit-event flags for no
+behaviour change here — and the new lint rules, none of which finds anything
+wrong with this app. Both came along with this pin anyway; neither would have
+justified it.
+
+Pinning to an unmerged PR head is not done at all: it trades the reproducible
+build for a ref that can be force-pushed or garbage-collected. The escalation sat
+written-and-thrown-away for exactly that reason until 457 landed.
 
 ### Why ANTLR is pinned
 
@@ -174,7 +182,8 @@ picks the matching version by itself:
 Core: Using runtime version '11.13.0' for model version '11.13.0'
 ```
 
-The regression suite passes unchanged: 136 assertions, 0 failures.
+The regression suite passes unchanged: 136 assertions, 0 failures (140 since the
+escalation timer landed).
 
 ### Marketplace modules
 

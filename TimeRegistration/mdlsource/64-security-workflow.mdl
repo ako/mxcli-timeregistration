@@ -25,3 +25,10 @@ grant execute on microflow "TimeReg"."ACT_ReturnFromTask"  to "TimeReg"."Partner
 
 grant execute on microflow "TimeReg"."ACT_ClaimTask" to "TimeReg"."Partner", "TimeReg"."Administrator";
 /
+
+-- The escalation runs from a boundary timer, which the workflow engine executes
+-- on its own behalf rather than on a signed-in user's. Granted to the same roles
+-- as the rest of the approval flow so that a partner or administrator triggering
+-- it from a claimed task is not refused either.
+grant execute on microflow "TimeReg"."ACT_EscalateOverdueReview" to "TimeReg"."Partner", "TimeReg"."Administrator";
+/

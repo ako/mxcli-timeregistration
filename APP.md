@@ -30,7 +30,7 @@ are a browser suite that drives the app and then checks the database behind it:
 
 ```bash
 bash tests/reset.sh     # empty database, restart, wait for the seed
-node tests/run.mjs      # 136 assertions across the eight specs, ~9 minutes
+node tests/run.mjs      # 140 assertions across the eight specs, ~9 minutes
 ```
 
 See [tests/README.md](tests/README.md) for what each spec covers.
@@ -302,10 +302,30 @@ ACT_SubmitWeek                     start workflow, record it on the Timesheet
        page       WF_ApproveTask
        due date   addDays([%CurrentDateTime%], 3)
        outcomes   Approve · Return
+       boundary   non interrupting timer, +3 days → ACT_EscalateOverdueReview
 ```
 
-Three things the enumeration could not give: a task assigned to a named person,
-a due date the engine tracks, and a decision history the platform keeps.
+Four things the enumeration could not give: a task assigned to a named person, a
+due date the engine tracks, something that *acts* when that date passes, and a
+decision history the platform keeps.
+
+**When a review goes overdue.** The boundary timer fires three days out and
+writes a line into the week's audit trail — the panel the week screen already
+shows — so the fee earner sees that their week is stuck and why, rather than the
+fact living only in the platform's workflow administration. It is **non
+interrupting** on purpose: an interrupting timer cancels the user task and takes
+its path, which would destroy the pending approval instead of chasing it. The
+partner's task stays open and claimable, and `Timesheet.Status` is deliberately
+not moved — the week really is still pending, and saying otherwise would tell the
+grid and the reports something untrue.
+
+The suite proves this rather than asserting it. A boundary timer is scheduled by
+the engine as a queued task, so the test checks one was armed per running
+workflow and dated three days out, then pulls it into the past and lets the
+engine's own poller run it — the escalation lines appear within about a minute,
+and the user tasks are still open afterwards. Writing that timer at all needed
+three upstream fixes (finding 65); before them this exact model built at 0 errors
+and the runtime then refused to start.
 
 **My tasks** (`/p/my-tasks`) is the approver's inbox, reading
 `System.WorkflowUserTask` for the signed-in user. The Team approvals queue is
@@ -546,17 +566,9 @@ finding 63; it is why the rate-card grants moved into `84-security-rate.mdl`.
   parser has no command to set it — see finding 36. It needs Studio Pro.
 - **No SSO.** The design's Entra ID and smartcard buttons are not implemented;
   the page uses the platform's local sign-in.
-- **No escalation or delegation on the workflow.** The user task has a due date
-  the engine tracks, but nothing acts when it passes. A boundary timer event is
-  the place for it — and it has now been built and thrown away once, which is
-  more useful than it sounds. On the current pin the timer cannot be written
-  correctly at all: the form mxcli's own syntax help teaches builds a model the
-  runtime cannot load, and the corrected form fails mxbuild with CE0105 because
-  mxcli writes no end marker on a boundary event path. `ako/mxcli` PR 457 fixes
-  both; with it the timer builds at 0 errors, the app starts and the workflow
-  spec still passes 20/20. It is not shipped because 457 is unmerged and pinning
-  to a PR head would cost the reproducible build. Finding 65 has the MDL, ready
-  to apply when it lands.
+- **No delegation on the workflow.** A partner cannot hand a review to someone
+  else; the task is targeted by `ACT_WF_Approvers` and stays there. Escalation is
+  built (see above), delegation is not.
 - **Entity access is not applied by the datasource microflows.** A second,
   independent layer under the forty microflow datasources that currently scope
   "my" data by their own XPath. `@applyentityaccess` makes it expressible; it

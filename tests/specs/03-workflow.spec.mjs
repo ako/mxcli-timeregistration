@@ -29,6 +29,40 @@ export async function run() {
     check('with an audit line',
       sql(`select description from "timereg$auditentry" where description like 'Week submitted%'`).length > 0);
 
+    // The escalation boundary timer. There is nothing on a screen to look at —
+    // it fires three days out — so the check is that the engine SCHEDULED it,
+    // one per running workflow, on the date the MDL expression asks for. Before
+    // mxcli PR 457 this same model built at 0 errors and the runtime then
+    // refused to start, so "the app is up and the count is right" is the
+    // assertion that would have caught it (finding 65).
+    checkEqual('the due date is armed, one timer per running workflow',
+      sqlValue(`select count(*) from "system$queuedtask"
+                where useractionname = 'MendixWorkflows-ExecuteTimerBoundaryEvent'`), '3');
+    checkEqual('three days out, from addDays([%CurrentDateTime%], 3)',
+      sqlValue(`select count(*) from "system$queuedtask"
+                where useractionname = 'MendixWorkflows-ExecuteTimerBoundaryEvent'
+                  and startat::date = (current_date + 3)`), '3');
+
+    // And then actually fire it, by pulling the queued task into the past and
+    // letting the engine's own poller pick it up. Waiting three days is the only
+    // other way to learn whether the path past the timer works, and "it is
+    // scheduled" is a weaker claim than "it ran".
+    sql(`update "system$queuedtask" set startat = now() - interval '1 minute'
+         where useractionname = 'MendixWorkflows-ExecuteTimerBoundaryEvent'`);
+    const escalations = async () => {
+      for (let i = 0; i < 20; i++) {
+        const n = Number(sqlValue(
+          `select count(*) from "timereg$auditentry" where description like 'Approval overdue%'`));
+        if (n >= 3) return n;
+        await sleep(5000);
+      }
+      return Number(sqlValue(
+        `select count(*) from "timereg$auditentry" where description like 'Approval overdue%'`));
+    };
+    checkEqual('and when it fires, each overdue week gets its escalation line', await escalations(), 3);
+    checkEqual('without interrupting the task it hangs off — the approval is still open',
+      sqlValue(`select count(*) from "system$workflowusertask" where endtime is null`), '3');
+
     // --- the partner's inbox ------------------------------------------------
     await signIn(page, 'j.haverkamp@vdh-law.nl');
     await open(page, '/p/my-tasks');

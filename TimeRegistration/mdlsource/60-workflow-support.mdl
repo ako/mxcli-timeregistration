@@ -193,3 +193,30 @@ begin
   show page "TimeReg"."MyTasks";
 end;
 /
+
+/**
+ * The escalation a boundary timer runs when a review goes past its due date.
+ *
+ * Writes a line into the week's audit trail, which is the panel the week screen
+ * already shows, so an overdue review is visible on the fee earner's own screen
+ * rather than only in the platform's workflow administration. It deliberately
+ * does NOT move Timesheet.Status: the week is still pending approval and the
+ * task is still open — a non-interrupting timer leaves it running — and changing
+ * the status here would tell the grid and the reports something untrue.
+ *
+ * @param $Timesheet the week whose review is overdue
+ */
+create or modify microflow "TimeReg"."ACT_EscalateOverdueReview" (
+  $Timesheet: "TimeReg"."Timesheet"
+)
+folder 'Workflow'
+begin
+  $audit = create "TimeReg"."AuditEntry" (
+    EventTime = [%CurrentDateTime%],
+    EventLabel = formatDateTime([%CurrentDateTime%], 'dd MMM HH:mm'),
+    SortOrder = 0,
+    Description = 'Approval overdue — the supervising partner has been reminded.',
+    TimeReg.AuditEntry_Timesheet = $Timesheet);
+  commit $audit;
+end;
+/

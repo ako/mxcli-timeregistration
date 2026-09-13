@@ -19,6 +19,19 @@
  * Every `call microflow` names its parameter explicitly. An unmapped parameter
  * used to be invisible to both checkers; `mxcli check --references` now catches
  * it (finding 40), but the mapping is written out regardless.
+ *
+ * The boundary timer is what acts when the due date passes. Three things about
+ * it are deliberate:
+ *
+ *   - NON INTERRUPTING. An interrupting timer cancels the user task and takes
+ *     its path, which would destroy the pending approval rather than chase it.
+ *     The partner's task stays open and claimable; the timer only records.
+ *   - The delay is a DateTime EXPRESSION, not an ISO duration. `'P3D'` parses
+ *     and is wrong; mxcli's own syntax help taught it until PR 457.
+ *   - The kind is spelled out. A bare `boundary event timer` stores
+ *     Workflows$TimerBoundaryEvent, which no Mendix 11 runtime has — check and
+ *     mxbuild both pass and the application then refuses to start. MDL-WF07
+ *     refuses it now; finding 65 has the reproduction.
  */
 create or replace workflow "TimeReg"."TimesheetApproval"
   parameter $Context: "TimeReg"."Timesheet"
@@ -38,7 +51,11 @@ begin
       'Return' {
         call microflow TimeReg.ACT_ReturnWeek
           with (Timesheet = '$workflowContext');
-      };
+      }
+    boundary event non interrupting timer 'addDays([%CurrentDateTime%], 3)' {
+      call microflow TimeReg.ACT_EscalateOverdueReview
+        with (Timesheet = '$workflowContext');
+    };
 
 end workflow;
 /

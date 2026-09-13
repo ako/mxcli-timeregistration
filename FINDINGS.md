@@ -10,7 +10,7 @@ the output as printed.
 |---|---|
 | mxcli | `48548ca` — `ako/mxcli` `main` with PR 53 merged; the app depends on it (finding 39). Finding 55 was found later, on `0580ead`; PR 55 was retested on top of that, at `25b02ac` and again at `a91e732` |
 | (built during the findings) | `ead8926` then `0ed0359` — everything below was found on those |
-| (current pin) | `8fd0085` — moved here for `marketplace update`; findings 57–62 are on it |
+| (current pin) | `337b232b` — moved here for PR 457 (workflow boundary events); findings 65–66 are on it. `8fd0085` before it, for `marketplace update`; findings 57–64 |
 | Mendix | 11.12.1 (MxBuild + runtime) — every finding below was reproduced on it; the app has since moved to 11.13.0 |
 | Engine | `modelsdk` (default) |
 | Platform | Ubuntu 24.04.4, Go 1.24.7 with `GOTOOLCHAIN=auto`, JDK 21.0.10, ANTLR 4.13.1 |
@@ -681,7 +681,7 @@ so there was nothing to overwrite.
 
 ---
 
-### 65. PR 457 makes the escalation timer buildable — tested by building it **[retest]**
+### 65. PR 457 makes the escalation timer buildable — and it is now built **[retest]**
 
 The one thing APP.md lists as not done is an escalation on the approval workflow:
 *"The user task has a due date the engine tracks, but nothing acts when it
@@ -768,16 +768,44 @@ $ node tests/run.mjs workflow
 The app starts and the approval flow still works with a boundary event hanging
 off the user task.
 
-**Not shipped, and the reason is the pin rather than the code.** PR 457 is not
-merged — four commits ahead of `main`, and none of the three fixes is on `main`
-(`6dddd6ba` is, which is why the errors above are down to CE0105 alone on a
-`main` build). Pinning the project to an unmerged PR head would trade a
-reproducible build for a ref that can be force-pushed or garbage-collected. The
-escalation is therefore still *not done*, for a reason that now has a date on it:
-when 457 merges, move the pin and apply the MDL above.
+**Merged, so it is shipped.** 457 landed as `68a5f29d` (rebased, so the PR-head
+SHAs are not ancestors of `main` — the four commits are there under new ids).
+The pin moved to `337b232b` and the escalation is built: a **non interrupting**
+timer on the Review task calling `ACT_EscalateOverdueReview`, which writes a line
+into the week's audit trail. Non-interrupting is the load-bearing word — an
+interrupting timer cancels the user task and takes its path, which would destroy
+the pending approval rather than chase it. It is also the case the PR says used
+to build at 0 errors and then stop the runtime starting, so it is the one worth
+having shipped.
 
-Running the PR's binary over all 62 scripts reports the same four rules and the
-same zero errors as finding 64, so adopting it costs nothing else.
+**What proves it, past "0 errors and the app boots".** The engine schedules a
+boundary timer as a queued task, so the arming is visible:
+
+```
+$ select useractionname, status, count(*), min(startat) from "system$queuedtask"
+    where useractionname like '%BoundaryEvent%' group by 1,2
+MendixWorkflows-ExecuteTimerBoundaryEvent | Idle | 4 | 2026-09-16 12:47:58
+```
+
+Four running workflows, four timers, dated exactly three days out — the
+`addDays([%CurrentDateTime%], 3)` expression honoured rather than parsed and
+dropped.
+
+Three days is too long to wait for the half that matters, so the test pulls the
+queued task into the past and lets the engine's own poller take it:
+
+```sql
+update "system$queuedtask" set startat = now() - interval '1 minute'
+ where useractionname = 'MendixWorkflows-ExecuteTimerBoundaryEvent';
+```
+
+Within about 45 seconds the escalation rows appear. That is now four assertions
+in `tests/specs/03-workflow.spec.mjs` — the timer is armed, dated right, fires,
+and leaves its user task open — and the suite is at **140 passed, 0 failed**.
+A cold rebuild into an empty project still reports 0 errors.
+
+Running the new pin over all 62 scripts reports the same four rules and the same
+zero errors as finding 64, so adopting it cost nothing else.
 
 ---
 
