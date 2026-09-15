@@ -12,7 +12,7 @@ the output as printed.
 | (built during the findings) | `ead8926` then `0ed0359` — everything below was found on those |
 | (current pin) | `337b232b` — moved here for PR 457 (workflow boundary events); findings 65–66 are on it. `8fd0085` before it, for `marketplace update`; findings 57–64 |
 | Mendix | 11.12.1 (MxBuild + runtime) — every finding below was reproduced on it; the app has since moved to 11.13.0 |
-| Engine | `modelsdk` (default) |
+| Engine | the default; never selected explicitly. Upstream deleted the legacy backend in `3d3ca1f1` and `--engine` is now a warning-only no-op (finding 67) |
 | Platform | Ubuntu 24.04.4, Go 1.24.7 with `GOTOOLCHAIN=auto`, JDK 21.0.10, ANTLR 4.13.1 |
 
 Commands below run from `TimeRegistration/`. Reproductions were re-run against
@@ -861,6 +861,95 @@ time, each with the security spec as the check. Recorded as a real hardening
 option rather than done in passing, because turning entity access on for a
 datasource that legitimately reads wide is a silent empty grid, and this is not
 the session to be discovering which is which.
+
+---
+
+### 67. Upstream survey at `0dd7f51a` — the legacy engine is gone, and it cost us nothing **[survey]**
+
+4,211 commits past the `337b232b` pin, spanning 0.22.0 and an unreleased block.
+Two headline changes, both investigated against this project.
+
+**The legacy engine was deleted, and this app never noticed.** `3d3ca1f1`
+removes `mdl/backend/mpr`, the engine-comparison package and the `bson compare`
+command. The flag survives deliberately:
+
+```
+$ mxcli check … --engine legacy      # still runs
+      --engine string   Deprecated and ignored: there is one model engine.
+                        Kept so scripts pinning the old one keep running.
+```
+
+That is the right call and the commit says why: deleting the flag would fail a
+script pinning `legacy` at argument parsing with "unknown flag", which says
+nothing about what changed.
+
+Nothing here has ever passed `--engine`, so the standing instruction to avoid
+`--engine legacy` was satisfied by never naming an engine at all. What *was*
+wrong is that three files in this repo told a future session the choice still
+existed — `TOOLING.md`'s conventions, `scripts/setup-tools.sh`'s summary banner
+and this document's environment table all named `modelsdk` as "the default", as
+if there were another. Corrected: there is one engine, and the guidance is now
+"never pass `--engine`" rather than "pass the right one".
+
+Worth recording what the removal turned up on the way, because it is the same
+shape as findings 61 and 63 in this repo: `setupTestEnv` defaulted to the
+**legacy** backend, so most of `mdl/executor`'s integration tests had been
+exercising the retired engine rather than the one users get. A default nobody
+re-examined, quietly testing the wrong thing — invisible while both existed.
+
+**Workflow support was extended a long way, and none of it unblocks this app.**
+Event sub-processes, notification events, `notify workflow … target`, multi-user
+completion rules (`participants`, `decide by`, `await all users`), AI agent tasks
+via `call agent microflow`, workflow event handlers, `on created microflow`, and
+`end workflow` for ending a process from inside a branch.
+
+Checked each against what this app actually lacks. The remaining workflow gap is
+**delegation** — a partner handing a review to someone else — and none of the new
+features touches it:
+
+```
+$ mxcli describe … | grep -ioE 'delegat|reassign|assignee'    # in the new changelog entries
+(nothing)
+```
+
+Delegation was never tool-blocked. A task is delegated by changing its
+assignees, which is an ordinary microflow write this app has been doing since
+`ACT_ClaimTask` was written:
+
+```mdl
+change $Task (System.WorkflowUserTask_Assignees = $me);
+```
+
+So delegation is unbuilt because nobody built it, not because mxcli could not
+express it — which is a different entry in *Not done* than the escalation timer
+was, and APP.md says so.
+
+**No regressions, measured rather than assumed.** Built `0dd7f51a` from source
+(parser regen still matches at ANTLR 4.13.1) and put it over the project:
+
+| | pin `337b232b` | main `0dd7f51a` |
+|---|---|---|
+| rule hits across all 62 scripts | 89 WIDGET15 · 28 MDL067 · 19 MDL077 · 5 MDL001 · 2 MDL071 · 2 WORKFLOW10 | **identical** |
+| errors | 0 | 0 |
+| `exec` of `62-workflow.mdl` | byte-identical model | byte-identical model |
+| cold rebuild into an empty project | 0 errors | 0 errors |
+
+The workflow rewrite mattered most to check, because `361e96e1` makes rewrites
+refuse when they would reset what Studio Pro configured, and this project
+re-runs `create or replace workflow` on every rebuild. It proceeds, and the
+escalation boundary event survives it — `describe workflow` now emits the
+boundary event as a re-executable statement:
+
+```mdl
+boundary event non interrupting timer 'addDays([%CurrentDateTime%], 3)'
+  call microflow TimeReg.ACT_EscalateOverdueReview with (Timesheet = '$WorkflowContext')
+```
+
+**Pin stays at `337b232b`**, by the bar in TOOLING.md: move it when upstream
+unblocks work the app wants. Nothing here does. The engine removal is the
+strongest argument for moving eventually — our pin is now the older of two
+worlds — but "the code you are on has since been deleted upstream" is a reason to
+move *when something needs it*, not on its own.
 
 ---
 

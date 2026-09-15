@@ -108,6 +108,12 @@ Pinning to an unmerged PR head is not done at all: it trades the reproducible
 build for a ref that can be force-pushed or garbage-collected. The escalation sat
 written-and-thrown-away for exactly that reason until 457 landed.
 
+The survey at `0dd7f51a` said stay again (finding 67), with one thing worth
+carrying forward: upstream has since **deleted** the legacy engine, so this pin
+is now the older of two worlds. That is not a reason to move on its own — the
+checker, the rewrites and a cold rebuild all behave identically on both — but it
+is the reason the next move should not be left indefinitely.
+
 ### Why ANTLR is pinned
 
 `make build` regenerates the MDL parser with whatever `antlr4` it finds on
@@ -136,7 +142,14 @@ Do not set `GOTOOLCHAIN=local`.
 
 ## Conventions
 
-- **Model engine is `modelsdk`** (the default). Do **not** pass `--engine legacy`.
+- **Never pass `--engine`.** There is one model engine. `3d3ca1f1` upstream
+  deleted the legacy backend, and the flag survives only as a warning-only no-op
+  so that scripts pinning the old one keep running — deleting it would have
+  failed those scripts at argument parsing with "unknown flag", which says
+  nothing about what changed. Nothing here has ever passed it, so the standing
+  "do not use `--engine legacy`" instruction is satisfied by never naming an
+  engine at all. Our pin (`337b232b`) predates the removal and still has both
+  backends; the default has been the same one throughout.
 - The PostgreSQL server binaries are not on the default `PATH`; the setup script
   prepends `/usr/lib/postgresql/16/bin` and exports it via `$CLAUDE_ENV_FILE`.
   `mxcli run --local --ensure-db` needs them.

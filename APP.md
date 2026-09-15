@@ -568,7 +568,10 @@ finding 63; it is why the rate-card grants moved into `84-security-rate.mdl`.
   the page uses the platform's local sign-in.
 - **No delegation on the workflow.** A partner cannot hand a review to someone
   else; the task is targeted by `ACT_WF_Approvers` and stays there. Escalation is
-  built (see above), delegation is not.
+  built (see above), delegation is not — and unlike the escalation, nothing was
+  ever stopping it. A task is delegated by changing its assignees, which is the
+  ordinary microflow write `ACT_ClaimTask` already makes. This one is unbuilt
+  because nobody built it, not because it could not be expressed (finding 67).
 - **Entity access is not applied by the datasource microflows.** A second,
   independent layer under the forty microflow datasources that currently scope
   "my" data by their own XPath. `@applyentityaccess` makes it expressible; it

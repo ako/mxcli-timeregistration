@@ -254,7 +254,7 @@ cat <<SUMMARY
   Node           $(node --version 2>/dev/null)
   PostgreSQL     $("$PGBIN/postgres" --version 2>/dev/null | awk '{print $3}') ($PGBIN)
   Chromium       ${CHROMIUM:-MISSING}
-  Engine         modelsdk (default — do not use --engine legacy)
+  Engine         one model engine; --engine is deprecated and ignored upstream
 
 SUMMARY
 
