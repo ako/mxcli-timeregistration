@@ -49,7 +49,7 @@ Verified on Ubuntu 24.04.4 LTS (x86_64), 2026-09-13.
 | **JDK** | OpenJDK 21.0.10 | system |
 | **Node** | v22.22.2 | system |
 | **PostgreSQL** | 16.13 (server) | `/usr/lib/postgresql/16/bin` |
-| **Chromium** | Playwright build 1194 | `/opt/pw-browsers/chromium-1194` |
+| **Chromium** | from the base image — discovered, never pinned (build 1243 today) | `/opt/pw-browsers` |
 
 ### Pinned mxcli commit
 
@@ -114,6 +114,22 @@ is now the older of two worlds. That is not a reason to move on its own — the
 checker, the rewrites and a cold rebuild all behave identically on both — but it
 is the reason the next move should not be left indefinitely.
 
+The survey at `5897690cd` (findings 68–70) is the first where staying is a close
+call, and it changed what "move the pin" costs. In order, the work is:
+
+1. **Collapse the fifteen microflows defined in two or three scripts each.**
+   Under `mdl 1` the second definition is refused rather than silently reverting
+   the first, so this is both the long-standing hazard and the migration blocker.
+2. **Break the `60-workflow-support` ↔ `61-workflow-pages` cycle** — the
+   microflow shows the page, the page calls the microflow. The old `exec` wrote
+   half a script and bootstrapped it; the transactional one cannot (finding 69).
+3. **Migrate with `fmt --upgrade`** — 58 of 63 files go unattended.
+4. **Then move the pin**, and run `mxcli fix property-sets` (four units) on the
+   way.
+
+Done in that order each step is verifiable on its own. Done in any other order it
+trades a working rebuild for a dialect.
+
 ### Why ANTLR is pinned
 
 `make build` regenerates the MDL parser with whatever `antlr4` it finds on
@@ -154,7 +170,11 @@ Do not set `GOTOOLCHAIN=local`.
   prepends `/usr/lib/postgresql/16/bin` and exports it via `$CLAUDE_ENV_FILE`.
   `mxcli run --local --ensure-db` needs them.
 - Chromium comes from the base image (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`).
-  Never run `playwright install`.
+  Never run `playwright install`, and **never name its build number**: the image
+  moved `chromium-1194/chrome-linux` to `chromium-1243/chrome-linux64`, and the
+  hardcoded path took every browser spec down in a way that read like the app
+  breaking (finding 71). The setup script and `tests/lib/harness.mjs` both
+  discover it; `CHROMIUM_PATH` overrides.
 - The Mendix model (`TimeRegistration.mpr` + `mprcontents/`) **is** committed —
   it is the app, not build output. Build outputs (`deployment/`, `theme-cache/`,
   `.mendix-cache/`), the mxcli clone, the ANTLR jar and compiled binaries are

@@ -953,6 +953,224 @@ move *when something needs it*, not on its own.
 
 ---
 
+### 68. Five scripts stopped parsing, and nobody would have noticed until the pin moved **[mine]**
+
+Seven releases (0.23 → 0.29) and 7,219 commits past the pin. The survey found
+something the previous two did not: **five of the 63 scripts no longer parse at
+all** on current mxcli.
+
+```
+$ mxcli exec mdlsource/20-logic.mdl -p TimeRegistration.mpr
+Parse error: line 27:10: "TimeReg" in an XPath is a double-quoted name, not a
+string: Mendix XPath writes a string in single quotes, and a name cannot be
+compared with another — write 'TimeReg' (ako/mxcli#566)
+```
+
+The offending spelling is a qualified enumeration value inside an XPath
+predicate, which this project has written the same way since session 2:
+
+```mdl
+where [TimeReg.TimeEntry_Timesheet = $Timesheet
+   and Billability = "TimeReg"."ENUM_Billability"."Billable"]
+```
+
+Double quotes in an XPath now mean a *name*, and a name cannot be compared with
+another name. It is a reasonable tightening — Mendix XPath really does write
+strings in single quotes — but it is a hard parse error, not a deprecation
+warning, and it is not gated behind the `mdl 1` header the rest of the migration
+is. An `mdl 0` script with no header is rejected exactly the same.
+
+**Fixed by dropping the quotes**, which is the canonical spelling `describe`
+emits anyway: `Billability = TimeReg.ENUM_Billability.Billable`. 23 occurrences
+across the five files. It parses on **both** the pin and current main, so the
+scripts are now compatible with either — which is the point of doing it before
+the pin moves rather than during.
+
+Proved semantically neutral rather than assumed. Both spellings store the same
+thing; the stored XPath from a model built from each is identical:
+
+```
+committed model (built from the quoted spelling):
+  where TimeReg.TimeEntry_Timesheet = $Timesheet and Billability = TimeReg.ENUM_Billability.Billable;
+rebuild (built from the unquoted spelling):
+  where TimeReg.TimeEntry_Timesheet = $Timesheet and Billability = TimeReg.ENUM_Billability.Billable;
+```
+
+A cold rebuild on the pin, with the fixed scripts, still reports 0 errors.
+
+**How it hid.** My own survey sweep nearly missed it twice. `mxcli check` words
+it *"Syntax errors found:"* while `exec` says *"Parse error:"*, and my scan
+grepped for the second; and the sweep counted lines matching `N errors`, which a
+file that never got past parsing does not emit — so 58 clean files read as "all
+62 clean" and the five silent ones looked like nothing at all. The lesson is the
+cheap one: **count what you expected to count.** 58 ≠ 63 was on the screen.
+
+---
+
+### 69. The rebuild recipe depended on `exec` writing half a script **[mine]**
+
+0.27.0 makes `exec` transactional — *"when a statement fails at write time, the
+whole run is rolled back, so a script never leaves a project half-changed"* —
+and the reference check refuses a script with any unresolved name before writing
+anything. Both are plainly right. Together they break this project's cold
+rebuild, and the reason is ours.
+
+With the parse fix above and nothing else, a cold rebuild on current main stops
+at 1 error and 16 refused scripts, and **more passes do not help** — it is stuck
+at the same count on passes 2, 3, 4, 5 and 6. The refusals name a genuine cycle:
+
+```
+60-workflow-support.mdl → microflow ACT_ApproveFromTask: page not found: TimeReg.MyTasks
+                                                          (referenced by show page)
+61-workflow-pages.mdl   → page WF_ApproveTask:           microflow not found: ACT_ApproveFromTask
+```
+
+The microflow shows the page; the page's buttons call the microflow. Neither can
+be written first. The old `exec` bootstrapped it by accident: it applied
+statements up to a failure, so pass one left a dangling reference that pass two
+cleaned up. Take the partial writes away and two passes cannot start a cycle.
+
+The escape hatch is the flag the refusal names, and it works:
+
+```bash
+for pass in 1 2; do
+  for f in mdlsource/*.mdl; do mxcli exec "$f" -p TimeRegistration.mpr --no-check; done
+done
+$ mx check TimeRegistration.mpr
+The app contains: 0 errors.
+```
+
+Recorded rather than adopted, because `--no-check` turns off the reference check
+for the whole rebuild to get past two documents. The principled fix is to break
+the cycle in the scripts — create the page without its buttons and `alter page …
+insert` them once the microflows exist — and that is worth doing before the pin
+moves, not as part of moving it.
+
+---
+
+### 70. `mdl 1` is a contract now, and this project cannot sign it yet **[survey]**
+
+0.25.0 freezes the language: `mdl 1` is the spelling from here on, a script
+without the header is read as `mdl 0`, and `fmt --upgrade` migrates. Against
+these 63 scripts the new checker raises **699** migration and deprecation
+notices — 417 MDL-V1-SLASH (our `/` terminators), 96 MDL-V1-LIMIT1, 39
+MDL-V1-QUOTEDEXPR, 23 MDL-V1-SEMI, and a long deprecation tail — with **0
+errors**, because `mdl 0` still works.
+
+The automated half is genuinely good. `fmt --upgrade` migrated **58 of 63**
+files unattended, and the result reads better than what it replaced:
+
+```diff
++mdl 1;
+-create or replace workflow "TimeReg"."TimesheetApproval"
++create or modify workflow "TimeReg"."TimesheetApproval"
+-  due date 'addDays([%CurrentDateTime%], 3)'
++  due date addDays([%CurrentDateTime%], 3)
+-        call microflow TimeReg.ACT_ApproveWeek
+-          with (Timesheet = '$workflowContext');
++        call microflow TimeReg.ACT_ApproveWeek(Timesheet = $workflowContext);
+```
+
+The five it refused are the five from finding 68; after the unquoting they
+upgrade too, and all 63 carry `mdl 1;`.
+
+**Then it stops, on something that is ours.** A cold rebuild from the migrated
+scripts refuses eight statements with MDL-V1-REBUILD:
+
+```
+✗ create or modify microflow TimeReg.ACT_SaveTimeEntry: this change cannot be
+  spliced into the stored flow: drop if not($editable) then: cannot drop the
+  ExclusiveSplit 'not($editable)' … its true path ends in a return.
+  Nothing was written: rebuilding the whole flow instead would reset what
+  Studio Pro drew (curves, merges, element IDs).
+```
+
+Read what that refusal is actually about. `20-logic.mdl` defines
+`ACT_SaveTimeEntry`; `85-entry-guards.mdl` later redefines it *with* the
+`not($editable)` guard. Re-running `20-logic.mdl` asks to take the guard back
+out — and under `mdl 0` that is exactly what happens, silently, which is the
+hazard APP.md has documented since the editing work and which has bitten twice.
+**`mdl 1` turns it into a refusal that names the reverted decision.** One of the
+eight is sharper still: `DS_ResolveRate` loses a parameter `ACT_SaveTimeEntry`
+still passes an argument to — a real inconsistency between the two definitions,
+sitting in the scripts unreported.
+
+So the blocker is not upstream. Fifteen microflows are defined in two or three
+scripts each:
+
+```
+ACT_RecalculateTimesheet   20-logic.mdl 71-week-logic.mdl
+ACT_SaveTimeEntry          20-logic.mdl 82-rate-logic.mdl 85-entry-guards.mdl
+ACT_SubmitWeek             20-logic.mdl 63-workflow-logic.mdl 85-entry-guards.mdl
+DS_CurrentTimesheet        21-datasources.mdl 55-logic-session.mdl 72-week-datasources.mdl
+…
+```
+
+Collapsing them to one definition each is what APP.md already calls "the better
+fix", and it is now also the price of the frozen language. The order is
+therefore: collapse the duplicates, break the 60↔61 cycle (finding 69), migrate
+with `fmt --upgrade`, then move the pin. Doing any of it in the other order
+trades a working rebuild for a dialect.
+
+**Two repairs that cost nothing and are available whenever the pin moves.**
+`mxcli fix hashes` reports the MPR v2 ContentsHash index clean — 509 units, 0
+mismatches. `mxcli fix property-sets --dry-run` names four units written by the
+pin that are missing a key Studio Pro writes, which is what makes a document
+unmergeable the first time Studio Pro saves it:
+
+```
+NEEDS  … [Microflows$Microflow ACT_ReturnFromTask]: +1 key(s), -0 key(s)
+NEEDS  … [Microflows$Microflow ACT_ClaimTask]: +1 key(s)
+NEEDS  … [Workflows$Workflow TimesheetApproval]: +1 key(s)
+NEEDS  … [Microflows$Microflow ACT_EscalateOverdueReview]: +1 key(s)
+Would complete 4 unit(s): 4 key(s) added, 0 stripped.
+```
+
+Exactly the four the escalation work wrote last session, which is a neat
+demonstration of the rule: a unit keeps whatever gaps the mxcli that wrote it
+left.
+
+**Pin stays at `337b232b`.** It is the first survey where that is a close call —
+`exec` rollback and the GUID guard (0.24.0, a production report of 28 attributes
+emptied across 607 rows) are real safety, and finding 68 shows our scripts had
+already drifted out of compatibility without anyone noticing. But moving today
+buys a rebuild that needs `--no-check`, and the work that makes the move clean is
+work on this repo, not upstream.
+
+---
+
+### 71. A pinned Chromium build number read as the app being broken **[mine]**
+
+Not an mxcli finding, but it cost this session real time and the failure mode is
+worth the entry. The suite came back **6 passed, 7 specs failed** against a model
+`git status` showed to be untouched — every browser-driven spec down, the
+database-only spec green.
+
+```
+Security — roles, menus and row scoping
+  ✗ spec threw — Error: browserType.launch: Failed to launch chromium because
+    executable doesn't exist at /opt/pw-browsers/chromium-1194/chrome-linux/chrome
+```
+
+The base image had moved Chromium from `chromium-1194/chrome-linux` to
+`chromium-1243/chrome-linux64` — a new build number *and* a renamed inner
+directory. Both the harness and `scripts/setup-tools.sh` named the old path:
+the harness as a literal default, the script as a glob that pinned
+`chrome-linux` exactly.
+
+The shape of it is what matters. Six database assertions passing while seven
+browser specs fail reads, at a glance, exactly like the application breaking —
+and this session had just changed five scripts, so there was an obvious culprit
+that was not the culprit. TOOLING.md has said since session 1 that "Chromium
+comes from the base image", which is precisely the reason not to hardcode a
+version out of it.
+
+Both now discover it: newest build first, either inner directory name, either
+executable, with an error that says what to set if nothing is found. Suite back
+to 140 passed, 0 failed.
+
+---
+
 ## Retest against ako/mxcli PR 53
 
 PR 53 sets out to fix eighteen of these. Built from source and re-run against the

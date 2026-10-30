@@ -112,9 +112,11 @@ fi
 
 # Playwright/Chromium ships with the base image — verify only, never reinstall.
 CHROMIUM=""
-for c in /opt/pw-browsers/chromium/chrome-linux/chrome \
-         /opt/pw-browsers/chromium-*/chrome-linux/chrome \
-         /opt/pw-browsers/chromium_headless_shell-*/chrome-linux/headless_shell; do
+# The build number and the inner directory both move with the base image
+# (chromium-1194/chrome-linux became chromium-1243/chrome-linux64), so glob
+# both levels rather than naming either.
+for c in /opt/pw-browsers/chromium*/chrome-linux*/chrome \
+         /opt/pw-browsers/chromium*/chrome-linux*/headless_shell; do
   [ -x "$c" ] && { CHROMIUM="$c"; break; }
 done
 [ -z "$CHROMIUM" ] && command -v chromium >/dev/null 2>&1 && CHROMIUM="$(command -v chromium)"

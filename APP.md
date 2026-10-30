@@ -553,6 +553,13 @@ If you edit a microflow, check whether a later script redefines it
 from the earliest one that defines it. Where a document has two definitions for
 no reason other than history, collapsing them into one is the better fix.
 
+**It is now also the price of staying current.** Under the frozen `mdl 1`
+language, re-running the earlier definition is *refused* rather than silently
+reverting the later one — the refusal names the decision it would take back out.
+That is the tool finally catching this, and it blocks the language migration
+until the fifteen duplicated microflows are collapsed. Finding 70 lists them and
+TOOLING.md has the order the work wants doing in.
+
 The same arrangement has a second edge, which cost a cold rebuild: **a security
 script must come after the feature it grants on.** Granting on an entity a later
 script creates fails on the first pass, and on the second the grant applies and is

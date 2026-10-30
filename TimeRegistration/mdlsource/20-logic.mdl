@@ -25,7 +25,7 @@ begin
 
   retrieve $billableEntries from "TimeReg"."TimeEntry"
     where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
-       and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+       and Billability = TimeReg.ENUM_Billability.Billable];
   $billable = sum($billableEntries.Hours);
 
   if $recorded > 0 then
@@ -126,10 +126,10 @@ begin
 
   -- Internal matters are always non-billable, whatever the form said.
   if $matter/IsInternal then
-    change $TimeEntry (Billability = "TimeReg"."ENUM_Billability"."NonBillable");
+    change $TimeEntry (Billability = TimeReg.ENUM_Billability.NonBillable);
   end if;
 
-  if $TimeEntry/Billability = "TimeReg"."ENUM_Billability"."Billable" then
+  if $TimeEntry/Billability = TimeReg.ENUM_Billability.Billable then
     set $amount = $TimeEntry/Hours * $rate;
   end if;
 
@@ -169,7 +169,7 @@ begin
   $recalc = call microflow "TimeReg"."ACT_RecalculateTimesheet" ("Timesheet" = $Timesheet);
 
   change $Timesheet (
-    Status = "TimeReg"."ENUM_TimesheetStatus"."Submitted",
+    Status = TimeReg.ENUM_TimesheetStatus.Submitted,
     StatusLabel = 'submitted',
     SubmittedOn = [%CurrentDateTime%]);
   commit $Timesheet refresh;
@@ -198,7 +198,7 @@ create or modify microflow "TimeReg"."ACT_ApproveWeek" (
 returns boolean as $ok
 folder 'Logic'
 begin
-  change $Timesheet (Status = "TimeReg"."ENUM_TimesheetStatus"."Approved", StatusLabel = 'approved');
+  change $Timesheet (Status = TimeReg.ENUM_TimesheetStatus.Approved, StatusLabel = 'approved');
   commit $Timesheet refresh;
 
   $audit = create "TimeReg"."AuditEntry" (
@@ -225,7 +225,7 @@ create or modify microflow "TimeReg"."ACT_ReturnWeek" (
 returns boolean as $ok
 folder 'Logic'
 begin
-  change $Timesheet (Status = "TimeReg"."ENUM_TimesheetStatus"."Rejected", StatusLabel = 'returned');
+  change $Timesheet (Status = TimeReg.ENUM_TimesheetStatus.Rejected, StatusLabel = 'returned');
   commit $Timesheet refresh;
 
   $audit = create "TimeReg"."AuditEntry" (
@@ -255,7 +255,7 @@ create or modify microflow "TimeReg"."ACT_LockPeriod" (
 returns boolean as $ok
 folder 'Logic'
 begin
-  change $Period (Status = "TimeReg"."ENUM_PeriodStatus"."Locked");
+  change $Period (Status = TimeReg.ENUM_PeriodStatus.Locked);
   commit $Period refresh;
   return true;
 end;

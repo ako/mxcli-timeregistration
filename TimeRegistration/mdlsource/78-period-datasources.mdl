@@ -44,7 +44,7 @@ begin
   end if;
 
   retrieve $open from "TimeReg"."Period"
-    where ["Status" = "TimeReg"."ENUM_PeriodStatus"."Open"]
+    where ["Status" = TimeReg.ENUM_PeriodStatus.Open]
     sort by TimeReg.Period.Year asc, TimeReg.Period.MonthNumber asc
     limit 1;
   if $open != empty then
@@ -75,7 +75,7 @@ returns "TimeReg"."Period" as $period
 folder 'Datasources'
 begin
   retrieve $period from "TimeReg"."Period"
-    where ["Status" = "TimeReg"."ENUM_PeriodStatus"."Open"]
+    where ["Status" = TimeReg.ENUM_PeriodStatus.Open]
     sort by TimeReg.Period.Year asc, TimeReg.Period.MonthNumber asc
     limit 1;
   return $period;

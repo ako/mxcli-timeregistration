@@ -92,7 +92,7 @@ begin
 
   retrieve $billableEntries from "TimeReg"."TimeEntry"
     where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
-       and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+       and Billability = TimeReg.ENUM_Billability.Billable];
   $billable = sum($billableEntries.Hours);
 
   if $recorded > 0 then
@@ -145,7 +145,7 @@ begin
     retrieve $matterEntries from "TimeReg"."TimeEntry"
       where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
          and "TimeReg"."TimeEntry_Matter" = $matter
-         and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+         and Billability = TimeReg.ENUM_Billability.Billable];
     $matterHours = sum($matterEntries.Hours);
 
     if $matter/Practice != $accName then
@@ -254,7 +254,7 @@ begin
   begin
     retrieve $clientEntries from "TimeReg"."TimeEntry"
       where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
-         and Billability = "TimeReg"."ENUM_Billability"."Billable"
+         and Billability = TimeReg.ENUM_Billability.Billable
          and "TimeReg"."TimeEntry_Matter"/"TimeReg"."Matter"/"TimeReg"."Matter_Client" = $client];
     $clientHours = sum($clientEntries.Hours);
 
@@ -264,7 +264,7 @@ begin
       -- otherwise be the one this picks up.
       retrieve $ratedEntry from "TimeReg"."TimeEntry"
         where ["TimeReg"."TimeEntry_Timesheet" = $Timesheet
-           and Billability = "TimeReg"."ENUM_Billability"."Billable"
+           and Billability = TimeReg.ENUM_Billability.Billable
            and "Rate" > 0
            and "TimeReg"."TimeEntry_Matter"/"TimeReg"."Matter"/"TimeReg"."Matter_Client" = $client]
         limit 1;
@@ -374,7 +374,7 @@ begin
     WeekNumber = $week,
     WeekStart = $WeekStart,
     WeekEnd = addDays($WeekStart, 6),
-    Status = "TimeReg"."ENUM_TimesheetStatus"."Draft",
+    Status = TimeReg.ENUM_TimesheetStatus.Draft,
     StatusLabel = 'pending',
     RecordedHours = 0,
     BillableHours = 0,

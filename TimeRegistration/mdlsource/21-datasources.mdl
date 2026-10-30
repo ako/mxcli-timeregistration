@@ -78,11 +78,11 @@ begin
 
         loop $billCell in $cells
         begin
-          if $billCell/Billability = "TimeReg"."ENUM_Billability"."Billable" then
+          if $billCell/Billability = TimeReg.ENUM_Billability.Billable then
             set $billLabel = 'BIL';
             set $billClass = 'vdh-chip vdh-chip--ok';
           end if;
-          if $billCell/Billability = "TimeReg"."ENUM_Billability"."NoCharge" then
+          if $billCell/Billability = TimeReg.ENUM_Billability.NoCharge then
             set $billLabel = 'N/C';
             set $billClass = 'vdh-chip vdh-chip--danger';
           end if;
@@ -347,7 +347,7 @@ returns "TimeReg"."Period" as $period
 folder 'Datasources'
 begin
   retrieve $period from "TimeReg"."Period"
-    where ["Status" = "TimeReg"."ENUM_PeriodStatus"."Open"]
+    where ["Status" = TimeReg.ENUM_PeriodStatus.Open]
     limit 1;
   return $period;
 end;
@@ -402,7 +402,7 @@ begin
   $entry = create "TimeReg"."TimeEntry" (
     EntryDate = dateTime(2026, 7, 22),
     Hours = 0,
-    Billability = "TimeReg"."ENUM_Billability"."Billable",
+    Billability = TimeReg.ENUM_Billability.Billable,
     "TimeReg"."TimeEntry_Employee" = $employee,
     "TimeReg"."TimeEntry_Timesheet" = $timesheet,
     "TimeReg"."TimeEntry_Matter" = $matter,

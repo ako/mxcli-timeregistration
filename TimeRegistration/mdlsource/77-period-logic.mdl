@@ -49,7 +49,7 @@ begin
 
   retrieve $billableEntries from "TimeReg"."TimeEntry"
     where ["EntryDate" >= $from and "EntryDate" < $to
-       and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+       and Billability = TimeReg.ENUM_Billability.Billable];
   $billable = sum($billableEntries.Hours);
 
   declare $billablePct decimal = 0;
@@ -70,7 +70,7 @@ begin
 
   retrieve $unsubmitted from "TimeReg"."Timesheet"
     where ["WeekStart" >= $from and "WeekStart" < $to
-       and "Status" != "TimeReg"."ENUM_TimesheetStatus"."Approved"];
+       and "Status" != TimeReg.ENUM_TimesheetStatus.Approved];
   $notSubmitted = count($unsubmitted);
 
   $stat = create "TimeReg"."PeriodStat" (
@@ -236,7 +236,7 @@ begin
     retrieve $personBillable from "TimeReg"."TimeEntry"
       where ["EntryDate" >= $from and "EntryDate" < $to
          and "TimeReg"."TimeEntry_Employee" = $person
-         and Billability = "TimeReg"."ENUM_Billability"."Billable"];
+         and Billability = TimeReg.ENUM_Billability.Billable];
     $personBillableHours = sum($personBillable.Hours);
 
     if $personHours > 0 then
@@ -415,7 +415,7 @@ begin
     if $stat = empty then
       set $stale = true;
     end if;
-    if $existing/IsDerived and $existing/Status = "TimeReg"."ENUM_PeriodStatus"."Open" then
+    if $existing/IsDerived and $existing/Status = TimeReg.ENUM_PeriodStatus.Open then
       set $stale = true;
     end if;
 
@@ -432,7 +432,7 @@ begin
     Name = formatDateTime($firstOfMonth, 'MMM yyyy'),
     Year = $Year,
     MonthNumber = $MonthNumber,
-    Status = "TimeReg"."ENUM_PeriodStatus"."Open");
+    Status = TimeReg.ENUM_PeriodStatus.Open);
   commit $period;
 
   $recalc = call microflow "TimeReg"."ACT_RecalculatePeriod" ("Period" = $period);

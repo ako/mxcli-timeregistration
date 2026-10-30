@@ -8,6 +8,7 @@
  */
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 /**
@@ -27,7 +28,33 @@ const { chromium } = (() => {
 
 export const BASE = process.env.APP_URL || 'http://127.0.0.1:8080';
 export const PASSWORD = 'VdhDemo2026!';
-const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+/**
+ * Chromium comes from the base image, and its Playwright build number is not
+ * ours to pin: this was hardcoded to `chromium-1194`, the image moved to 1243,
+ * and every browser-driven spec failed with "executable doesn't exist" while
+ * the database-only spec kept passing — which reads exactly like the app
+ * breaking rather than the harness. Discover it instead, newest build first.
+ */
+const CHROMIUM = process.env.CHROMIUM_PATH || (() => {
+  const root = '/opt/pw-browsers';
+  // Neither the build number nor the inner directory name is stable: the image
+  // moved from chromium-1194/chrome-linux to chromium-1243/chrome-linux64.
+  // Walk both levels and take the first real executable, newest build first.
+  const dirs = p => { try { return readdirSync(p, { withFileTypes: true })
+    .filter(e => e.isDirectory()).map(e => e.name); } catch { return []; } };
+  const found = dirs(root)
+    .filter(d => d.startsWith('chromium'))
+    .sort().reverse()
+    .flatMap(d => dirs(`${root}/${d}`)
+      .flatMap(inner => [`${root}/${d}/${inner}/chrome`,
+                         `${root}/${d}/${inner}/headless_shell`]))
+    .find(p => existsSync(p));
+  if (!found) {
+    throw new Error(`no Chromium under ${root} — set CHROMIUM_PATH, and see TOOLING.md`);
+  }
+  return found;
+})();
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 
